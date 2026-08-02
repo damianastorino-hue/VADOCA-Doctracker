@@ -219,26 +219,31 @@ async function ensureRegistro(){
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({requests:[{addSheet:{properties:{title:'REGISTRO'}}}]})
     });
-    await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/REGISTRO!A1:append?valueInputOption=RAW`,{
-      method:'POST', headers:{'Content-Type':'application/json'},
+    toast('Hoja REGISTRO creada en tu planilla');
+  }
+  // Escribir encabezados si la primera fila está vacía o incompleta (cubre hoja creada a mano)
+  const h = await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/${encodeURIComponent("'REGISTRO'!A1:W1")}`);
+  if(!h.values || !h.values[0] || h.values[0][0]!=='ID'){
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/${encodeURIComponent("'REGISTRO'!A1:W1")}?valueInputOption=RAW`,{
+      method:'PUT', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({values:[COLS]})
     });
-    toast('Hoja REGISTRO creada en tu planilla');
   }
 }
 async function leerRegistro(){
-  const d = await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/REGISTRO!A2:W100000`);
+  const d = await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/${encodeURIComponent("'REGISTRO'!A2:W100000")}`);
   REG = (d.values||[]).map((v,i)=>{ const o={_row:i+2}; COLS.forEach((c,j)=>o[c]=v[j]??''); return o; });
 }
 async function appendFilas(filas){ // filas = array de objetos
+  await ensureRegistro(); // por si la hoja no existe o fue borrada
   const values = filas.map(o=>COLS.map(c=>o[c]??''));
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/REGISTRO!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/${encodeURIComponent("'REGISTRO'!A1")}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{
     method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({values})
   });
 }
 async function updateCelda(row, colName, valor){
   const colLetra = String.fromCharCode(65+CI[colName]); // A..W
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/REGISTRO!${colLetra}${row}?valueInputOption=RAW`,{
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/${encodeURIComponent(`'REGISTRO'!${colLetra}${row}`)}?valueInputOption=RAW`,{
     method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({values:[[valor]]})
   });
 }
