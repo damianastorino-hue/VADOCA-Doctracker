@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VADOCA · DocTracker</title>
+<style>
+  :root{
+    --tq:#00B4B6; --tq-dark:#008C8E; --tq-soft:#E0F5F5;
+    --g1:#435561; --g2:#6D7985; --g3:#AEB8C0; --g4:#E7ECEF;
+    --bg:#F6F8F9; --card:#FFFFFF;
+    --ok:#2E9E5B; --warn:#D98E04; --bad:#C94F3D;
+    --mono:'Courier New',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--g1);font-size:15px;line-height:1.45}
+  h1,h2,h3{font-weight:600}
+  button{font:inherit;cursor:pointer;border:none;border-radius:8px;padding:9px 16px;background:var(--tq);color:#fff;font-weight:600;transition:background .15s}
+  button:hover{background:var(--tq-dark)}
+  button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--tq);outline-offset:2px}
+  button.sec{background:var(--g4);color:var(--g1)}
+  button.sec:hover{background:var(--g3)}
+  button.ghost{background:transparent;color:var(--tq);padding:6px 10px}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  input,select,textarea{font:inherit;border:1px solid var(--g3);border-radius:8px;padding:9px 11px;width:100%;background:#fff;color:var(--g1)}
+  textarea{resize:vertical;min-height:80px}
+  label{display:block;font-size:13px;font-weight:600;color:var(--g2);margin:12px 0 4px}
+  a{color:var(--tq-dark)}
+
+  header{background:var(--card);border-bottom:1px solid var(--g4);position:sticky;top:0;z-index:20}
+  .hwrap{max-width:1080px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{font-size:18px;font-weight:700;letter-spacing:.5px}
+  .logo b{color:var(--tq)}
+  nav{display:flex;gap:4px;margin-left:auto}
+  nav button{background:transparent;color:var(--g2);font-weight:600;padding:8px 14px;border-radius:8px}
+  nav button.active{background:var(--tq-soft);color:var(--tq-dark)}
+  nav button:hover{background:var(--g4);color:var(--g1)}
+  #userChip{font-size:12px;color:var(--g2)}
+
+  main{max-width:1080px;margin:0 auto;padding:18px 16px 90px}
+  .card{background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:18px;margin-bottom:14px}
+  .muted{color:var(--g2);font-size:13px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:180px}
+
+  /* Código = elemento distintivo */
+  .codigo{font-family:var(--mono);font-weight:700;font-size:13px;background:var(--tq-soft);color:var(--tq-dark);border-left:3px solid var(--tq);padding:3px 8px;border-radius:0 6px 6px 0;display:inline-block;letter-spacing:.3px}
+
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .stat{flex:1;min-width:110px;background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:12px 14px;text-align:center}
+  .stat .n{font-size:26px;font-weight:700;color:var(--tq-dark)}
+  .stat .l{font-size:12px;color:var(--g2)}
+  .stat.alerta .n{color:var(--bad)}
+
+  .filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .filtros select,.filtros input{flex:1;min-width:130px;width:auto}
+
+  .exp{background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+  .exp:hover{border-color:var(--tq)}
+  .exp .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .exp .desc{font-weight:600;flex:1;min-width:180px}
+  .exp .meta{font-size:12px;color:var(--g2);margin-top:6px;display:flex;gap:14px;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+  .b-ok{background:#E3F4EA;color:var(--ok)} .b-warn{background:#FBF0DA;color:var(--warn)}
+  .b-bad{background:#F9E6E2;color:var(--bad)} .b-info{background:var(--tq-soft);color:var(--tq-dark)}
+  .b-gris{background:var(--g4);color:var(--g2)}
+
+  .docs-tabla{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  .docs-tabla th{text-align:left;color:var(--g2);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;border-bottom:1px solid var(--g4)}
+  .docs-tabla td{padding:7px 8px;border-bottom:1px solid var(--g4);vertical-align:middle}
+  .docs-tabla select{padding:5px 8px;font-size:13px;width:auto}
+
+  .nota{border-left:3px solid var(--g4);padding:10px 12px;margin-bottom:10px;background:var(--bg);border-radius:0 8px 8px 0}
+  .nota.tipo-creacion{border-left-color:var(--tq)}
+  .nota.tipo-estado{border-left-color:var(--warn)}
+  .nota.tipo-version{border-left-color:var(--ok)}
+  .nota .nts{font-size:11px;color:var(--g2);font-family:var(--mono)}
+  .nota .ntx{margin:5px 0;white-space:pre-wrap}
+  .nota .adj a{font-size:12px;margin-right:10px}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(30,40,46,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+  @media(min-width:640px){.modal-bg{align-items:center}}
+  .modal{background:#fff;border-radius:16px 16px 0 0;max-width:560px;width:100%;max-height:92vh;overflow-y:auto;padding:20px}
+  @media(min-width:640px){.modal{border-radius:16px}}
+
+  #toasts{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:8px;width:min(92vw,420px)}
+  .toast{padding:11px 16px;border-radius:10px;color:#fff;font-weight:600;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.18);animation:pop .2s}
+  .toast.ok{background:var(--ok)} .toast.err{background:var(--bad)} .toast.info{background:var(--g1)}
+  @keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+  @media(prefers-reduced-motion:reduce){.toast{animation:none}}
+
+  #spinner{position:fixed;inset:0;background:rgba(255,255,255,.6);z-index:90;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+  .sp{width:38px;height:38px;border:4px solid var(--g4);border-top-color:var(--tq);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #spinnerTxt{font-weight:600;color:var(--g1)}
+  .hidden{display:none!important}
+
+  .setup-paso{display:flex;gap:12px;margin-bottom:14px}
+  .setup-paso .num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--tq);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .archivo-chip{display:inline-flex;align-items:center;gap:6px;background:var(--g4);border-radius:8px;padding:4px 10px;font-size:12px;margin:4px 4px 0 0}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hwrap">
+    <div class="logo">VADOCA <b>DocTracker</b></div>
+    <nav id="mainNav" class="hidden">
+      <button data-view="dashboard" class="active">Tablero</button>
+      <button data-view="nuevo">+ Nuevo</button>
+      <button data-view="config">Ajustes</button>
+    </nav>
+    <span id="userChip"></span>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<div id="toasts"></div>
+<div id="spinner" class="hidden"><div class="sp"></div><div id="spinnerTxt">Trabajando…</div></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+'use strict';
+/* ============================================================
+   VADOCA DocTracker v1.0 — un solo archivo, sin backend.
+   Google Drive (archivos) + Google Sheets (registro maestro).
+   ============================================================ */
+
+/* ---------- Configuración y catálogos ---------- */
+const LSKEY = 'vadoca_doctracker_cfg_v1';
+const DEFAULTS = {
+  clientId: '',
+  sheetId: '1e8d_Leo2RWYvGf6frTVUOdTX5t2fnAcCqx8_kzvZ-PU',
+  rootFolderId: '',           // se crea sola la primera vez
+  clientes: [ ['000','VADOCA'], ['001','Novocap SA'], ['002','LKM'], ['003','Passair / Conéctalis'] ],
+  tiposTrabajo: [
+    { key:'GR',  nombre:'Gestión de Riesgo',                    linea:'VDC' },
+    { key:'VTA', nombre:'Validación de Técnicas Analíticas',    linea:'VDC' },
+    { key:'VPC', nombre:'Validación de Planillas',              linea:'VPC' },
+    { key:'CAL', nombre:'Calificaciones',                       linea:'VDC' },
+    { key:'VSI', nombre:'Validación de Sistemas Informáticos',  linea:'VSI' },
+  ],
+  tiposDoc: ['GR','AR','VTA','RU','DQ','IQ','OQ','PQ','IOQ','IV','PMV','PV'],
+  estados: ['Borrador','En revisión','Validable','No validable','En ejecución','Enviado a cliente','Aprobado','Entregado','Suspendido','Cancelado'],
+  estadosFinales: ['Entregado','Suspendido','Cancelado'],
+  paqueteVPC: [ ['RU','P'],['DQ','P'],['IQ','PI'],['OQ','PI'],['PQ','PI'],['IV','I'] ],
+  // Últimos números ya usados en el registro histórico (la app arranca desde acá)
+  semillas: { 'VPC|002':32, 'GR|001':12, 'CAL|001':9, 'VTA|001':4 },
+  diasEstancado: 7,
+};
+let CFG = loadCfg();
+function loadCfg(){ try{ const s=JSON.parse(localStorage.getItem(LSKEY)||'{}'); return Object.assign({},DEFAULTS,s);}catch(e){return {...DEFAULTS};} }
+function saveCfg(){ localStorage.setItem(LSKEY, JSON.stringify(CFG)); }
+
+/* Hoja REGISTRO: definición de columnas (A..W) */
+const COLS = ['ID','Fecha_Alta','Cliente_Num','Cliente_Nombre','Tipo_Trabajo','Linea','Prot_Inf','Tipo_Doc','Doc_Num','Version','Descripcion','Codigo_Interno_Cliente','Ref_Presupuesto','Estado','Fecha_Inicio','Fecha_Fin','Carpeta_Drive_ID','Carpeta_Drive_URL','Ultimo_Movimiento','Conflicto_Legacy','Observaciones','Historial_File_ID','Expediente_ID'];
+const CI = Object.fromEntries(COLS.map((c,i)=>[c,i])); // índice por nombre
+
+/* ---------- Estado global ---------- */
+let TOKEN = null, TOKEN_EXP = 0, tokenClient = null, USER_EMAIL = '';
+let REG = [];        // filas del registro como objetos {..., _row}
+let VIEW = 'dashboard';
+let FICHA = null;    // expediente abierto
+
+/* ---------- Utilidades ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = (n,l) => String(n).padStart(l,'0');
+const hoy = () => new Date().toISOString().slice(0,10);
+const ahora = () => new Date().toISOString();
+function toast(msg,tipo='ok'){ const d=document.createElement('div'); d.className='toast '+tipo; d.textContent=msg; $('#toasts').appendChild(d); setTimeout(()=>d.remove(), tipo==='err'?6000:3500); }
+function spin(on,txt){ $('#spinner').classList.toggle('hidden',!on); if(txt)$('#spinnerTxt').textContent=txt; }
+function diasDesde(iso){ if(!iso) return null; return Math.floor((Date.now()-new Date(iso).getTime())/86400000); }
+function fFecha(iso){ if(!iso) return '—'; const d=new Date(iso); return isNaN(d)?iso:d.toLocaleDateString('es-AR')+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
+function limpiarNombre(s){ return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\\/:*?"<>|#]/g,'-').trim().slice(0,60); }
+
+/* ---------- Autenticación (Google Identity Services) ---------- */
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email';
+
+function initAuth(){
+  if(!window.google?.accounts?.oauth2){ setTimeout(initAuth,300); return; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CFG.clientId, scope: SCOPES, prompt: '',
+    callback: async (resp)=>{
+      if(resp.error){ toast('Error de autenticación: '+resp.error,'err'); spin(false); return; }
+      TOKEN = resp.access_token; TOKEN_EXP = Date.now() + (resp.expires_in-60)*1000;
+      try{
+        const u = await fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{Authorization:'Bearer '+TOKEN}}).then(r=>r.json());
+        USER_EMAIL = u.email||''; $('#userChip').textContent = USER_EMAIL;
+      }catch(e){}
+      $('#mainNav').classList.remove('hidden');
+      await bootData();
+    }
+  });
+  tokenClient.requestAccessToken({prompt: TOKEN?'':'consent'});
+}
+function pedirToken(){ return new Promise(res=>{ const orig=tokenClient.callback;
+  tokenClient.callback=(r)=>{ if(!r.error){TOKEN=r.access_token;TOKEN_EXP=Date.now()+(r.expires_in-60)*1000;} tokenClient.callback=orig; res(); };
+  tokenClient.requestAccessToken({prompt:''}); }); }
+
+/* fetch con token + reintento ante 401 */
+async function api(url, opt={}, raw=false){
+  if(Date.now()>TOKEN_EXP) await pedirToken();
+  opt.headers = Object.assign({Authorization:'Bearer '+TOKEN}, opt.headers||{});
+  let r = await fetch(url,opt);
+  if(r.status===401){ await pedirToken(); opt.headers.Authorization='Bearer '+TOKEN; r=await fetch(url,opt); }
+  if(!r.ok){ const t=await r.text(); throw new Error('API '+r.status+': '+t.slice(0,300)); }
+  return raw ? r : r.json();
+}
+
+/* ---------- Google Sheets: registro maestro ---------- */
+async function ensureRegistro(){
+  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}?fields=sheets.properties`);
+  const existe = meta.sheets.some(s=>s.properties.title==='REGISTRO');
+  if(!existe){
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}:batchUpdate`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({requests:[{addSheet:{properties:{title:'REGISTRO'}}}]})
+    });
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/REGISTRO!A1:append?valueInputOption=RAW`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({values:[COLS]})
+    });
+    toast('Hoja REGISTRO creada en tu planilla');
+  }
+}
+async function leerRegistro(){
+  const d = await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/REGISTRO!A2:W100000`);
+  REG = (d.values||[]).map((v,i)=>{ const o={_row:i+2}; COLS.forEach((c,j)=>o[c]=v[j]??''); return o; });
+}
+async function appendFilas(filas){ // filas = array de objetos
+  const values = filas.map(o=>COLS.map(c=>o[c]??''));
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/REGISTRO!A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({values})
+  });
+}
+async function updateCelda(row, colName, valor){
+  const colLetra = String.fromCharCode(65+CI[colName]); // A..W
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/REGISTRO!${colLetra}${row}?valueInputOption=RAW`,{
+    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({values:[[valor]]})
+  });
+}
+
+/* ---------- Google Drive ---------- */
+async function buscarCarpeta(nombre, parentId){
+  const q = encodeURIComponent(`name = '${nombre.replace(/'/g,"\\'")}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId||'root'}' in parents and trashed = false`);
+  const d = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  return d.files?.[0]?.id || null;
+}
+async function crearCarpeta(nombre, parentId){
+  const d = await api('https://www.googleapis.com/drive/v3/files?fields=id',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name:nombre, mimeType:'application/vnd.google-apps.folder', parents: parentId?[parentId]:undefined})
+  });
+  return d.id;
+}
+async function ensureCarpeta(nombre, parentId){ return (await buscarCarpeta(nombre,parentId)) || (await crearCarpeta(nombre,parentId)); }
+
+async function subirArchivo(file, parentId, nombre){
+  const meta = {name: nombre||file.name, parents:[parentId]};
+  const boundary='vadoca'+Date.now();
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+    `--${boundary}\r\nContent-Type: ${file.type||'application/octet-stream'}\r\n\r\n`, file, `\r\n--${boundary}--`
+  ]);
+  const d = await api('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',{
+    method:'POST', headers:{'Content-Type':`multipart/related; boundary=${boundary}`}, body
+  });
+  return d;
+}
+async function crearJson(nombre, parentId, obj){
+  const f = new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
+  f.name = nombre; // Blob no tiene name; lo pasamos aparte
+  return await subirArchivo(new File([f],nombre,{type:'application/json'}), parentId, nombre);
+}
+async function leerJson(fileId){
+  const r = await api(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {}, true);
+  return r.json();
+}
+async function actualizarJson(fileId, obj){
+  await api(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,{
+    method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(obj,null,2)
+  }, true);
+}
+
+/* ---------- Lógica de codificación ---------- */
+function tt(key){ return CFG.tiposTrabajo.find(t=>t.key===key); }
+function proximoDoc(ttKey, clienteNum){
+  const semilla = CFG.semillas[`${ttKey}|${clienteNum}`] || 0;
+  const usados = REG.filter(r=>r.Expediente_ID.startsWith(`${ttKey}-${clienteNum}-`)).map(r=>parseInt(r.Doc_Num,10)||0);
+  return Math.max(semilla, ...usados, 0) + 1;
+}
+function armarID(linea,tipoDoc,cliente,doc,ver){ return `${linea}-${tipoDoc}-${cliente}-${pad(doc,3)}/${pad(ver,2)}`; }
+
+/* ---------- Estructura de carpetas por expediente ---------- */
+const SUBCARPETAS = ['00_cliente','01_versiones','02_evidencias','03_entregables'];
+async function crearExpedienteDrive(clienteNum, clienteNombre, ttNombre, nombreExp){
+  if(!CFG.rootFolderId){ CFG.rootFolderId = await ensureCarpeta('VADOCA_Gestion', null); saveCfg(); }
+  const fCliente = await ensureCarpeta(`${clienteNum} - ${limpiarNombre(clienteNombre)}`, CFG.rootFolderId);
+  const fTipo    = await ensureCarpeta(limpiarNombre(ttNombre), fCliente);
+  const fExp     = await ensureCarpeta(limpiarNombre(nombreExp), fTipo);
+  for(const s of SUBCARPETAS) await ensureCarpeta(s, fExp);
+  return fExp;
+}
+
+/* ============================================================
+   VISTAS
+   ============================================================ */
+function render(){
+  const app = $('#app');
+  if(!CFG.clientId){ app.innerHTML = vistaSetup(); return; }
+  if(!TOKEN){ app.innerHTML = `<div class="card" style="text-align:center;padding:40px">
+      <h2>Conectar con Google</h2>
+      <p class="muted" style="margin:10px 0 18px">La app necesita permiso para escribir en tu Drive y en la planilla de códigos.</p>
+      <button onclick="initAuth()">Iniciar sesión con Google</button>
+      <p style="margin-top:14px"><button class="ghost" onclick="CFG.clientId='';saveCfg();render()">Cambiar configuración</button></p>
+    </div>`; return; }
+  if(VIEW==='dashboard') app.innerHTML = vistaDashboard();
+  else if(VIEW==='nuevo') app.innerHTML = vistaNuevo();
+  else if(VIEW==='config') app.innerHTML = vistaConfig();
+  else if(VIEW==='ficha') app.innerHTML = vistaFicha();
+  postRender();
+}
+
+/* ----- Setup inicial (primera vez) ----- */
+function vistaSetup(){
+  return `<div class="card">
+    <h2>Puesta en marcha (una sola vez)</h2>
+    <p class="muted" style="margin:8px 0 16px">La app corre 100% en tu navegador y guarda todo en tu Google Drive. Para eso Google exige crear una credencial propia. Son 10 minutos y es gratis:</p>
+    <div class="setup-paso"><div class="num">1</div><div>Entrá a <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">console.cloud.google.com</a> y creá un proyecto (nombre: <i>VADOCA DocTracker</i>).</div></div>
+    <div class="setup-paso"><div class="num">2</div><div>En <b>APIs y servicios → Biblioteca</b>, habilitá <b>Google Drive API</b> y <b>Google Sheets API</b>.</div></div>
+    <div class="setup-paso"><div class="num">3</div><div>En <b>Pantalla de consentimiento OAuth</b>: tipo <b>Externo</b>, completá nombre y tu email, y en <b>Usuarios de prueba</b> agregá tu propio Gmail.</div></div>
+    <div class="setup-paso"><div class="num">4</div><div>En <b>Credenciales → Crear credencial → ID de cliente OAuth</b>: tipo <b>Aplicación web</b>. En <b>Orígenes autorizados de JavaScript</b> agregá la URL donde va a vivir esta página (ej: <code>https://TU-USUARIO.github.io</code>) y también <code>http://localhost:8000</code> para probar local.</div></div>
+    <div class="setup-paso"><div class="num">5</div><div>Copiá el <b>ID de cliente</b> (termina en <code>.apps.googleusercontent.com</code>) y pegalo acá abajo.</div></div>
+    <label>ID de cliente OAuth</label>
+    <input id="inClientId" placeholder="xxxxxxxx.apps.googleusercontent.com">
+    <label>ID de la planilla de códigos (Google Sheets)</label>
+    <input id="inSheetId" value="${esc(CFG.sheetId)}">
+    <p style="margin-top:16px"><button onclick="guardarSetup()">Guardar y conectar</button></p>
+  </div>`;
+}
+window.guardarSetup = function(){
+  const cid = $('#inClientId').value.trim(), sid = $('#inSheetId').value.trim();
+  if(!cid.endsWith('.apps.googleusercontent.com')){ toast('El ID de cliente no parece válido','err'); return; }
+  CFG.clientId = cid; CFG.sheetId = sid; saveCfg(); render();
+};
+
+/* ----- Dashboard ----- */
+let FILTRO = {cliente:'',tt:'',estado:'',txt:''};
+function expedientes(){
+  const map = new Map();
+  for(const r of REG){
+    if(!map.has(r.Expediente_ID)) map.set(r.Expediente_ID, {id:r.Expediente_ID, docs:[], desc:r.Descripcion, cliente:r.Cliente_Num, clienteN:r.Cliente_Nombre, tt:r.Tipo_Trabajo, carpeta:r.Carpeta_Drive_URL, hist:r.Historial_File_ID, ult:r.Ultimo_Movimiento, interno:r.Codigo_Interno_Cliente});
+    const e = map.get(r.Expediente_ID); e.docs.push(r);
+    if(r.Ultimo_Movimiento > e.ult) e.ult = r.Ultimo_Movimiento;
+  }
+  return [...map.values()].sort((a,b)=> (b.ult||'').localeCompare(a.ult||''));
+}
+function estadoExp(e){
+  const activos = e.docs.filter(d=>!CFG.estadosFinales.includes(d.Estado));
+  if(!activos.length) return {txt: e.docs.every(d=>d.Estado==='Entregado')?'Entregado':'Cerrado', cls:'b-gris'};
+  const est = [...new Set(activos.map(d=>d.Estado))];
+  return {txt: est.length===1?est[0]:'Mixto ('+activos.length+' activos)', cls:'b-info'};
+}
+function vistaDashboard(){
+  const exps = expedientes().filter(e=>{
+    if(FILTRO.cliente && e.cliente!==FILTRO.cliente) return false;
+    if(FILTRO.tt && !e.id.startsWith(FILTRO.tt+'-')) return false;
+    if(FILTRO.estado && !e.docs.some(d=>d.Estado===FILTRO.estado)) return false;
+    if(FILTRO.txt){ const t=FILTRO.txt.toLowerCase(); if(!(e.id+e.desc+e.interno).toLowerCase().includes(t)) return false; }
+    return true;
+  });
+  const all = expedientes();
+  const activos = all.filter(e=>e.docs.some(d=>!CFG.estadosFinales.includes(d.Estado)));
+  const estancados = activos.filter(e=> (diasDesde(e.ult)??99) > CFG.diasEstancado);
+  const entregados = all.filter(e=>e.docs.length && e.docs.every(d=>d.Estado==='Entregado'));
+  return `
+    <div class="stats">
+      <div class="stat"><div class="n">${all.length}</div><div class="l">Expedientes</div></div>
+      <div class="stat"><div class="n">${activos.length}</div><div class="l">Activos</div></div>
+      <div class="stat ${estancados.length?'alerta':''}"><div class="n">${estancados.length}</div><div class="l">Estancados +${CFG.diasEstancado}d</div></div>
+      <div class="stat"><div class="n">${entregados.length}</div><div class="l">Entregados</div></div>
+    </div>
+    <div class="filtros">
+      <select onchange="FILTRO.cliente=this.value;render()">
+        <option value="">Todos los clientes</option>
+        ${CFG.clientes.map(c=>`<option value="${c[0]}" ${FILTRO.cliente===c[0]?'selected':''}>${c[0]} · ${esc(c[1])}</option>`).join('')}
+      </select>
+      <select onchange="FILTRO.tt=this.value;render()">
+        <option value="">Todos los tipos</option>
+        ${CFG.tiposTrabajo.map(t=>`<option value="${t.key}" ${FILTRO.tt===t.key?'selected':''}>${esc(t.nombre)}</option>`).join('')}
+      </select>
+      <select onchange="FILTRO.estado=this.value;render()">
+        <option value="">Todos los estados</option>
+        ${CFG.estados.map(s=>`<option ${FILTRO.estado===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <input placeholder="Buscar…" value="${esc(FILTRO.txt)}" oninput="FILTRO.txt=this.value" onchange="render()">
+    </div>
+    ${exps.length? exps.map(e=>{
+      const st = estadoExp(e), d = diasDesde(e.ult);
+      const estancado = d!==null && d>CFG.diasEstancado && st.cls==='b-info';
+      return `<div class="exp" onclick="abrirFicha('${esc(e.id)}')">
+        <div class="top">
+          <span class="codigo">${esc(e.id)}</span>
+          <span class="desc">${esc(e.desc)}</span>
+          <span class="badge ${st.cls}">${esc(st.txt)}</span>
+          ${estancado?`<span class="badge b-bad">⚠ ${d} días sin movimiento</span>`:''}
+        </div>
+        <div class="meta">
+          <span>${esc(e.clienteN)}</span><span>${esc(e.tt)}</span>
+          ${e.interno?`<span>Cód. cliente: ${esc(e.interno)}</span>`:''}
+          <span>${e.docs.length} doc${e.docs.length>1?'s':''}</span>
+          <span>Últ. mov.: ${fFecha(e.ult)}</span>
+        </div>
+      </div>`;
+    }).join('') : `<div class="card" style="text-align:center;color:var(--g2)">No hay expedientes${REG.length?' con esos filtros':''}. Creá el primero desde <b>+ Nuevo</b>.</div>`}`;
+}
+
+/* ----- Nuevo documento / paquete ----- */
+function vistaNuevo(){
+  return `<div class="card">
+    <h2>Nuevo expediente</h2>
+    <div class="row">
+      <div><label>Tipo de trabajo</label>
+        <select id="nTT" onchange="onTTChange()">${CFG.tiposTrabajo.map(t=>`<option value="${t.key}">${esc(t.nombre)} (${t.linea})</option>`).join('')}</select></div>
+      <div><label>Cliente</label>
+        <select id="nCliente">${CFG.clientes.map(c=>`<option value="${c[0]}">${c[0]} · ${esc(c[1])}</option>`).join('')}</select></div>
+    </div>
+    <div id="nModoWrap"></div>
+    <label>Descripción corta (va al nombre de la carpeta)</label>
+    <input id="nDesc" maxlength="60" placeholder="Ej: XLS025 Valoración - Validación de proceso">
+    <div class="row">
+      <div><label>Código interno del cliente (opcional)</label><input id="nInterno" placeholder="Ej: XLS025-00 / FOR-01496"></div>
+      <div><label>Ref. presupuesto (opcional)</label><input id="nPresu" placeholder="Ej: 0068"></div>
+    </div>
+    <p style="margin-top:18px"><button onclick="confirmarNuevo()">Revisar y crear →</button></p>
+  </div>`;
+}
+window.onTTChange = function(){
+  const key = $('#nTT').value, w = $('#nModoWrap');
+  if(key==='VPC'){
+    w.innerHTML = `<label>¿Qué vas a crear?</label>
+      <select id="nModo" onchange="onModoChange()">
+        <option value="paquete">Paquete completo de planilla (${CFG.paqueteVPC.map(p=>p[0]).join('/')})</option>
+        <option value="individual">Documento individual</option>
+      </select><div id="nDocsWrap"></div>`;
+    onModoChange();
+  } else {
+    w.innerHTML = `<input type="hidden" id="nModo" value="individual"><div id="nDocsWrap"></div>`;
+    onModoChange();
+  }
+};
+window.onModoChange = function(){
+  const modo = $('#nModo').value, w = $('#nDocsWrap');
+  if(modo==='paquete'){
+    w.innerHTML = `<label>Documentos del paquete</label><div>` +
+      CFG.paqueteVPC.map(([td,pi])=>`<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 12px 4px 0;font-weight:400">
+        <input type="checkbox" class="pqDoc" value="${td}|${pi}" checked style="width:auto"> ${td} <span class="muted">(${pi})</span></label>`).join('') + `</div>`;
+  } else {
+    w.innerHTML = `<div class="row">
+      <div><label>Tipo de documento</label><select id="nTipoDoc">${CFG.tiposDoc.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div><label>Protocolo / Informe</label><select id="nPI"><option>P</option><option>I</option><option>PI</option></select></div>
+    </div>`;
+  }
+};
+window.confirmarNuevo = function(){
+  const ttKey = $('#nTT').value, cliente = $('#nCliente').value;
+  const desc = $('#nDesc').value.trim();
+  if(!desc){ toast('Falta la descripción','err'); return; }
+  const t = tt(ttKey), doc = proximoDoc(ttKey, cliente);
+  const modo = $('#nModo').value;
+  let docs;
+  if(modo==='paquete'){
+    docs = $$('.pqDoc:checked').map(el=>el.value.split('|'));
+    if(!docs.length){ toast('Elegí al menos un documento','err'); return; }
+  } else docs = [[ $('#nTipoDoc').value, $('#nPI').value ]];
+  const expId = `${ttKey}-${cliente}-${pad(doc,3)}`;
+  const nombreCarpeta = `${expId} - ${desc}`;
+  modal(`<h3>Confirmar creación</h3>
+    <p style="margin:12px 0 4px" class="muted">Se va a asignar el expediente:</p>
+    <p><span class="codigo" style="font-size:15px">${esc(expId)}</span></p>
+    <p class="muted" style="margin:10px 0 4px">Documentos y códigos:</p>
+    ${docs.map(([td,pi])=>`<div style="margin:3px 0"><span class="codigo">${esc(armarID(t.linea,td,cliente,doc,1))}</span> <span class="muted">(${pi})</span></div>`).join('')}
+    <p class="muted" style="margin:10px 0 4px">Carpeta en Drive:</p>
+    <p style="font-size:13px;font-family:var(--mono)">VADOCA_Gestion / ${esc(cliente)} - … / ${esc(limpiarNombre(t.nombre))} / ${esc(limpiarNombre(nombreCarpeta))}</p>
+    <p style="margin-top:18px;display:flex;gap:10px">
+      <button onclick='crearExpediente(${JSON.stringify({ttKey,cliente,doc,desc,docs}).replace(/'/g,"&#39;")})'>Crear expediente</button>
+      <button class="sec" onclick="cerrarModal()">Cancelar</button>
+    </p>`);
+};
+window.crearExpediente = async function(p){
+  cerrarModal(); spin(true,'Verificando numeración…');
+  try{
+    await leerRegistro(); // relectura anti-carrera
+    const docReal = proximoDoc(p.ttKey, p.cliente);
+    if(docReal !== p.doc){ p.doc = docReal; toast('El número cambió a '+pad(docReal,3)+' (se actualizó el registro)','info'); }
+    const t = tt(p.ttKey);
+    const clienteN = (CFG.clientes.find(c=>c[0]===p.cliente)||[])[1]||'';
+    const expId = `${p.ttKey}-${p.cliente}-${pad(p.doc,3)}`;
+    spin(true,'Creando carpetas en Drive…');
+    const fExp = await crearExpedienteDrive(p.cliente, clienteN, t.nombre, `${expId} - ${p.desc}`);
+    spin(true,'Creando historial…');
+    const hist = { expediente: expId, creado: ahora(), entradas: [{
+      ts: ahora(), autor: USER_EMAIL, tipo:'creacion',
+      texto:`Expediente creado. Documentos: ${p.docs.map(d=>d[0]).join(', ')}. Descripción: ${p.desc}`, adjuntos:[] }] };
+    const hFile = await crearJson('historial.json', fExp, hist);
+    spin(true,'Registrando en la planilla…');
+    const url = `https://drive.google.com/drive/folders/${fExp}`;
+    const filas = p.docs.map(([td,pi])=>({
+      ID: armarID(t.linea,td,p.cliente,p.doc,1), Fecha_Alta: hoy(),
+      Cliente_Num:p.cliente, Cliente_Nombre:clienteN, Tipo_Trabajo:t.nombre, Linea:t.linea,
+      Prot_Inf:pi, Tipo_Doc:td, Doc_Num:pad(p.doc,3), Version:'01',
+      Descripcion:p.desc, Codigo_Interno_Cliente: $('#nInterno')?.value.trim()||'',
+      Ref_Presupuesto: $('#nPresu')?.value.trim()||'', Estado:'Borrador',
+      Fecha_Inicio: hoy(), Carpeta_Drive_ID:fExp, Carpeta_Drive_URL:url,
+      Ultimo_Movimiento: ahora(), Historial_File_ID: hFile.id, Expediente_ID: expId
+    }));
+    await appendFilas(filas);
+    await leerRegistro();
+    spin(false); toast('Expediente '+expId+' creado');
+    abrirFicha(expId);
+  }catch(e){ spin(false); toast('Error: '+e.message,'err'); console.error(e); }
+};
+
+/* ----- Ficha de expediente ----- */
+window.abrirFicha = async function(expId){
+  FICHA = { id: expId, hist:null };
+  VIEW='ficha'; render(); await cargarHistorial();
+};
+async function cargarHistorial(){
+  const docs = REG.filter(r=>r.Expediente_ID===FICHA.id);
+  const hId = docs[0]?.Historial_File_ID;
+  if(!hId){ $('#bitacora').innerHTML='<p class="muted">Este expediente no tiene historial (creado fuera de la app).</p>'; return; }
+  try{ FICHA.hist = await leerJson(hId); FICHA.histId = hId; pintarBitacora(); }
+  catch(e){ $('#bitacora').innerHTML='<p class="muted">No se pudo leer el historial: '+esc(e.message)+'</p>'; }
+}
+function pintarBitacora(){
+  const el = $('#bitacora'); if(!el||!FICHA.hist) return;
+  const es = [...FICHA.hist.entradas].reverse();
+  el.innerHTML = es.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
+    <div class="nts">${fFecha(n.ts)} · ${esc(n.autor||'')} · ${esc(n.tipo)}</div>
+    <div class="ntx">${esc(n.texto)}</div>
+    ${n.adjuntos?.length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${a.drive_id}/view" target="_blank" rel="noopener">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
+  </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
+}
+function vistaFicha(){
+  const docs = REG.filter(r=>r.Expediente_ID===FICHA.id);
+  if(!docs.length) return `<div class="card">Expediente no encontrado. <button class="ghost" onclick="VIEW='dashboard';render()">← Volver</button></div>`;
+  const e = docs[0];
+  return `
+  <p><button class="ghost" onclick="VIEW='dashboard';render()">← Volver al tablero</button></p>
+  <div class="card">
+    <div class="top" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="codigo" style="font-size:15px">${esc(FICHA.id)}</span>
+      <h2 style="flex:1;min-width:200px;font-size:17px">${esc(e.Descripcion)}</h2>
+      <a href="${esc(e.Carpeta_Drive_URL)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>
+    </div>
+    <div class="meta muted" style="margin-top:8px">${esc(e.Cliente_Nombre)} · ${esc(e.Tipo_Trabajo)} ${e.Codigo_Interno_Cliente?'· Cód. cliente: '+esc(e.Codigo_Interno_Cliente):''} ${e.Ref_Presupuesto?'· Presup. '+esc(e.Ref_Presupuesto):''}</div>
+    <table class="docs-tabla"><thead><tr><th>Código</th><th>Doc</th><th>P/I</th><th>Estado</th></tr></thead><tbody>
+      ${docs.map(d=>`<tr>
+        <td><span class="codigo">${esc(d.ID)}</span></td><td>${esc(d.Tipo_Doc)}</td><td>${esc(d.Prot_Inf)}</td>
+        <td><select onchange="cambiarEstado(${d._row}, this.value, '${esc(d.ID)}')">
+          ${CFG.estados.map(s=>`<option ${d.Estado===s?'selected':''}>${s}</option>`).join('')}
+        </select></td></tr>`).join('')}
+    </tbody></table>
+    <p class="muted" style="margin-top:8px">Tip: cambiar todos a la vez →
+      <select id="estadoMasivo" style="width:auto;padding:5px 8px;font-size:13px">${CFG.estados.map(s=>`<option>${s}</option>`).join('')}</select>
+      <button class="ghost" onclick="estadoTodos()">Aplicar a todos</button></p>
+  </div>
+  <div class="card">
+    <h3>Agregar nota a la bitácora</h3>
+    <textarea id="notaTxt" placeholder="Qué pasó: revisión, envío al cliente, respuesta, nueva versión, hallazgos…"></textarea>
+    <div class="row" style="margin-top:8px">
+      <div><label>Adjuntar archivos (opcional)</label><input type="file" id="notaFiles" multiple></div>
+      <div><label>Guardar adjuntos en</label><select id="notaSub">
+        <option value="02_evidencias">02_evidencias (capturas, mails)</option>
+        <option value="00_cliente">00_cliente (insumo original)</option>
+        <option value="01_versiones">01_versiones (versión de trabajo)</option>
+        <option value="03_entregables">03_entregables (PDF firmado)</option>
+      </select></div>
+    </div>
+    <div id="pegaWrap" class="muted" style="margin-top:6px;font-size:12px">📋 También podés pegar una captura directamente acá (Ctrl+V).</div>
+    <div id="pegados"></div>
+    <p style="margin-top:12px"><button onclick="guardarNota()">Guardar en bitácora</button></p>
+  </div>
+  <div class="card"><h3>Bitácora</h3><div id="bitacora" style="margin-top:10px"><p class="muted">Cargando historial…</p></div></div>`;
+}
+let PEGADOS = [];
+window.cambiarEstado = async function(row, estado, id){
+  spin(true,'Actualizando estado…');
+  try{
+    await updateCelda(row,'Estado',estado);
+    await updateCelda(row,'Ultimo_Movimiento',ahora());
+    if(estado==='Entregado') await updateCelda(row,'Fecha_Fin',hoy());
+    await registrarEntrada({tipo:'estado', texto:`${id} → estado: ${estado}`, adjuntos:[]});
+    await leerRegistro(); spin(false); toast('Estado actualizado'); pintarBitacora();
+  }catch(e){ spin(false); toast('Error: '+e.message,'err'); }
+};
+window.estadoTodos = async function(){
+  const estado = $('#estadoMasivo').value;
+  const docs = REG.filter(r=>r.Expediente_ID===FICHA.id);
+  spin(true,'Actualizando estados…');
+  try{
+    for(const d of docs){
+      await updateCelda(d._row,'Estado',estado);
+      await updateCelda(d._row,'Ultimo_Movimiento',ahora());
+      if(estado==='Entregado') await updateCelda(d._row,'Fecha_Fin',hoy());
+    }
+    await registrarEntrada({tipo:'estado', texto:`Todos los documentos → estado: ${estado}`, adjuntos:[]});
+    await leerRegistro(); spin(false); toast('Estados actualizados'); render(); await cargarHistorial();
+  }catch(e){ spin(false); toast('Error: '+e.message,'err'); }
+};
+async function registrarEntrada(entrada){
+  if(!FICHA.histId) return;
+  const h = await leerJson(FICHA.histId);              // leer antes de escribir, siempre
+  h.entradas.push(Object.assign({ts:ahora(), autor:USER_EMAIL}, entrada));
+  await actualizarJson(FICHA.histId, h);
+  FICHA.hist = h;
+}
+window.guardarNota = async function(){
+  const txt = $('#notaTxt').value.trim();
+  const files = [...($('#notaFiles').files||[]), ...PEGADOS];
+  if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
+  const sub = $('#notaSub').value;
+  const docs = REG.filter(r=>r.Expediente_ID===FICHA.id);
+  const fExp = docs[0].Carpeta_Drive_ID;
+  spin(true,'Guardando nota…');
+  try{
+    const adjuntos = [];
+    if(files.length){
+      const subId = await ensureCarpeta(sub, fExp);
+      for(const f of files){
+        spin(true,'Subiendo '+f.name+'…');
+        const nombre = `${hoy()}_${f.name}`;
+        const up = await subirArchivo(f, subId, nombre);
+        adjuntos.push({nombre, drive_id:up.id, subcarpeta:sub});
+      }
+    }
+    const tipo = sub==='01_versiones'?'version': sub==='03_entregables'?'archivo': files.length?'archivo':'nota';
+    await registrarEntrada({tipo, texto: txt || ('Se subieron '+adjuntos.length+' archivo(s) a '+sub), adjuntos});
+    for(const d of docs) await updateCelda(d._row,'Ultimo_Movimiento',ahora());
+    await leerRegistro();
+    $('#notaTxt').value=''; $('#notaFiles').value=''; PEGADOS=[]; $('#pegados').innerHTML='';
+    spin(false); toast('Nota guardada'); pintarBitacora();
+    if(sub==='03_entregables' && adjuntos.length){
+      modal(`<h3>Entregable cargado</h3><p style="margin:10px 0">¿Marcar todos los documentos como <b>Entregado</b>?</p>
+        <p style="display:flex;gap:10px"><button onclick="cerrarModal();$('#estadoMasivo').value='Entregado';estadoTodos()">Sí, marcar Entregado</button>
+        <button class="sec" onclick="cerrarModal()">Ahora no</button></p>`);
+    }
+  }catch(e){ spin(false); toast('Error: '+e.message,'err'); }
+};
+
+/* ----- Configuración ----- */
+function vistaConfig(){
+  return `<div class="card">
+    <h2>Ajustes</h2>
+    <label>ID de cliente OAuth</label><input id="cClientId" value="${esc(CFG.clientId)}">
+    <label>ID de la planilla (Sheets)</label><input id="cSheetId" value="${esc(CFG.sheetId)}">
+    <label>Clientes (uno por línea: número|nombre)</label>
+    <textarea id="cClientes">${esc(CFG.clientes.map(c=>c.join('|')).join('\n'))}</textarea>
+    <label>Semillas de numeración (tipo|cliente|último número usado en el registro viejo)</label>
+    <textarea id="cSemillas">${esc(Object.entries(CFG.semillas).map(([k,v])=>k+'|'+v).join('\n'))}</textarea>
+    <p class="muted">La numeración nueva arranca en semilla+1. Solo hace falta cargarla una vez por combinación.</p>
+    <label>Días para marcar "estancado"</label><input id="cDias" type="number" value="${CFG.diasEstancado}" style="width:100px">
+    <p style="margin-top:16px;display:flex;gap:10px">
+      <button onclick="guardarConfig()">Guardar ajustes</button>
+      <button class="sec" onclick="location.reload()">Recargar app</button>
+    </p>
+  </div>`;
+}
+window.guardarConfig = function(){
+  try{
+    CFG.clientId = $('#cClientId').value.trim();
+    CFG.sheetId = $('#cSheetId').value.trim();
+    CFG.clientes = $('#cClientes').value.trim().split('\n').filter(Boolean).map(l=>l.split('|').map(s=>s.trim()));
+    CFG.semillas = Object.fromEntries($('#cSemillas').value.trim().split('\n').filter(Boolean).map(l=>{const p=l.split('|');return [p[0]+'|'+p[1], parseInt(p[2],10)||0];}));
+    CFG.diasEstancado = parseInt($('#cDias').value,10)||7;
+    saveCfg(); toast('Ajustes guardados'); VIEW='dashboard'; render();
+  }catch(e){ toast('Error en el formato: '+e.message,'err'); }
+};
+
+/* ----- Modal / utilidades UI ----- */
+function modal(html){ const bg=document.createElement('div'); bg.className='modal-bg'; bg.id='modalBg';
+  bg.innerHTML=`<div class="modal">${html}</div>`;
+  bg.addEventListener('click',e=>{ if(e.target===bg) cerrarModal(); });
+  document.body.appendChild(bg); }
+window.cerrarModal = ()=> $('#modalBg')?.remove();
+
+function postRender(){
+  $$('#mainNav button').forEach(b=>b.classList.toggle('active', b.dataset.view===VIEW || (VIEW==='ficha'&&b.dataset.view==='dashboard')));
+  if(VIEW==='nuevo') onTTChange();
+  if(VIEW==='ficha'){
+    document.addEventListener('paste', onPaste);
+  } else document.removeEventListener('paste', onPaste);
+}
+function onPaste(ev){
+  const items = [...(ev.clipboardData?.items||[])].filter(i=>i.type.startsWith('image/'));
+  if(!items.length) return;
+  for(const it of items){
+    const f = it.getAsFile();
+    const nombre = 'captura_'+new Date().toISOString().replace(/[:.]/g,'-')+'.png';
+    PEGADOS.push(new File([f], nombre, {type:f.type}));
+  }
+  $('#pegados').innerHTML = PEGADOS.map(f=>`<span class="archivo-chip">🖼 ${esc(f.name)}</span>`).join('');
+  toast(items.length+' captura(s) lista(s) para adjuntar','info');
+}
+
+/* ----- Navegación ----- */
+$$('#mainNav button').forEach(b=>b.addEventListener('click',()=>{ VIEW=b.dataset.view; render(); }));
+
+/* ----- Arranque ----- */
+async function bootData(){
+  spin(true,'Leyendo registro maestro…');
+  try{
+    await ensureRegistro();
+    await leerRegistro();
+    spin(false); VIEW='dashboard'; render();
+    toast('Conectado. '+REG.length+' documento(s) en el registro.','info');
+  }catch(e){ spin(false); toast('No pude leer la planilla: '+e.message,'err'); console.error(e); }
+}
+render();
+if(CFG.clientId){ /* login manual con el botón, para que el popup no sea bloqueado */ }
+</script>
+</body>
+</html>
