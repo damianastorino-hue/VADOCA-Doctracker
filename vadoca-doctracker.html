@@ -47,7 +47,9 @@
   .codigo{font-family:var(--mono);font-weight:700;font-size:13px;background:var(--tq-soft);color:var(--tq-dark);border-left:3px solid var(--tq);padding:3px 8px;border-radius:0 6px 6px 0;display:inline-block;letter-spacing:.3px}
 
   .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-  .stat{flex:1;min-width:110px;background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:12px 14px;text-align:center}
+  .stat{flex:1;min-width:110px;background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:12px 14px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+  .stat:hover{border-color:var(--tq)}
+  .stat.activa{border-color:var(--tq);background:var(--tq-soft)}
   .stat .n{font-size:26px;font-weight:700;color:var(--tq-dark)}
   .stat .l{font-size:12px;color:var(--g2)}
   .stat.alerta .n{color:var(--bad)}
@@ -353,7 +355,11 @@ window.guardarSetup = function(){
 };
 
 /* ----- Dashboard ----- */
-let FILTRO = {cliente:'',tt:'',estado:'',txt:''};
+let FILTRO = {cliente:'',tt:'',estado:'',txt:'',caja:''};
+window.filtrarCaja = function(c){ FILTRO.caja = (FILTRO.caja===c ? '' : c); render(); };
+function esActivo(e){ return e.docs.some(d=>!CFG.estadosFinales.includes(d.Estado)); }
+function esEstancado(e){ return esActivo(e) && ((diasDesde(e.ult)??99) > CFG.diasEstancado); }
+function esEntregado(e){ return e.docs.length && e.docs.every(d=>d.Estado==='Entregado'); }
 function expedientes(){
   const map = new Map();
   for(const r of REG){
@@ -375,18 +381,21 @@ function vistaDashboard(){
     if(FILTRO.tt && !e.id.startsWith(FILTRO.tt+'-')) return false;
     if(FILTRO.estado && !e.docs.some(d=>d.Estado===FILTRO.estado)) return false;
     if(FILTRO.txt){ const t=FILTRO.txt.toLowerCase(); if(!(e.id+e.desc+e.interno).toLowerCase().includes(t)) return false; }
+    if(FILTRO.caja==='activos' && !esActivo(e)) return false;
+    if(FILTRO.caja==='estancados' && !esEstancado(e)) return false;
+    if(FILTRO.caja==='entregados' && !esEntregado(e)) return false;
     return true;
   });
   const all = expedientes();
-  const activos = all.filter(e=>e.docs.some(d=>!CFG.estadosFinales.includes(d.Estado)));
-  const estancados = activos.filter(e=> (diasDesde(e.ult)??99) > CFG.diasEstancado);
-  const entregados = all.filter(e=>e.docs.length && e.docs.every(d=>d.Estado==='Entregado'));
+  const activos = all.filter(esActivo);
+  const estancados = all.filter(esEstancado);
+  const entregados = all.filter(esEntregado);
   return `
     <div class="stats">
-      <div class="stat"><div class="n">${all.length}</div><div class="l">Expedientes</div></div>
-      <div class="stat"><div class="n">${activos.length}</div><div class="l">Activos</div></div>
-      <div class="stat ${estancados.length?'alerta':''}"><div class="n">${estancados.length}</div><div class="l">Estancados +${CFG.diasEstancado}d</div></div>
-      <div class="stat"><div class="n">${entregados.length}</div><div class="l">Entregados</div></div>
+      <div class="stat ${FILTRO.caja===''?'activa':''}" onclick="filtrarCaja('')" title="Ver todos"><div class="n">${all.length}</div><div class="l">Expedientes</div></div>
+      <div class="stat ${FILTRO.caja==='activos'?'activa':''}" onclick="filtrarCaja('activos')"><div class="n">${activos.length}</div><div class="l">Activos</div></div>
+      <div class="stat alerta ${FILTRO.caja==='estancados'?'activa':''}" onclick="filtrarCaja('estancados')"><div class="n">${estancados.length}</div><div class="l">Estancados +${CFG.diasEstancado}d</div></div>
+      <div class="stat ${FILTRO.caja==='entregados'?'activa':''}" onclick="filtrarCaja('entregados')"><div class="n">${entregados.length}</div><div class="l">Entregados</div></div>
     </div>
     <div class="filtros">
       <select onchange="FILTRO.cliente=this.value;render()">
