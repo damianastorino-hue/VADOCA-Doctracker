@@ -196,7 +196,8 @@ function initAuth(){
       await bootData();
     }
   });
-  tokenClient.requestAccessToken({prompt: TOKEN?'':'consent'});
+  tokenClient.error_callback = (e)=>{ spin(false); render(); }; // popup bloqueado o cerrado: mostrar botón
+  tokenClient.requestAccessToken({prompt:''}); // reutiliza el permiso ya dado; Google pide consentimiento solo la primera vez
 }
 function pedirToken(){ return new Promise(res=>{ const orig=tokenClient.callback;
   tokenClient.callback=(r)=>{ if(!r.error){TOKEN=r.access_token;TOKEN_EXP=Date.now()+(r.expires_in-60)*1000;} tokenClient.callback=orig; res(); };
@@ -806,7 +807,9 @@ async function bootData(){
   }catch(e){ spin(false); toast('No pude leer la planilla: '+e.message,'err'); console.error(e); }
 }
 render();
-if(CFG.clientId){ /* login manual con el botón, para que el popup no sea bloqueado */ }
+/* Conexión automática al abrir: si ya diste permiso antes, entra sin que toques nada.
+   Si el navegador bloquea el popup, queda el botón "Iniciar sesión" como respaldo. */
+if(CFG.clientId){ window.addEventListener('load', ()=>setTimeout(()=>{ try{ initAuth(); }catch(e){ render(); } }, 500)); }
 </script>
 </body>
 </html>
