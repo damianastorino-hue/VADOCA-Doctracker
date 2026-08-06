@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VADOCA · DocTracker v2</title>
+<style>
+  :root{
+    --tq:#00B4B6; --tq-dark:#008C8E; --tq-soft:#E0F5F5;
+    --g1:#435561; --g2:#6D7985; --g3:#AEB8C0; --g4:#E7ECEF;
+    --bg:#F6F8F9; --card:#FFFFFF;
+    --ok:#2E9E5B; --warn:#D98E04; --bad:#C94F3D;
+    --mono:'Courier New',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--g1);font-size:15px;line-height:1.45}
+  h1,h2,h3{font-weight:600}
+  button{font:inherit;cursor:pointer;border:none;border-radius:8px;padding:9px 16px;background:var(--tq);color:#fff;font-weight:600;transition:background .15s}
+  button:hover{background:var(--tq-dark)}
+  button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--tq);outline-offset:2px}
+  button.sec{background:var(--g4);color:var(--g1)} button.sec:hover{background:var(--g3)}
+  button.ghost{background:transparent;color:var(--tq);padding:6px 10px}
+  button.rojo{background:var(--bad)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  input,select,textarea{font:inherit;border:1px solid var(--g3);border-radius:8px;padding:9px 11px;width:100%;background:#fff;color:var(--g1)}
+  textarea{resize:vertical;min-height:80px}
+  label{display:block;font-size:13px;font-weight:600;color:var(--g2);margin:12px 0 4px}
+  a{color:var(--tq-dark)}
+  header{background:var(--card);border-bottom:1px solid var(--g4);position:sticky;top:0;z-index:20}
+  .hwrap{max-width:1080px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{font-size:18px;font-weight:700;letter-spacing:.5px}
+  .logo b{color:var(--tq)}
+  nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+  nav button{background:transparent;color:var(--g2);font-weight:600;padding:8px 14px;border-radius:8px}
+  nav button.active{background:var(--tq-soft);color:var(--tq-dark)}
+  nav button:hover{background:var(--g4);color:var(--g1)}
+  #userChip{font-size:12px;color:var(--g2)}
+  main{max-width:1080px;margin:0 auto;padding:18px 16px 90px}
+  .card{background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:18px;margin-bottom:14px}
+  .muted{color:var(--g2);font-size:13px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:180px}
+  .codigo{font-family:var(--mono);font-weight:700;font-size:13px;background:var(--tq-soft);color:var(--tq-dark);border-left:3px solid var(--tq);padding:3px 8px;border-radius:0 6px 6px 0;display:inline-block;letter-spacing:.3px}
+  .hashchip{font-family:var(--mono);font-size:10px;color:var(--g3)}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .stat{flex:1;min-width:110px;background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:12px 14px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+  .stat:hover{border-color:var(--tq)}
+  .stat.activa{border-color:var(--tq);background:var(--tq-soft)}
+  .stat .n{font-size:26px;font-weight:700;color:var(--tq-dark)}
+  .stat .l{font-size:12px;color:var(--g2)}
+  .stat.alerta .n{color:var(--bad)}
+  .filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .filtros select,.filtros input{flex:1;min-width:130px;width:auto}
+  .exp{background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+  .exp:hover{border-color:var(--tq)}
+  .exp .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .exp .desc{font-weight:600;flex:1;min-width:180px}
+  .exp .meta{font-size:12px;color:var(--g2);margin-top:6px;display:flex;gap:14px;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+  .b-bad{background:#F9E6E2;color:var(--bad)} .b-info{background:var(--tq-soft);color:var(--tq-dark)}
+  .b-gris{background:var(--g4);color:var(--g2)} .b-ok{background:#E3F4EA;color:var(--ok)}
+  .docs-tabla{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  .docs-tabla th{text-align:left;color:var(--g2);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;border-bottom:1px solid var(--g4)}
+  .docs-tabla td{padding:7px 8px;border-bottom:1px solid var(--g4);vertical-align:middle}
+  .docs-tabla select{padding:5px 8px;font-size:13px;width:auto}
+  .nota{border-left:3px solid var(--g4);padding:10px 12px;margin-bottom:10px;background:var(--bg);border-radius:0 8px 8px 0}
+  .nota.tipo-creacion{border-left-color:var(--tq)}
+  .nota.tipo-estado{border-left-color:var(--warn)}
+  .nota.tipo-version{border-left-color:var(--ok)}
+  .nota .nts{font-size:11px;color:var(--g2);font-family:var(--mono)}
+  .nota .ntx{margin:5px 0;white-space:pre-wrap}
+  .nota .adj a{font-size:12px;margin-right:10px}
+  .modal-bg{position:fixed;inset:0;background:rgba(30,40,46,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+  @media(min-width:640px){.modal-bg{align-items:center}}
+  .modal{background:#fff;border-radius:16px 16px 0 0;max-width:560px;width:100%;max-height:92vh;overflow-y:auto;padding:20px}
+  @media(min-width:640px){.modal{border-radius:16px}}
+  #toasts{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:8px;width:min(92vw,420px)}
+  .toast{padding:11px 16px;border-radius:10px;color:#fff;font-weight:600;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+  .toast.ok{background:var(--ok)} .toast.err{background:var(--bad)} .toast.info{background:var(--g1)}
+  #spinner{position:fixed;inset:0;background:rgba(255,255,255,.6);z-index:90;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+  .sp{width:38px;height:38px;border:4px solid var(--g4);border-top-color:var(--tq);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #spinnerTxt{font-weight:600;color:var(--g1)}
+  .hidden{display:none!important}
+  .login-wrap{max-width:400px;margin:8vh auto}
+  .rolchip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--g4);color:var(--g2);text-transform:uppercase}
+  .u-tabla{width:100%;border-collapse:collapse;font-size:13px}
+  .u-tabla th{text-align:left;color:var(--g2);font-size:11px;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--g4)}
+  .u-tabla td{padding:8px;border-bottom:1px solid var(--g4)}
+</style>
+</head>
+<body>
+<header>
+  <div class="hwrap">
+    <div class="logo">VADOCA <b>DocTracker</b> <span class="muted" style="font-size:11px">v2</span></div>
+    <nav id="mainNav" class="hidden">
+      <button data-view="dashboard" class="active">Tablero</button>
+      <button data-view="nuevo" id="navNuevo">+ Nuevo</button>
+      <button data-view="usuarios" id="navUsuarios" class="hidden">Usuarios</button>
+      <button data-view="config">Ajustes</button>
+    </nav>
+    <span id="userChip"></span>
+  </div>
+</header>
+<main id="app"></main>
+<div id="toasts"></div>
+<div id="spinner" class="hidden"><div class="sp"></div><div id="spinnerTxt">Trabajando…</div></div>
+
+<script>
+'use strict';
+/* ============================================================
+   VADOCA DocTracker v2 — frontend contra backend Railway
+   ============================================================ */
+const LSKEY = 'vadoca_doctracker_v2_cfg';
+const DEFAULTS = {
+  backendUrl: 'https://vadoca-doctracker-backend-production.up.railway.app',
+  clientes: [ ['000','VADOCA'], ['001','Novocap SA'], ['002','LKM'], ['003','Passair / Conéctalis'] ],
+  tiposTrabajo: [
+    { key:'GR',  nombre:'Gestión de Riesgo',                    linea:'VDC' },
+    { key:'VTA', nombre:'Validación de Técnicas Analíticas',    linea:'VDC' },
+    { key:'VPC', nombre:'Validación de Planillas',              linea:'VPC' },
+    { key:'CAL', nombre:'Calificaciones',                       linea:'VDC' },
+    { key:'VSI', nombre:'Validación de Sistemas Informáticos',  linea:'VSI' },
+  ],
+  tiposDoc: ['GR','AR','VTA','RU','DQ','IQ','OQ','PQ','IOQ','IV','PMV','PV'],
+  estados: ['Borrador','En revisión','Validable','No validable','En ejecución','Enviado a cliente','Aprobado','Entregado','Suspendido','Cancelado'],
+  estadosFinales: ['Entregado','Suspendido','Cancelado'],
+  paqueteVPC: [ ['RU','P'],['DQ','P'],['IQ','P'],['IQ','I'],['OQ','P'],['OQ','I'],['PQ','P'],['PQ','I'],['IV','I'] ],
+  diasEstancado: 7,
+};
+let CFG = loadCfg();
+function loadCfg(){ try{ const s=JSON.parse(localStorage.getItem(LSKEY)||'{}'); const c=Object.assign({},DEFAULTS,s); c.paqueteVPC=DEFAULTS.paqueteVPC; return c;}catch(e){return {...DEFAULTS};} }
+function saveCfg(){ localStorage.setItem(LSKEY, JSON.stringify(CFG)); }
+
+let TOKEN = sessionStorage.getItem('vdt_token') || null;
+let YO = JSON.parse(sessionStorage.getItem('vdt_yo') || 'null');
+let REG = [];        // documentos desde el backend (snake_case)
+let VIEW = 'dashboard';
+let FICHA = null;
+
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = (n,l) => String(n).padStart(l,'0');
+function toast(msg,tipo='ok'){ const d=document.createElement('div'); d.className='toast '+tipo; d.textContent=msg; $('#toasts').appendChild(d); setTimeout(()=>d.remove(), tipo==='err'?6000:3500); }
+function spin(on,txt){ $('#spinner').classList.toggle('hidden',!on); if(txt)$('#spinnerTxt').textContent=txt; }
+function diasDesde(iso){ if(!iso) return null; return Math.floor((Date.now()-new Date(iso).getTime())/86400000); }
+function fFecha(iso){ if(!iso) return '—'; const d=new Date(iso); return isNaN(d)?esc(iso):d.toLocaleDateString('es-AR')+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
+const esLector = () => YO?.rol === 'lector';
+const esAdmin  = () => YO?.rol === 'admin';
+
+/* ---------- Llamadas al backend ---------- */
+async function api(ruta, opt={}){
+  opt.headers = Object.assign({}, opt.headers||{}, TOKEN?{Authorization:'Bearer '+TOKEN}:{});
+  if(opt.body && !(opt.body instanceof FormData)){ opt.headers['Content-Type']='application/json'; opt.body=JSON.stringify(opt.body); }
+  const r = await fetch(CFG.backendUrl + ruta, opt);
+  let data = null; try{ data = await r.json(); }catch(e){}
+  if(r.status===401 && ruta!=='/api/login'){ cerrarSesion(); throw new Error('Sesión vencida, entrá de nuevo'); }
+  if(!r.ok) throw new Error(data?.error || ('Error '+r.status));
+  return data;
+}
+async function cargarRegistro(){ REG = await api('/api/registro'); }
+function cerrarSesion(){ TOKEN=null; YO=null; sessionStorage.clear(); render(); }
+
+/* ============================================================
+   VISTAS
+   ============================================================ */
+function render(){
+  const app = $('#app');
+  $('#mainNav').classList.toggle('hidden', !TOKEN);
+  $('#navUsuarios').classList.toggle('hidden', !esAdmin());
+  $('#navNuevo').classList.toggle('hidden', esLector());
+  $('#userChip').innerHTML = YO ? `${esc(YO.email)} <span class="rolchip">${esc(YO.rol)}</span> <button class="ghost" onclick="cerrarSesion()" style="font-size:12px">Salir</button>` : '';
+  if(!TOKEN){ app.innerHTML = vistaLogin(); return; }
+  if(YO?.debe_cambiar_clave){ app.innerHTML = vistaCambiarClave(true); return; }
+  if(VIEW==='dashboard') app.innerHTML = vistaDashboard();
+  else if(VIEW==='nuevo') app.innerHTML = vistaNuevo();
+  else if(VIEW==='usuarios') app.innerHTML = vistaUsuarios();
+  else if(VIEW==='config') app.innerHTML = vistaConfig();
+  else if(VIEW==='ficha') app.innerHTML = vistaFicha();
+  postRender();
+}
+
+/* ----- Login y clave ----- */
+function vistaLogin(){
+  return `<div class="login-wrap"><div class="card">
+    <h2>Ingresar</h2>
+    <label>Email</label><input id="lEmail" type="email" placeholder="usuario@vadoca.com.ar" autocomplete="username">
+    <label>Contraseña</label><input id="lPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')ingresar()">
+    <p style="margin-top:16px"><button onclick="ingresar()" style="width:100%">Entrar</button></p>
+    <p class="muted" style="margin-top:10px">¿Sin cuenta o clave olvidada? Pedile al administrador que te dé de alta o te blanquee la clave.</p>
+  </div></div>`;
+}
+window.ingresar = async function(){
+  spin(true,'Ingresando…');
+  try{
+    const d = await api('/api/login',{method:'POST',body:{email:$('#lEmail').value,password:$('#lPass').value}});
+    TOKEN=d.token; YO=d.usuario;
+    sessionStorage.setItem('vdt_token',TOKEN); sessionStorage.setItem('vdt_yo',JSON.stringify(YO));
+    if(!YO.debe_cambiar_clave){ spin(true,'Cargando registro…'); await cargarRegistro(); }
+    spin(false); VIEW='dashboard'; render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+function vistaCambiarClave(obligatorio){
+  return `<div class="login-wrap"><div class="card">
+    <h2>${obligatorio?'Cambiá tu contraseña':'Cambiar contraseña'}</h2>
+    ${obligatorio?'<p class="muted" style="margin-top:6px">Tu clave fue asignada por el administrador: elegí una propia para continuar.</p>':''}
+    <label>Clave actual</label><input id="cAct" type="password" autocomplete="current-password">
+    <label>Clave nueva (mínimo 8 caracteres)</label><input id="cNue" type="password" autocomplete="new-password">
+    <p style="margin-top:16px"><button onclick="cambiarClave()" style="width:100%">Guardar</button></p>
+  </div></div>`;
+}
+window.cambiarClave = async function(){
+  spin(true,'Guardando…');
+  try{
+    await api('/api/cambiar-clave',{method:'POST',body:{actual:$('#cAct').value,nueva:$('#cNue').value}});
+    YO.debe_cambiar_clave=false; sessionStorage.setItem('vdt_yo',JSON.stringify(YO));
+    await cargarRegistro(); spin(false); toast('Clave actualizada'); VIEW='dashboard'; render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ----- Dashboard ----- */
+let FILTRO = {cliente:'',tt:'',estado:'',txt:'',caja:''};
+window.filtrarCaja = function(c){ FILTRO.caja = (FILTRO.caja===c ? '' : c); render(); };
+function expedientes(){
+  const map = new Map();
+  for(const r of REG){
+    if(!map.has(r.expediente_id)) map.set(r.expediente_id, {id:r.expediente_id, docs:[], desc:r.descripcion, cliente:r.cliente_num, clienteN:r.cliente_nombre, tt:r.tipo_trabajo, carpeta:r.carpeta_drive_url, ult:r.ultimo_movimiento||'', interno:r.codigo_interno_cliente});
+    const e = map.get(r.expediente_id); e.docs.push(r);
+    if((r.ultimo_movimiento||'') > e.ult) e.ult = r.ultimo_movimiento;
+  }
+  return [...map.values()].sort((a,b)=> String(b.ult).localeCompare(String(a.ult)));
+}
+function esActivo(e){ return e.docs.some(d=>!CFG.estadosFinales.includes(d.estado)); }
+function esEstancado(e){ return esActivo(e) && ((diasDesde(e.ult)??99) > CFG.diasEstancado); }
+function esEntregado(e){ return e.docs.length && e.docs.every(d=>d.estado==='Entregado'); }
+function estadoExp(e){
+  const activos = e.docs.filter(d=>!CFG.estadosFinales.includes(d.estado));
+  if(!activos.length) return {txt: e.docs.every(d=>d.estado==='Entregado')?'Entregado':'Cerrado', cls:'b-gris'};
+  const est = [...new Set(activos.map(d=>d.estado))];
+  return {txt: est.length===1?est[0]:'Mixto ('+activos.length+' activos)', cls:'b-info'};
+}
+function vistaDashboard(){
+  const all = expedientes();
+  const exps = all.filter(e=>{
+    if(FILTRO.cliente && e.cliente!==FILTRO.cliente) return false;
+    if(FILTRO.tt && !e.id.startsWith(FILTRO.tt+'-')) return false;
+    if(FILTRO.estado && !e.docs.some(d=>d.estado===FILTRO.estado)) return false;
+    if(FILTRO.txt){ const t=FILTRO.txt.toLowerCase(); if(!((e.id||'')+(e.desc||'')+(e.interno||'')).toLowerCase().includes(t)) return false; }
+    if(FILTRO.caja==='activos' && !esActivo(e)) return false;
+    if(FILTRO.caja==='estancados' && !esEstancado(e)) return false;
+    if(FILTRO.caja==='entregados' && !esEntregado(e)) return false;
+    return true;
+  });
+  const activos = all.filter(esActivo), estancados = all.filter(esEstancado), entregados = all.filter(esEntregado);
+  return `
+    ${REG.length===0 && esAdmin() ? `<div class="card" style="border-color:var(--warn)">
+      <b>Base vacía.</b> Si venís de la versión anterior, importá tus datos una única vez:
+      <button class="sec" onclick="migrar()" style="margin-left:8px">Migrar desde la hoja REGISTRO</button></div>`:''}
+    <div class="stats">
+      <div class="stat ${FILTRO.caja===''?'activa':''}" onclick="filtrarCaja('')"><div class="n">${all.length}</div><div class="l">Expedientes</div></div>
+      <div class="stat ${FILTRO.caja==='activos'?'activa':''}" onclick="filtrarCaja('activos')"><div class="n">${activos.length}</div><div class="l">Activos</div></div>
+      <div class="stat alerta ${FILTRO.caja==='estancados'?'activa':''}" onclick="filtrarCaja('estancados')"><div class="n">${estancados.length}</div><div class="l">Estancados +${CFG.diasEstancado}d</div></div>
+      <div class="stat ${FILTRO.caja==='entregados'?'activa':''}" onclick="filtrarCaja('entregados')"><div class="n">${entregados.length}</div><div class="l">Entregados</div></div>
+    </div>
+    <div class="filtros">
+      <select onchange="FILTRO.cliente=this.value;render()"><option value="">Todos los clientes</option>
+        ${CFG.clientes.map(c=>`<option value="${c[0]}" ${FILTRO.cliente===c[0]?'selected':''}>${c[0]} · ${esc(c[1])}</option>`).join('')}</select>
+      <select onchange="FILTRO.tt=this.value;render()"><option value="">Todos los tipos</option>
+        ${CFG.tiposTrabajo.map(t=>`<option value="${t.key}" ${FILTRO.tt===t.key?'selected':''}>${esc(t.nombre)}</option>`).join('')}</select>
+      <select onchange="FILTRO.estado=this.value;render()"><option value="">Todos los estados</option>
+        ${CFG.estados.map(s=>`<option ${FILTRO.estado===s?'selected':''}>${s}</option>`).join('')}</select>
+      <input placeholder="Buscar…" value="${esc(FILTRO.txt)}" oninput="FILTRO.txt=this.value" onchange="render()">
+    </div>
+    ${exps.length? exps.map(e=>{
+      const st = estadoExp(e), d = diasDesde(e.ult);
+      const estancado = d!==null && d>CFG.diasEstancado && st.cls==='b-info';
+      return `<div class="exp" onclick="abrirFicha('${esc(e.id)}')">
+        <div class="top">
+          <span class="codigo">${esc(e.id)}</span>
+          <span class="desc">${esc(e.desc)}</span>
+          <span class="badge ${st.cls}">${esc(st.txt)}</span>
+          ${estancado?`<span class="badge b-bad">⚠ ${d} días sin movimiento</span>`:''}
+        </div>
+        <div class="meta">
+          <span>${esc(e.clienteN)}</span><span>${esc(e.tt)}</span>
+          ${e.interno?`<span>Cód. cliente: ${esc(e.interno)}</span>`:''}
+          <span>${e.docs.length} doc${e.docs.length>1?'s':''}</span>
+          <span>Últ. mov.: ${fFecha(e.ult)}</span>
+        </div>
+      </div>`;
+    }).join('') : `<div class="card" style="text-align:center;color:var(--g2)">No hay expedientes${REG.length?' con esos filtros':''}.</div>`}`;
+}
+window.migrar = async function(){
+  if(!confirm('Se importa todo lo que está hoy en la hoja REGISTRO a la base del sistema. Se hace UNA sola vez. ¿Continuar?')) return;
+  spin(true,'Migrando desde Sheets…');
+  try{
+    const d = await api('/api/migrar',{method:'POST'});
+    await cargarRegistro(); spin(false); toast('Migrados '+d.importados+' documentos'); render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ----- Nuevo expediente ----- */
+function vistaNuevo(){
+  return `<div class="card">
+    <h2>Nuevo expediente</h2>
+    <div class="row">
+      <div><label>Tipo de trabajo</label>
+        <select id="nTT" onchange="onTTChange()">${CFG.tiposTrabajo.map(t=>`<option value="${t.key}">${esc(t.nombre)} (${t.linea})</option>`).join('')}</select></div>
+      <div><label>Cliente</label>
+        <select id="nCliente">${CFG.clientes.map(c=>`<option value="${c[0]}">${c[0]} · ${esc(c[1])}</option>`).join('')}</select></div>
+    </div>
+    <div id="nModoWrap"></div>
+    <label>Descripción corta (va al nombre de la carpeta)</label>
+    <input id="nDesc" maxlength="60" placeholder="Ej: XLS144 Valoración Absoluta por HPLC">
+    <div class="row">
+      <div><label>Código interno del cliente (opcional)</label><input id="nInterno" placeholder="Ej: XLS144-00"></div>
+      <div><label>Ref. presupuesto (opcional)</label><input id="nPresu" placeholder="Ej: 0068"></div>
+    </div>
+    <p style="margin-top:18px"><button onclick="confirmarNuevo()">Revisar y crear →</button></p>
+  </div>`;
+}
+window.onTTChange = function(){
+  const key = $('#nTT').value, w = $('#nModoWrap');
+  if(key==='VPC'){
+    w.innerHTML = `<label>¿Qué vas a crear?</label>
+      <select id="nModo" onchange="onModoChange()">
+        <option value="paquete">Paquete completo de planilla (protocolos + informes separados)</option>
+        <option value="individual">Documento individual</option>
+      </select><div id="nDocsWrap"></div>`;
+  } else {
+    w.innerHTML = `<input type="hidden" id="nModo" value="individual"><div id="nDocsWrap"></div>`;
+  }
+  onModoChange();
+};
+window.onModoChange = function(){
+  const modo = $('#nModo').value, w = $('#nDocsWrap');
+  if(modo==='paquete'){
+    w.innerHTML = `<label>Documentos del paquete</label><div>` +
+      CFG.paqueteVPC.map(([td,pi])=>`<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 12px 4px 0;font-weight:400">
+        <input type="checkbox" class="pqDoc" value="${td}|${pi}" checked style="width:auto"> ${td}-${pi} <span class="muted">(${pi==='P'?'Protocolo':'Informe'})</span></label>`).join('') + `</div>`;
+  } else {
+    w.innerHTML = `<div class="row">
+      <div><label>Tipo de documento</label><select id="nTipoDoc">${CFG.tiposDoc.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div><label>Protocolo / Informe</label><select id="nPI"><option value="P">P (solo protocolo)</option><option value="I">I (solo informe)</option><option value="PI">P+I (crea ambos, seguimiento separado)</option></select></div>
+    </div>`;
+  }
+};
+window.confirmarNuevo = function(){
+  const ttKey = $('#nTT').value, cliente = $('#nCliente').value;
+  const desc = $('#nDesc').value.trim();
+  if(!desc){ toast('Falta la descripción','err'); return; }
+  const t = CFG.tiposTrabajo.find(x=>x.key===ttKey);
+  let docs;
+  if($('#nModo').value==='paquete'){
+    docs = $$('.pqDoc:checked').map(el=>el.value.split('|'));
+    if(!docs.length){ toast('Elegí al menos un documento','err'); return; }
+  } else docs = [[ $('#nTipoDoc').value, $('#nPI').value ]];
+  docs = docs.flatMap(([td,pi])=> pi==='PI' ? [[td,'P'],[td,'I']] : [[td,pi]]);
+  modal(`<h3>Confirmar creación</h3>
+    <p class="muted" style="margin:10px 0 4px">El número de expediente lo asigna el servidor al confirmar (correlativo, sin colisiones). Documentos:</p>
+    ${docs.map(([td,pi])=>`<div style="margin:3px 0"><span class="codigo">${t.linea}-${td}-${pi}-${cliente}-###/01</span></div>`).join('')}
+    <p style="margin-top:16px;display:flex;gap:10px">
+      <button onclick='crearExpediente(${JSON.stringify({ttKey,ttNombre:t.nombre,linea:t.linea,cliente,docs,desc}).replace(/'/g,"&#39;")})'>Crear expediente</button>
+      <button class="sec" onclick="cerrarModal()">Cancelar</button>
+    </p>`);
+};
+window.crearExpediente = async function(p){
+  cerrarModal(); spin(true,'Creando expediente…');
+  try{
+    const clienteNombre = (CFG.clientes.find(c=>c[0]===p.cliente)||[])[1]||'';
+    const d = await api('/api/expedientes',{method:'POST',body:{
+      ttKey:p.ttKey, ttNombre:p.ttNombre, linea:p.linea, cliente:p.cliente, clienteNombre,
+      docs:p.docs, desc:p.desc, interno:$('#nInterno')?.value.trim()||'', presupuesto:$('#nPresu')?.value.trim()||''
+    }});
+    await cargarRegistro(); spin(false); toast('Expediente '+d.expediente+' creado');
+    abrirFicha(d.expediente);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ----- Ficha ----- */
+window.abrirFicha = async function(expId){
+  FICHA = { id: expId, bit:[] };
+  VIEW='ficha'; render();
+  try{ FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(expId)+'/bitacora'); pintarBitacora(); }
+  catch(e){ $('#bitacora').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+};
+function pintarBitacora(){
+  const el = $('#bitacora'); if(!el) return;
+  el.innerHTML = FICHA.bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
+    <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
+    <div class="ntx">${esc(n.texto)}</div>
+    ${(n.adjuntos||[]).length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
+  </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
+}
+function vistaFicha(){
+  const docs = REG.filter(r=>r.expediente_id===FICHA.id);
+  if(!docs.length) return `<div class="card">Expediente no encontrado. <button class="ghost" onclick="VIEW='dashboard';render()">← Volver</button></div>`;
+  const e = docs[0], ro = esLector();
+  return `
+  <p><button class="ghost" onclick="VIEW='dashboard';render()">← Volver al tablero</button></p>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="codigo" style="font-size:15px">${esc(FICHA.id)}</span>
+      <h2 style="flex:1;min-width:200px;font-size:17px">${esc(e.descripcion)}</h2>
+      ${e.carpeta_drive_url?`<a href="${esc(e.carpeta_drive_url)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>`:''}
+    </div>
+    <div class="muted" style="margin-top:8px">${esc(e.cliente_nombre)} · ${esc(e.tipo_trabajo)} ${e.codigo_interno_cliente?'· Cód. cliente: '+esc(e.codigo_interno_cliente):''} ${e.ref_presupuesto?'· Presup. '+esc(e.ref_presupuesto):''}</div>
+    <table class="docs-tabla"><thead><tr><th>Código</th><th>Doc</th><th>P/I</th><th>Autor</th><th>Estado</th></tr></thead><tbody>
+      ${docs.map(d=>`<tr>
+        <td><span class="codigo">${esc(d.codigo)}</span></td><td>${esc(d.tipo_doc)}</td><td>${esc(d.prot_inf)}</td>
+        <td class="muted" style="font-size:11px">${esc((d.autor||'').split('@')[0])}</td>
+        <td>${ro?esc(d.estado):`<select onchange="cambiarEstado('${esc(d.codigo)}', this.value)">
+          ${CFG.estados.map(s=>`<option ${d.estado===s?'selected':''}>${s}</option>`).join('')}</select>`}</td></tr>`).join('')}
+    </tbody></table>
+    ${ro?'':`<p class="muted" style="margin-top:8px">Cambiar todos →
+      <select id="estadoMasivo" style="width:auto;padding:5px 8px;font-size:13px">${CFG.estados.map(s=>`<option>${s}</option>`).join('')}</select>
+      <button class="ghost" onclick="estadoTodos()">Aplicar a todos</button>
+      · <button class="ghost" onclick="modalNuevaVersion()">⬆ Nueva versión</button>
+      · <button class="ghost" onclick="verificarCadena()">⛓ Verificar integridad</button>
+      · <button class="ghost" onclick="exportarAudit()">🖨 Exportar bitácora</button></p>`}
+  </div>
+  ${ro?'':`<div class="card">
+    <h3>Agregar nota a la bitácora</h3>
+    <textarea id="notaTxt" placeholder="Qué pasó: revisión, envío al cliente, respuesta, nueva versión, hallazgos…"></textarea>
+    <div class="row" style="margin-top:8px">
+      <div><label>Adjuntar archivos (opcional)</label><input type="file" id="notaFiles" multiple></div>
+      <div><label>Guardar adjuntos en</label><select id="notaSub">
+        <option value="02_evidencias">02_evidencias (capturas, mails)</option>
+        <option value="00_cliente">00_cliente (insumo original)</option>
+        <option value="01_versiones">01_versiones (versión de trabajo)</option>
+        <option value="03_entregables">03_entregables (PDF firmado)</option>
+      </select></div>
+    </div>
+    <div class="muted" style="margin-top:6px;font-size:12px">📋 También podés pegar una captura directamente acá (Ctrl+V).</div>
+    <div id="pegados"></div>
+    <p style="margin-top:12px"><button onclick="guardarNota()">Guardar en bitácora</button></p>
+  </div>`}
+  <div class="card"><h3>Bitácora</h3><div id="bitacora" style="margin-top:10px"><p class="muted">Cargando…</p></div></div>`;
+}
+let PEGADOS = [];
+window.cambiarEstado = async function(codigo, estado){
+  spin(true,'Actualizando estado…');
+  try{
+    await api('/api/documentos/'+encodeURIComponent(codigo)+'/estado',{method:'POST',body:{estado}});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    spin(false); toast('Estado actualizado'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.estadoTodos = async function(){
+  const estado = $('#estadoMasivo').value;
+  const docs = REG.filter(r=>r.expediente_id===FICHA.id);
+  spin(true,'Actualizando estados…');
+  try{
+    for(const d of docs) await api('/api/documentos/'+encodeURIComponent(d.codigo)+'/estado',{method:'POST',body:{estado}});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    spin(false); toast('Estados actualizados'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.guardarNota = async function(){
+  const txt = $('#notaTxt').value.trim();
+  const files = [...($('#notaFiles').files||[]), ...PEGADOS];
+  if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
+  const fd = new FormData();
+  fd.append('texto', txt); fd.append('subcarpeta', $('#notaSub').value);
+  for(const f of files) fd.append('archivos', f, f.name);
+  spin(true,'Guardando nota…');
+  try{
+    await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/notas',{method:'POST',body:fd});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    PEGADOS=[]; spin(false); toast('Nota guardada'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.verificarCadena = async function(){
+  spin(true,'Verificando cadena de integridad…');
+  try{
+    const d = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/verificar');
+    spin(false);
+    if(d.ok) modal(`<h3>⛓ Integridad verificada</h3><p style="margin:12px 0">Las ${d.entradas} entradas de la bitácora forman una cadena de hashes válida: nadie modificó ni eliminó registros.</p><p><button onclick="cerrarModal()">Cerrar</button></p>`);
+    else modal(`<h3 style="color:var(--bad)">⚠ Cadena rota</h3><p style="margin:12px 0">La verificación falló en la entrada #${d.rota_en}: la bitácora fue alterada por fuera del sistema. Documentar el hallazgo.</p><p><button onclick="cerrarModal()">Cerrar</button></p>`);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.exportarAudit = function(){
+  const docs = REG.filter(r=>r.expediente_id===FICHA.id);
+  const w = window.open('','_blank');
+  w.document.write(`<html><head><title>Audit trail ${esc(FICHA.id)}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;color:#222;margin:24px}h1{font-size:18px}h2{font-size:14px;margin-top:18px}
+  table{border-collapse:collapse;width:100%;margin-top:8px}td,th{border:1px solid #999;padding:5px 7px;text-align:left;font-size:11px}
+  .h{font-family:monospace;font-size:9px;color:#666}</style></head><body>
+  <h1>VADOCA DocTracker — Bitácora del expediente ${esc(FICHA.id)}</h1>
+  <p>${esc(docs[0]?.descripcion||'')} · ${esc(docs[0]?.cliente_nombre||'')} · Exportado: ${new Date().toLocaleString('es-AR')} por ${esc(YO.email)}</p>
+  <h2>Documentos</h2>
+  <table><tr><th>Código</th><th>Estado</th><th>Autor</th></tr>
+  ${docs.map(d=>`<tr><td>${esc(d.codigo)}</td><td>${esc(d.estado)}</td><td>${esc(d.autor||'')}</td></tr>`).join('')}</table>
+  <h2>Bitácora (cadena de integridad)</h2>
+  <table><tr><th>Fecha</th><th>Autor</th><th>Tipo</th><th>Detalle</th><th>Hash</th></tr>
+  ${[...FICHA.bit].reverse().map(n=>`<tr><td>${fFecha(n.ts)}</td><td>${esc(n.autor)}</td><td>${esc(n.tipo)}</td><td>${esc(n.texto)}${(n.adjuntos||[]).length?'<br>Adjuntos: '+n.adjuntos.map(a=>esc(a.nombre)).join(', '):''}</td><td class="h">${esc(n.hash)}</td></tr>`).join('')}</table>
+  <script>window.print()<\/script></body></html>`);
+  w.document.close();
+};
+
+/* ----- Nueva versión ----- */
+window.modalNuevaVersion = function(){
+  const docs = REG.filter(r=>r.expediente_id===FICHA.id);
+  const ult = new Map();
+  for(const d of docs){
+    const k = d.tipo_doc+'|'+d.prot_inf;
+    if(!ult.has(k) || parseInt(d.version,10) > parseInt(ult.get(k).version,10)) ult.set(k, d);
+  }
+  const items = [...ult.values()];
+  window._nvItems = items;
+  modal(`<h3>Nueva versión del expediente</h3>
+    <p class="muted" style="margin:8px 0 12px">Se crean con el mismo número y la versión siguiente, en Borrador. La versión anterior no se toca.</p>
+    ${items.map((d,i)=>`<label style="display:flex;align-items:center;gap:8px;margin:5px 0;font-weight:400">
+      <input type="checkbox" class="nvDoc" value="${i}" checked style="width:auto">
+      <span class="codigo">${esc(d.codigo)}</span> <span class="muted">→ v${pad(parseInt(d.version,10)+1,2)}</span></label>`).join('')}
+    <label>Motivo (va a la bitácora)</label>
+    <textarea id="nvMotivo" placeholder="Ej: revalidación por cambio de fórmula"></textarea>
+    <p style="margin-top:14px;display:flex;gap:10px">
+      <button onclick="crearNuevaVersion()">Crear nueva versión</button>
+      <button class="sec" onclick="cerrarModal()">Cancelar</button>
+    </p>`);
+};
+window.crearNuevaVersion = async function(){
+  const codigos = $$('.nvDoc:checked').map(el=>window._nvItems[parseInt(el.value,10)].codigo);
+  if(!codigos.length){ toast('Elegí al menos un documento','err'); return; }
+  const motivo = $('#nvMotivo').value.trim();
+  cerrarModal(); spin(true,'Creando nueva versión…');
+  try{
+    const d = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/nueva-version',{method:'POST',body:{codigos,motivo}});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    spin(false); toast(d.nuevos.length+' documento(s) en nueva versión'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ----- Usuarios (solo admin) ----- */
+function vistaUsuarios(){
+  cargarUsuarios();
+  return `<div class="card">
+    <h2>Usuarios</h2>
+    <div id="uLista" style="margin-top:10px"><p class="muted">Cargando…</p></div>
+  </div>
+  <div class="card">
+    <h3>Nuevo usuario</h3>
+    <div class="row">
+      <div><label>Email</label><input id="uEmail" placeholder="nombre@vadoca.com.ar"></div>
+      <div><label>Nombre</label><input id="uNombre"></div>
+    </div>
+    <div class="row">
+      <div><label>Rol</label><select id="uRol"><option value="editor">Editor (opera documentos)</option><option value="lector">Lector (solo consulta)</option><option value="admin">Admin (todo + usuarios)</option></select></div>
+      <div><label>Clave inicial (la cambia al entrar)</label><input id="uPass" type="text"></div>
+    </div>
+    <p style="margin-top:14px"><button onclick="crearUsuario()">Crear usuario</button></p>
+  </div>
+  <div class="card">
+    <h3>Bitácora del administrador</h3>
+    <div id="uLog" style="margin-top:10px"><p class="muted">Cargando…</p></div>
+  </div>`;
+}
+async function cargarUsuarios(){
+  try{
+    const us = await api('/api/usuarios');
+    $('#uLista').innerHTML = `<table class="u-tabla"><tr><th>Email</th><th>Nombre</th><th>Rol</th><th>Estado</th><th></th></tr>
+      ${us.map(u=>`<tr><td>${esc(u.email)}</td><td>${esc(u.nombre)}</td><td><span class="rolchip">${esc(u.rol)}</span></td>
+        <td>${u.activo?'<span class="badge b-ok">Activo</span>':'<span class="badge b-gris">Inactivo</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="ghost" onclick="blanquear(${u.id},'${esc(u.email)}')">Blanquear clave</button>
+          <button class="ghost" onclick="toggleUsuario(${u.id},${!u.activo})">${u.activo?'Desactivar':'Activar'}</button>
+        </td></tr>`).join('')}</table>`;
+    const log = await api('/api/admin/bitacora');
+    $('#uLog').innerHTML = log.length? log.map(l=>`<div class="nota"><div class="nts">${fFecha(l.ts)} · ${esc(l.autor)} <span class="hashchip">⛓ ${esc((l.hash||'').slice(0,10))}</span></div><div class="ntx">${esc(l.accion)}${l.detalle?': '+esc(l.detalle):''}</div></div>`).join('') : '<p class="muted">Sin acciones registradas.</p>';
+  }catch(e){ toast(e.message,'err'); }
+}
+window.crearUsuario = async function(){
+  spin(true,'Creando usuario…');
+  try{
+    await api('/api/usuarios',{method:'POST',body:{email:$('#uEmail').value,nombre:$('#uNombre').value,rol:$('#uRol').value,password:$('#uPass').value}});
+    spin(false); toast('Usuario creado'); render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.blanquear = async function(id,email){
+  const p = prompt('Clave temporal nueva para '+email+' (se la pasás por un canal seguro; la cambia al entrar):');
+  if(!p) return;
+  spin(true,'Blanqueando…');
+  try{ await api('/api/usuarios/'+id+'/blanquear',{method:'POST',body:{password:p}}); spin(false); toast('Clave blanqueada'); render(); }
+  catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.toggleUsuario = async function(id,activo){
+  spin(true,'Actualizando…');
+  try{ await api('/api/usuarios/'+id+'/estado',{method:'POST',body:{activo}}); spin(false); render(); }
+  catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ----- Ajustes ----- */
+function vistaConfig(){
+  return `<div class="card">
+    <h2>Ajustes</h2>
+    <label>URL del backend</label><input id="cUrl" value="${esc(CFG.backendUrl)}">
+    <label>Clientes (número|nombre, uno por línea)</label>
+    <textarea id="cClientes">${esc(CFG.clientes.map(c=>c.join('|')).join('\n'))}</textarea>
+    <label>Días para marcar "estancado"</label><input id="cDias" type="number" value="${CFG.diasEstancado}" style="width:100px">
+    <p style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="guardarConfig()">Guardar</button>
+      <button class="sec" onclick="VIEW='dashboard';render()">Volver</button>
+      <button class="sec" onclick="render(); VIEW='config';">​</button>
+    </p>
+  </div>
+  <div class="card">
+    <h3>Mi cuenta</h3>
+    <p class="muted" style="margin:6px 0 12px">${esc(YO.email)} — rol ${esc(YO.rol)}</p>
+    <button class="sec" onclick="modalMiClave()">Cambiar mi contraseña</button>
+  </div>`;
+}
+window.guardarConfig = function(){
+  CFG.backendUrl = $('#cUrl').value.trim().replace(/\/+$/,'');
+  CFG.clientes = $('#cClientes').value.trim().split('\n').filter(Boolean).map(l=>l.split('|').map(s=>s.trim()));
+  CFG.diasEstancado = parseInt($('#cDias').value,10)||7;
+  saveCfg(); toast('Ajustes guardados'); VIEW='dashboard'; render();
+};
+window.modalMiClave = function(){
+  modal(`<h3>Cambiar contraseña</h3>
+    <label>Clave actual</label><input id="cAct" type="password">
+    <label>Clave nueva (mín. 8)</label><input id="cNue" type="password">
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="cambiarClave();cerrarModal()">Guardar</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+
+/* ----- Utilidades UI ----- */
+function modal(html){ const bg=document.createElement('div'); bg.className='modal-bg'; bg.id='modalBg';
+  bg.innerHTML=`<div class="modal">${html}</div>`;
+  bg.addEventListener('click',e=>{ if(e.target===bg) cerrarModal(); });
+  document.body.appendChild(bg); }
+window.cerrarModal = ()=> $('#modalBg')?.remove();
+function postRender(){
+  $$('#mainNav button').forEach(b=>b.classList.toggle('active', b.dataset.view===VIEW || (VIEW==='ficha'&&b.dataset.view==='dashboard')));
+  if(VIEW==='nuevo') onTTChange();
+  if(VIEW==='ficha') document.addEventListener('paste', onPaste);
+  else document.removeEventListener('paste', onPaste);
+}
+function onPaste(ev){
+  const items = [...(ev.clipboardData?.items||[])].filter(i=>i.type.startsWith('image/'));
+  if(!items.length) return;
+  for(const it of items){
+    const f = it.getAsFile();
+    const nombre = 'captura_'+new Date().toISOString().replace(/[:.]/g,'-')+'.png';
+    PEGADOS.push(new File([f], nombre, {type:f.type}));
+  }
+  $('#pegados').innerHTML = PEGADOS.map(f=>`<span class="muted" style="margin-right:10px">🖼 ${esc(f.name)}</span>`).join('');
+  toast(items.length+' captura(s) lista(s) para adjuntar','info');
+}
+$$('#mainNav button').forEach(b=>b.addEventListener('click',()=>{ VIEW=b.dataset.view; render(); }));
+
+/* ----- Arranque ----- */
+(async function(){
+  render();
+  if(TOKEN){
+    spin(true,'Cargando registro…');
+    try{ await cargarRegistro(); }catch(e){ /* sesión vencida ya manejada */ }
+    spin(false); render();
+  }
+})();
+</script>
+</body>
+</html>
