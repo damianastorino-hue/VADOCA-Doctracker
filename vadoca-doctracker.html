@@ -146,13 +146,13 @@ const DEFAULTS = {
   tiposDoc: ['GR','AR','VTA','RU','DQ','IQ','OQ','PQ','IOQ','IV','PMV','PV'],
   estados: ['Borrador','En revisión','Validable','No validable','En ejecución','Enviado a cliente','Aprobado','Entregado','Suspendido','Cancelado'],
   estadosFinales: ['Entregado','Suspendido','Cancelado'],
-  paqueteVPC: [ ['RU','P'],['DQ','P'],['IQ','PI'],['OQ','PI'],['PQ','PI'],['IV','I'] ],
+  paqueteVPC: [ ['RU','P'],['DQ','P'],['IQ','P'],['IQ','I'],['OQ','P'],['OQ','I'],['PQ','P'],['PQ','I'],['IV','I'] ],
   // Últimos números ya usados en el registro histórico (la app arranca desde acá)
   semillas: { 'VPC|002':32, 'GR|001':12, 'CAL|001':9, 'VTA|001':4 },
   diasEstancado: 7,
 };
 let CFG = loadCfg();
-function loadCfg(){ try{ const s=JSON.parse(localStorage.getItem(LSKEY)||'{}'); return Object.assign({},DEFAULTS,s);}catch(e){return {...DEFAULTS};} }
+function loadCfg(){ try{ const s=JSON.parse(localStorage.getItem(LSKEY)||'{}'); const c=Object.assign({},DEFAULTS,s); c.paqueteVPC=DEFAULTS.paqueteVPC; return c;}catch(e){return {...DEFAULTS};} }
 function saveCfg(){ localStorage.setItem(LSKEY, JSON.stringify(CFG)); }
 
 /* Hoja REGISTRO: definición de columnas (A..W) */
@@ -309,7 +309,7 @@ function proximoDoc(ttKey, clienteNum){
   const usados = REG.filter(r=>r.Expediente_ID.startsWith(`${ttKey}-${clienteNum}-`)).map(r=>parseInt(r.Doc_Num,10)||0);
   return Math.max(semilla, ...usados, 0) + 1;
 }
-function armarID(linea,tipoDoc,cliente,doc,ver){ return `${linea}-${tipoDoc}-${cliente}-${pad(doc,3)}/${pad(ver,2)}`; }
+function armarID(linea,tipoDoc,pi,cliente,doc,ver){ return `${linea}-${tipoDoc}${pi?'-'+pi:''}-${cliente}-${pad(doc,3)}/${pad(ver,2)}`; }
 
 /* ---------- Estructura de carpetas por expediente ---------- */
 const SUBCARPETAS = ['00_cliente','01_versiones','02_evidencias','03_entregables'];
@@ -467,7 +467,7 @@ window.onTTChange = function(){
   if(key==='VPC'){
     w.innerHTML = `<label>¿Qué vas a crear?</label>
       <select id="nModo" onchange="onModoChange()">
-        <option value="paquete">Paquete completo de planilla (${CFG.paqueteVPC.map(p=>p[0]).join('/')})</option>
+        <option value="paquete">Paquete completo de planilla (9 docs: protocolos + informes separados)</option>
         <option value="individual">Documento individual</option>
       </select><div id="nDocsWrap"></div>`;
     onModoChange();
@@ -481,11 +481,11 @@ window.onModoChange = function(){
   if(modo==='paquete'){
     w.innerHTML = `<label>Documentos del paquete</label><div>` +
       CFG.paqueteVPC.map(([td,pi])=>`<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 12px 4px 0;font-weight:400">
-        <input type="checkbox" class="pqDoc" value="${td}|${pi}" checked style="width:auto"> ${td} <span class="muted">(${pi})</span></label>`).join('') + `</div>`;
+        <input type="checkbox" class="pqDoc" value="${td}|${pi}" checked style="width:auto"> ${td}-${pi} <span class="muted">(${pi==='P'?'Protocolo':'Informe'})</span></label>`).join('') + `</div>`;
   } else {
     w.innerHTML = `<div class="row">
       <div><label>Tipo de documento</label><select id="nTipoDoc">${CFG.tiposDoc.map(t=>`<option>${t}</option>`).join('')}</select></div>
-      <div><label>Protocolo / Informe</label><select id="nPI"><option>P</option><option>I</option><option>PI</option></select></div>
+      <div><label>Protocolo / Informe</label><select id="nPI"><option value="P">P (solo protocolo)</option><option value="I">I (solo informe)</option><option value="PI">P+I (crea ambos, seguimiento separado)</option></select></div>
     </div>`;
   }
 };
@@ -500,13 +500,15 @@ window.confirmarNuevo = function(){
     docs = $$('.pqDoc:checked').map(el=>el.value.split('|'));
     if(!docs.length){ toast('Elegí al menos un documento','err'); return; }
   } else docs = [[ $('#nTipoDoc').value, $('#nPI').value ]];
+  // Un documento marcado P+I se desdobla en dos: protocolo e informe con seguimiento independiente
+  docs = docs.flatMap(([td,pi])=> pi==='PI' ? [[td,'P'],[td,'I']] : [[td,pi]]);
   const expId = `${ttKey}-${cliente}-${pad(doc,3)}`;
   const nombreCarpeta = `${expId} - ${desc}`;
   modal(`<h3>Confirmar creación</h3>
     <p style="margin:12px 0 4px" class="muted">Se va a asignar el expediente:</p>
     <p><span class="codigo" style="font-size:15px">${esc(expId)}</span></p>
     <p class="muted" style="margin:10px 0 4px">Documentos y códigos:</p>
-    ${docs.map(([td,pi])=>`<div style="margin:3px 0"><span class="codigo">${esc(armarID(t.linea,td,cliente,doc,1))}</span> <span class="muted">(${pi})</span></div>`).join('')}
+    ${docs.map(([td,pi])=>`<div style="margin:3px 0"><span class="codigo">${esc(armarID(t.linea,td,pi,cliente,doc,1))}</span> <span class="muted">(${pi})</span></div>`).join('')}
     <p class="muted" style="margin:10px 0 4px">Carpeta en Drive:</p>
     <p style="font-size:13px;font-family:var(--mono)">VADOCA_Gestion / ${esc(cliente)} - … / ${esc(limpiarNombre(t.nombre))} / ${esc(limpiarNombre(nombreCarpeta))}</p>
     <p style="margin-top:18px;display:flex;gap:10px">
@@ -528,12 +530,12 @@ window.crearExpediente = async function(p){
     spin(true,'Creando historial…');
     const hist = { expediente: expId, creado: ahora(), entradas: [{
       ts: ahora(), autor: USER_EMAIL, tipo:'creacion',
-      texto:`Expediente creado. Documentos: ${p.docs.map(d=>d[0]).join(', ')}. Descripción: ${p.desc}`, adjuntos:[] }] };
+      texto:`Expediente creado. Documentos: ${p.docs.map(d=>d[0]+'-'+d[1]).join(', ')}. Descripción: ${p.desc}`, adjuntos:[] }] };
     const hFile = await crearJson('historial.json', fExp, hist);
     spin(true,'Registrando en la planilla…');
     const url = `https://drive.google.com/drive/folders/${fExp}`;
     const filas = p.docs.map(([td,pi])=>({
-      ID: armarID(t.linea,td,p.cliente,p.doc,1), Fecha_Alta: hoy(),
+      ID: armarID(t.linea,td,pi,p.cliente,p.doc,1), Fecha_Alta: hoy(),
       Cliente_Num:p.cliente, Cliente_Nombre:clienteN, Tipo_Trabajo:t.nombre, Linea:t.linea,
       Prot_Inf:pi, Tipo_Doc:td, Doc_Num:pad(p.doc,3), Version:'01',
       Descripcion:p.desc, Codigo_Interno_Cliente: $('#nInterno')?.value.trim()||'',
@@ -692,7 +694,7 @@ window.importarHistorico = async function(){
       const [ttKey,pi,td,cli,doc,ver,desc,interno,presup,fIni,fFin,estado,conf,obs] = a;
       const t = tt(ttKey);
       return {
-        ID: armarID(t.linea,td,cli,doc,ver), Fecha_Alta: fIni||'2026-07-29',
+        ID: armarID(t.linea,td,pi,cli,doc,ver), Fecha_Alta: fIni||'2026-07-29',
         Cliente_Num:cli, Cliente_Nombre:(CFG.clientes.find(c=>c[0]===cli)||[])[1]||'',
         Tipo_Trabajo:t.nombre, Linea:t.linea, Prot_Inf:pi, Tipo_Doc:td,
         Doc_Num:pad(doc,3), Version:pad(ver,2), Descripcion:desc,
