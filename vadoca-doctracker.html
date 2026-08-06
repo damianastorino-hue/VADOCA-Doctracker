@@ -558,7 +558,7 @@ window.abrirFicha = async function(expId){
 async function cargarHistorial(){
   const docs = REG.filter(r=>r.Expediente_ID===FICHA.id);
   const hId = docs[0]?.Historial_File_ID;
-  if(!hId){ $('#bitacora').innerHTML='<p class="muted">Este expediente no tiene historial (creado fuera de la app).</p>'; return; }
+  if(!hId){ $('#bitacora').innerHTML='<p class="muted">Expediente importado del histórico: al guardar la primera nota se crean automáticamente su carpeta en Drive y su historial.</p>'; return; }
   try{ FICHA.hist = await leerJson(hId); FICHA.histId = hId; pintarBitacora(); }
   catch(e){ $('#bitacora').innerHTML='<p class="muted">No se pudo leer el historial: '+esc(e.message)+'</p>'; }
 }
@@ -617,6 +617,7 @@ let PEGADOS = [];
 window.cambiarEstado = async function(row, estado, id){
   spin(true,'Actualizando estado…');
   try{
+    await asegurarInfraExpediente();
     const cambios = [{row,col:'Estado',valor:estado},{row,col:'Ultimo_Movimiento',valor:ahora()}];
     if(estado==='Entregado') cambios.push({row,col:'Fecha_Fin',valor:hoy()});
     await updateCeldas(cambios);
@@ -626,9 +627,10 @@ window.cambiarEstado = async function(row, estado, id){
 };
 window.estadoTodos = async function(){
   const estado = $('#estadoMasivo').value;
-  const docs = REG.filter(r=>r.Expediente_ID===FICHA.id);
   spin(true,'Actualizando estados…');
   try{
+    await asegurarInfraExpediente();
+    const docs = REG.filter(r=>r.Expediente_ID===FICHA.id);
     const cambios = [];
     for(const d of docs){
       cambios.push({row:d._row,col:'Estado',valor:estado});
@@ -641,7 +643,7 @@ window.estadoTodos = async function(){
   }catch(e){ spin(false); toast('Error: '+e.message,'err'); }
 };
 async function registrarEntrada(entrada){
-  if(!FICHA.histId) return;
+  if(!FICHA.histId) throw new Error('El expediente no tiene historial todavía');
   const h = await leerJson(FICHA.histId);              // leer antes de escribir, siempre
   h.entradas.push(Object.assign({ts:ahora(), autor:USER_EMAIL}, entrada));
   await actualizarJson(FICHA.histId, h);
@@ -652,10 +654,10 @@ window.guardarNota = async function(){
   const files = [...($('#notaFiles').files||[]), ...PEGADOS];
   if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
   const sub = $('#notaSub').value;
-  const docs = REG.filter(r=>r.Expediente_ID===FICHA.id);
-  const fExp = docs[0].Carpeta_Drive_ID;
   spin(true,'Guardando nota…');
   try{
+    const {fExp, docs} = await asegurarInfraExpediente(); // crea carpeta+historial si es un expediente importado
+    spin(true,'Guardando nota…');
     const adjuntos = [];
     if(files.length){
       const subId = await ensureCarpeta(sub, fExp);
@@ -746,26 +748,32 @@ window.guardarConfig = function(){
 };
 
 
-/* Crear carpeta + historial para un expediente importado (legacy) */
-window.crearCarpetaLegacy = async function(){
+/* Asegura que el expediente tenga carpeta en Drive e historial; los crea si faltan (expedientes importados) */
+async function asegurarInfraExpediente(){
   const docs = REG.filter(r=>r.Expediente_ID===FICHA.id);
-  if(!docs.length) return;
+  if(!docs.length) throw new Error('Expediente no encontrado');
   const e = docs[0];
-  spin(true,'Creando carpeta en Drive…');
+  if(e.Carpeta_Drive_ID && e.Historial_File_ID){ FICHA.histId = e.Historial_File_ID; return {fExp:e.Carpeta_Drive_ID, docs}; }
+  spin(true,'Creando carpeta e historial del expediente…');
+  const fExp = e.Carpeta_Drive_ID || await crearExpedienteDrive(e.Cliente_Num, e.Cliente_Nombre, e.Tipo_Trabajo, FICHA.id+' - '+e.Descripcion);
+  const hist = { expediente: FICHA.id, creado: ahora(), entradas: [{ ts: ahora(), autor: USER_EMAIL, tipo:'creacion', texto:'Carpeta e historial creados para expediente importado del registro histórico.', adjuntos:[] }] };
+  const hFile = await crearJson('historial.json', fExp, hist);
+  const url = 'https://drive.google.com/drive/folders/'+fExp;
+  const cambios = [];
+  for(const d of docs){
+    cambios.push({row:d._row,col:'Carpeta_Drive_ID',valor:fExp});
+    cambios.push({row:d._row,col:'Carpeta_Drive_URL',valor:url});
+    cambios.push({row:d._row,col:'Historial_File_ID',valor:hFile.id});
+  }
+  await updateCeldas(cambios);
+  FICHA.histId = hFile.id; FICHA.hist = hist;
+  await leerRegistro();
+  return {fExp, docs: REG.filter(r=>r.Expediente_ID===FICHA.id)};
+}
+window.crearCarpetaLegacy = async function(){
   try{
-    const fExp = await crearExpedienteDrive(e.Cliente_Num, e.Cliente_Nombre, e.Tipo_Trabajo, FICHA.id+' - '+e.Descripcion);
-    const hist = { expediente: FICHA.id, creado: ahora(), entradas: [{ ts: ahora(), autor: USER_EMAIL, tipo:'creacion', texto:'Carpeta creada para expediente importado del registro histórico.', adjuntos:[] }] };
-    const hFile = await crearJson('historial.json', fExp, hist);
-    const url = 'https://drive.google.com/drive/folders/'+fExp;
-    const cambios = [];
-    for(const d of docs){
-      cambios.push({row:d._row,col:'Carpeta_Drive_ID',valor:fExp});
-      cambios.push({row:d._row,col:'Carpeta_Drive_URL',valor:url});
-      cambios.push({row:d._row,col:'Historial_File_ID',valor:hFile.id});
-      cambios.push({row:d._row,col:'Ultimo_Movimiento',valor:ahora()});
-    }
-    await updateCeldas(cambios);
-    await leerRegistro(); spin(false); toast('Carpeta creada'); render(); await cargarHistorial();
+    await asegurarInfraExpediente();
+    spin(false); toast('Carpeta creada'); render(); await cargarHistorial();
   }catch(err){ spin(false); toast('Error: '+err.message,'err'); }
 };
 
