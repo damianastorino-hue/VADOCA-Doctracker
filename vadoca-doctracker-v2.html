@@ -605,6 +605,11 @@ function vistaConfig(){
       <button class="sec" onclick="render(); VIEW='config';">​</button>
     </p>
   </div>
+  ${esAdmin()?`<div class="card">
+    <h3>Herramientas del administrador</h3>
+    <p class="muted" style="margin:6px 0 12px">Recupera las bitácoras que la versión anterior guardó como historial.json en Drive y las incorpora a la cadena de integridad. Solo actúa sobre expedientes que aún no tienen bitácora — se puede ejecutar tranquilo.</p>
+    <button class="sec" onclick="importarHistoriales()">Recuperar bitácoras de la v1</button>
+  </div>`:''}
   <div class="card">
     <h3>Mi cuenta</h3>
     <p class="muted" style="margin:6px 0 12px">${esc(YO.email)} — rol ${esc(YO.rol)}</p>
@@ -616,6 +621,15 @@ window.guardarConfig = function(){
   CFG.clientes = $('#cClientes').value.trim().split('\n').filter(Boolean).map(l=>l.split('|').map(s=>s.trim()));
   CFG.diasEstancado = parseInt($('#cDias').value,10)||7;
   saveCfg(); toast('Ajustes guardados'); VIEW='dashboard'; render();
+};
+window.importarHistoriales = async function(){
+  spin(true,'Leyendo historiales de Drive…');
+  try{
+    const d = await api('/api/importar-historiales',{method:'POST'});
+    await cargarRegistro(); spin(false);
+    toast('Recuperadas '+d.entradas+' entradas de '+(d.expedientes-d.saltados)+' expedientes');
+    if(d.errores?.length) console.warn('Historiales con error:', d.errores);
+  }catch(e){ spin(false); toast(e.message,'err'); }
 };
 window.modalMiClave = function(){
   modal(`<h3>Cambiar contraseña</h3>
