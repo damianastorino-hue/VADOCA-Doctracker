@@ -208,6 +208,7 @@ async function api(url, opt={}, raw=false){
   opt.headers = Object.assign({Authorization:'Bearer '+TOKEN}, opt.headers||{});
   let r = await fetch(url,opt);
   if(r.status===401){ await pedirToken(); opt.headers.Authorization='Bearer '+TOKEN; r=await fetch(url,opt); }
+  if(r.status===429){ spin(true,'Google pide esperar (límite por minuto)… reintento en 25 s'); await new Promise(res=>setTimeout(res,25000)); r=await fetch(url,opt); }
   if(!r.ok){ const t=await r.text(); throw new Error('API '+r.status+': '+t.slice(0,300)); }
   return raw ? r : r.json();
 }
@@ -244,9 +245,17 @@ async function appendFilas(filas){ // filas = array de objetos
   });
 }
 async function updateCelda(row, colName, valor){
-  const colLetra = String.fromCharCode(65+CI[colName]); // A..W
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/${encodeURIComponent(`'REGISTRO'!${colLetra}${row}`)}?valueInputOption=RAW`,{
-    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({values:[[valor]]})
+  await updateCeldas([{row, col:colName, valor}]);
+}
+/* Escribe muchas celdas en UNA sola llamada (evita el límite de 60 escrituras/min de Sheets) */
+async function updateCeldas(cambios){
+  const data = cambios.map(c=>({
+    range: `'REGISTRO'!${String.fromCharCode(65+CI[c.col])}${c.row}`,
+    values: [[c.valor]]
+  }));
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values:batchUpdate`,{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({valueInputOption:'RAW', data})
   });
 }
 
@@ -605,9 +614,9 @@ let PEGADOS = [];
 window.cambiarEstado = async function(row, estado, id){
   spin(true,'Actualizando estado…');
   try{
-    await updateCelda(row,'Estado',estado);
-    await updateCelda(row,'Ultimo_Movimiento',ahora());
-    if(estado==='Entregado') await updateCelda(row,'Fecha_Fin',hoy());
+    const cambios = [{row,col:'Estado',valor:estado},{row,col:'Ultimo_Movimiento',valor:ahora()}];
+    if(estado==='Entregado') cambios.push({row,col:'Fecha_Fin',valor:hoy()});
+    await updateCeldas(cambios);
     await registrarEntrada({tipo:'estado', texto:`${id} → estado: ${estado}`, adjuntos:[]});
     await leerRegistro(); spin(false); toast('Estado actualizado'); pintarBitacora();
   }catch(e){ spin(false); toast('Error: '+e.message,'err'); }
@@ -617,11 +626,13 @@ window.estadoTodos = async function(){
   const docs = REG.filter(r=>r.Expediente_ID===FICHA.id);
   spin(true,'Actualizando estados…');
   try{
+    const cambios = [];
     for(const d of docs){
-      await updateCelda(d._row,'Estado',estado);
-      await updateCelda(d._row,'Ultimo_Movimiento',ahora());
-      if(estado==='Entregado') await updateCelda(d._row,'Fecha_Fin',hoy());
+      cambios.push({row:d._row,col:'Estado',valor:estado});
+      cambios.push({row:d._row,col:'Ultimo_Movimiento',valor:ahora()});
+      if(estado==='Entregado') cambios.push({row:d._row,col:'Fecha_Fin',valor:hoy()});
     }
+    await updateCeldas(cambios);
     await registrarEntrada({tipo:'estado', texto:`Todos los documentos → estado: ${estado}`, adjuntos:[]});
     await leerRegistro(); spin(false); toast('Estados actualizados'); render(); await cargarHistorial();
   }catch(e){ spin(false); toast('Error: '+e.message,'err'); }
@@ -654,7 +665,7 @@ window.guardarNota = async function(){
     }
     const tipo = sub==='01_versiones'?'version': sub==='03_entregables'?'archivo': files.length?'archivo':'nota';
     await registrarEntrada({tipo, texto: txt || ('Se subieron '+adjuntos.length+' archivo(s) a '+sub), adjuntos});
-    for(const d of docs) await updateCelda(d._row,'Ultimo_Movimiento',ahora());
+    await updateCeldas(docs.map(d=>({row:d._row,col:'Ultimo_Movimiento',valor:ahora()})));
     await leerRegistro();
     $('#notaTxt').value=''; $('#notaFiles').value=''; PEGADOS=[]; $('#pegados').innerHTML='';
     spin(false); toast('Nota guardada'); pintarBitacora();
@@ -743,12 +754,14 @@ window.crearCarpetaLegacy = async function(){
     const hist = { expediente: FICHA.id, creado: ahora(), entradas: [{ ts: ahora(), autor: USER_EMAIL, tipo:'creacion', texto:'Carpeta creada para expediente importado del registro histórico.', adjuntos:[] }] };
     const hFile = await crearJson('historial.json', fExp, hist);
     const url = 'https://drive.google.com/drive/folders/'+fExp;
+    const cambios = [];
     for(const d of docs){
-      await updateCelda(d._row,'Carpeta_Drive_ID',fExp);
-      await updateCelda(d._row,'Carpeta_Drive_URL',url);
-      await updateCelda(d._row,'Historial_File_ID',hFile.id);
-      await updateCelda(d._row,'Ultimo_Movimiento',ahora());
+      cambios.push({row:d._row,col:'Carpeta_Drive_ID',valor:fExp});
+      cambios.push({row:d._row,col:'Carpeta_Drive_URL',valor:url});
+      cambios.push({row:d._row,col:'Historial_File_ID',valor:hFile.id});
+      cambios.push({row:d._row,col:'Ultimo_Movimiento',valor:ahora()});
     }
+    await updateCeldas(cambios);
     await leerRegistro(); spin(false); toast('Carpeta creada'); render(); await cargarHistorial();
   }catch(err){ spin(false); toast('Error: '+err.message,'err'); }
 };
