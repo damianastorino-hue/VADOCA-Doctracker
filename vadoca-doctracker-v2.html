@@ -96,6 +96,7 @@
     <nav id="mainNav" class="hidden">
       <button data-view="dashboard" class="active">Tablero</button>
       <button data-view="nuevo" id="navNuevo">+ Nuevo</button>
+      <button data-view="poes">Procedimientos</button>
       <button data-view="usuarios" id="navUsuarios" class="hidden">Usuarios</button>
       <button data-view="config">Ajustes</button>
     </nav>
@@ -135,6 +136,8 @@ function saveCfg(){ localStorage.setItem(LSKEY, JSON.stringify(CFG)); }
 let TOKEN = sessionStorage.getItem('vdt_token') || null;
 let YO = JSON.parse(sessionStorage.getItem('vdt_yo') || 'null');
 let REG = [];        // documentos desde el backend (snake_case)
+let POES = [];       // procedimientos VADOCA
+let POE = null;      // procedimiento abierto (codigo_base)
 let VIEW = 'dashboard';
 let FICHA = null;
 
@@ -175,6 +178,8 @@ function render(){
   if(YO?.debe_cambiar_clave){ app.innerHTML = vistaCambiarClave(true); return; }
   if(VIEW==='dashboard') app.innerHTML = vistaDashboard();
   else if(VIEW==='nuevo') app.innerHTML = vistaNuevo();
+  else if(VIEW==='poes') app.innerHTML = vistaPoes();
+  else if(VIEW==='poeFicha') app.innerHTML = vistaPoeFicha();
   else if(VIEW==='usuarios') app.innerHTML = vistaUsuarios();
   else if(VIEW==='config') app.innerHTML = vistaConfig();
   else if(VIEW==='ficha') app.innerHTML = vistaFicha();
@@ -530,6 +535,172 @@ window.crearNuevaVersion = async function(){
     const d = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/nueva-version',{method:'POST',body:{codigos,motivo}});
     await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
     spin(false); toast(d.nuevos.length+' documento(s) en nueva versión'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ============================================================
+   MÓDULO PROCEDIMIENTOS VADOCA
+   ============================================================ */
+const POE_ESTADOS = ['Borrador','En revisión','Aprobado','Vigente','Obsoleto'];
+async function cargarPoes(){ POES = await api('/api/procedimientos'); }
+function poesBase(){
+  const map = new Map();
+  for(const p of POES){
+    if(!map.has(p.codigo_base)) map.set(p.codigo_base, {base:p.codigo_base, titulo:p.titulo, versiones:[], carpeta:p.carpeta_drive_url, ult:p.ultimo_movimiento||''});
+    const e = map.get(p.codigo_base); e.versiones.push(p);
+    if((p.ultimo_movimiento||'') > e.ult) e.ult = p.ultimo_movimiento;
+  }
+  for(const e of map.values()){
+    e.versiones.sort((a,b)=>parseInt(b.version,10)-parseInt(a.version,10));
+    e.vigente = e.versiones.find(v=>v.estado==='Vigente') || null;
+  }
+  return [...map.values()].sort((a,b)=>a.base.localeCompare(b.base));
+}
+function diasAlVenc(p){ if(!p?.fecha_vencimiento) return null; return Math.ceil((new Date(p.fecha_vencimiento+'T00:00:00').getTime()-Date.now())/86400000); }
+function vistaPoes(){
+  cargarPoes().then(()=>{ if(VIEW==='poes') render(); });
+  const bases = poesBase();
+  const alertas = bases.map(b=>({b, d: diasAlVenc(b.vigente)})).filter(x=>x.d!==null && x.d<=30).sort((x,y)=>x.d-y.d);
+  return `<div class="card" style="${alertas.length?'border-color:var(--warn)':''}">
+    <h3>⏰ Vencimientos próximos (30 días)</h3>
+    ${alertas.length? alertas.map(({b,d})=>`<div style="display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap">
+        <span class="codigo">${esc(b.vigente.codigo)}</span>
+        <span style="flex:1;min-width:160px">${esc(b.titulo)}</span>
+        <span class="badge ${d<0?'b-bad':d<=7?'b-bad':'b-info'}">${d<0?('VENCIDO hace '+(-d)+' días'):('vence en '+d+' día'+(d===1?'':'s'))}</span>
+        ${esLector()?'':`<button class="ghost" onclick="event.stopPropagation();nuevaVersionPoe('${esc(b.base)}')">Iniciar revisión</button>`}
+      </div>`).join('')
+    : '<p class="muted" style="margin-top:8px">Ningún procedimiento vence en los próximos 30 días ✔</p>'}
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 style="flex:1">Procedimientos VADOCA</h2>
+      ${esLector()?'':`<button onclick="modalNuevoPoe()">+ Nuevo procedimiento</button>`}
+    </div>
+    ${bases.length? `<table class="docs-tabla" style="margin-top:12px"><thead><tr><th>Código</th><th>Título</th><th>Versión vigente</th><th>Vence</th><th>Versiones</th></tr></thead><tbody>
+      ${bases.map(b=>{
+        const d = diasAlVenc(b.vigente);
+        return `<tr style="cursor:pointer" onclick="abrirPoe('${esc(b.base)}')">
+          <td><span class="codigo">${esc(b.base)}</span></td>
+          <td>${esc(b.titulo)}</td>
+          <td>${b.vigente?`v${esc(b.vigente.version)} <span class="badge b-ok">Vigente</span>`:'<span class="badge b-gris">Sin versión vigente</span>'}</td>
+          <td>${b.vigente?.fecha_vencimiento? esc(b.vigente.fecha_vencimiento)+(d!==null&&d<=30?` <span class="badge ${d<0||d<=7?'b-bad':'b-info'}">${d<0?'vencido':d+'d'}</span>`:'') :'—'}</td>
+          <td class="muted">${b.versiones.length}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`
+    : '<p class="muted" style="margin-top:12px">Todavía no hay procedimientos. Creá el primero.</p>'}
+  </div>`;
+}
+window.modalNuevoPoe = function(){
+  modal(`<h3>Nuevo procedimiento</h3>
+    <label>Título</label><input id="pTitulo" maxlength="60" placeholder="Ej: Control de documentos y registros">
+    <label>Vigencia (meses)</label><input id="pVig" type="number" value="36" style="width:120px">
+    <p class="muted" style="margin-top:8px">El código se asigna solo (correlativo POE-###). Nace en Borrador; al marcarlo Vigente se calcula el vencimiento.</p>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="crearPoe()">Crear</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.crearPoe = async function(){
+  const titulo = $('#pTitulo').value.trim();
+  if(!titulo){ toast('Falta el título','err'); return; }
+  const vig = $('#pVig').value; cerrarModal(); spin(true,'Creando procedimiento…');
+  try{
+    const d = await api('/api/procedimientos',{method:'POST',body:{titulo, vigencia_meses:vig}});
+    await cargarPoes(); spin(false); toast(d.codigo+' creado'); abrirPoe(d.base);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.abrirPoe = async function(base){
+  POE = { base, bit:[] }; VIEW='poeFicha'; render();
+  try{ POE.bit = await api('/api/expedientes/'+encodeURIComponent(base)+'/bitacora'); pintarBitacoraPoe(); }
+  catch(e){ $('#bitacoraPoe').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+};
+function pintarBitacoraPoe(){
+  const el = $('#bitacoraPoe'); if(!el) return;
+  el.innerHTML = POE.bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
+    <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
+    <div class="ntx">${esc(n.texto)}</div>
+    ${(n.adjuntos||[]).length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
+  </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
+}
+function vistaPoeFicha(){
+  const vs = POES.filter(p=>p.codigo_base===POE.base).sort((a,b)=>parseInt(b.version,10)-parseInt(a.version,10));
+  if(!vs.length) return `<div class="card">Procedimiento no encontrado. <button class="ghost" onclick="VIEW='poes';render()">← Volver</button></div>`;
+  const t = vs[0], ro = esLector();
+  return `
+  <p><button class="ghost" onclick="VIEW='poes';render()">← Volver a procedimientos</button></p>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="codigo" style="font-size:15px">${esc(POE.base)}</span>
+      <h2 style="flex:1;min-width:200px;font-size:17px">${esc(t.titulo)}</h2>
+      ${t.carpeta_drive_url?`<a href="${esc(t.carpeta_drive_url)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>`:''}
+    </div>
+    <table class="docs-tabla"><thead><tr><th>Código</th><th>Estado</th><th>Vigente desde</th><th>Vence</th><th>Autor</th></tr></thead><tbody>
+      ${vs.map(p=>{
+        const d = diasAlVenc(p);
+        return `<tr>
+        <td><span class="codigo">${esc(p.codigo)}</span></td>
+        <td>${ro?esc(p.estado):`<select onchange="estadoPoe('${esc(p.codigo)}', this.value)">
+          ${POE_ESTADOS.map(s=>`<option ${p.estado===s?'selected':''}>${s}</option>`).join('')}</select>`}
+          ${p.estado==='Vigente'&&d!==null&&d<=30?` <span class="badge b-bad">${d<0?'vencido':'vence en '+d+'d'}</span>`:''}</td>
+        <td>${esc(p.fecha_vigencia||'—')}</td><td>${esc(p.fecha_vencimiento||'—')}</td>
+        <td class="muted" style="font-size:11px">${esc((p.autor||'').split('@')[0])}</td></tr>`;
+      }).join('')}
+    </tbody></table>
+    ${ro?'':`<p class="muted" style="margin-top:8px">
+      <button class="ghost" onclick="nuevaVersionPoe('${esc(POE.base)}')">⬆ Nueva versión</button>
+      · <button class="ghost" onclick="verificarCadenaPoe()">⛓ Verificar integridad</button></p>`}
+  </div>
+  ${ro?'':`<div class="card">
+    <h3>Agregar nota a la bitácora</h3>
+    <textarea id="poeNotaTxt" placeholder="Revisión, aprobación, distribución, capacitación al equipo…"></textarea>
+    <div class="row" style="margin-top:8px">
+      <div><label>Adjuntar archivos (opcional)</label><input type="file" id="poeNotaFiles" multiple></div>
+      <div><label>Guardar adjuntos en</label><select id="poeNotaSub">
+        <option value="01_versiones">01_versiones (borradores y revisiones)</option>
+        <option value="03_entregables">03_entregables (PDF firmado vigente)</option>
+        <option value="02_evidencias">02_evidencias (capacitaciones, difusión)</option>
+      </select></div>
+    </div>
+    <p style="margin-top:12px"><button onclick="guardarNotaPoe()">Guardar en bitácora</button></p>
+  </div>`}
+  <div class="card"><h3>Bitácora</h3><div id="bitacoraPoe" style="margin-top:10px"><p class="muted">Cargando…</p></div></div>`;
+}
+window.estadoPoe = async function(codigo, estado){
+  if(estado==='Vigente' && !confirm('Al marcar Vigente se fija la fecha de vigencia y vencimiento, y cualquier otra versión vigente pasa a Obsoleto. ¿Continuar?')){ render(); return; }
+  spin(true,'Actualizando…');
+  try{
+    await api('/api/procedimientos/'+encodeURIComponent(codigo)+'/estado',{method:'POST',body:{estado}});
+    await cargarPoes(); POE.bit = await api('/api/expedientes/'+encodeURIComponent(POE.base)+'/bitacora');
+    spin(false); toast('Estado actualizado'); render(); pintarBitacoraPoe();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.nuevaVersionPoe = async function(base){
+  const motivo = prompt('Motivo de la nueva versión (va a la bitácora):');
+  if(motivo===null) return;
+  spin(true,'Creando nueva versión…');
+  try{
+    const d = await api('/api/procedimientos/'+encodeURIComponent(base)+'/nueva-version',{method:'POST',body:{motivo}});
+    await cargarPoes(); spin(false); toast(d.codigo+' creado en Borrador'); abrirPoe(base);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.guardarNotaPoe = async function(){
+  const txt = $('#poeNotaTxt').value.trim();
+  const files = [...($('#poeNotaFiles').files||[])];
+  if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
+  const fd = new FormData();
+  fd.append('texto', txt); fd.append('subcarpeta', $('#poeNotaSub').value);
+  for(const f of files) fd.append('archivos', f, f.name);
+  spin(true,'Guardando nota…');
+  try{
+    await api('/api/procedimientos/'+encodeURIComponent(POE.base)+'/notas',{method:'POST',body:fd});
+    await cargarPoes(); POE.bit = await api('/api/expedientes/'+encodeURIComponent(POE.base)+'/bitacora');
+    spin(false); toast('Nota guardada'); render(); pintarBitacoraPoe();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.verificarCadenaPoe = async function(){
+  spin(true,'Verificando cadena…');
+  try{
+    const d = await api('/api/expedientes/'+encodeURIComponent(POE.base)+'/verificar');
+    spin(false);
+    if(d.ok) modal(`<h3>⛓ Integridad verificada</h3><p style="margin:12px 0">Las ${d.entradas} entradas forman una cadena válida.</p><p><button onclick="cerrarModal()">Cerrar</button></p>`);
+    else modal(`<h3 style="color:var(--bad)">⚠ Cadena rota</h3><p style="margin:12px 0">Falla en la entrada #${d.rota_en}: la bitácora fue alterada por fuera del sistema.</p><p><button onclick="cerrarModal()">Cerrar</button></p>`);
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
 
