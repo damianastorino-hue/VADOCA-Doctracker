@@ -542,7 +542,14 @@ window.crearNuevaVersion = async function(){
    MÓDULO PROCEDIMIENTOS VADOCA
    ============================================================ */
 const POE_ESTADOS = ['Borrador','En revisión','Aprobado','Vigente','Obsoleto'];
-async function cargarPoes(){ POES = await api('/api/procedimientos'); }
+let POE_RELS = [];
+async function cargarPoes(){ [POES, POE_RELS] = await Promise.all([api('/api/procedimientos'), api('/api/poe-relaciones')]); }
+function relacionadosDe(base){
+  const s = new Set();
+  for(const r of POE_RELS){ if(r.base===base) s.add(r.relacionado); if(r.relacionado===base) s.add(r.base); }
+  return [...s].sort();
+}
+function tituloDe(base){ const p = POES.find(x=>x.codigo_base===base); return p?p.titulo:''; }
 function poesBase(){
   const map = new Map();
   for(const p of POES){
@@ -680,6 +687,11 @@ function vistaPoeFicha(){
         <td class="muted" style="font-size:11px">${esc((p.autor||'').split('@')[0])}</td></tr>`;
       }).join('')}
     </tbody></table>
+    <div style="margin-top:12px;font-size:13px">
+      <span class="muted" style="font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px">Documentos relacionados:</span>
+      ${relacionadosDe(POE.base).map(b=>`<span class="codigo" style="margin-left:6px;cursor:pointer" onclick="abrirPoe('${esc(b)}')" title="${esc(tituloDe(b))}">${esc(b)}</span>`).join('') || ' <span class="muted">ninguno</span>'}
+      ${ro?'':` <button class="ghost" onclick="modalRelaciones()" style="font-size:12px">Editar</button>`}
+    </div>
     ${ro?'':`<p class="muted" style="margin-top:8px">
       <button class="ghost" onclick="nuevaVersionPoe('${esc(POE.base)}')">⬆ Nueva versión</button>
       · <button class="ghost" onclick="verificarCadenaPoe()">⛓ Verificar integridad</button></p>`}
@@ -708,13 +720,53 @@ window.estadoPoe = async function(codigo, estado){
     spin(false); toast('Estado actualizado'); render(); pintarBitacoraPoe();
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
-window.nuevaVersionPoe = async function(base){
-  const motivo = prompt('Motivo de la nueva versión (va a la bitácora):');
-  if(motivo===null) return;
-  spin(true,'Creando nueva versión…');
+window.modalRelaciones = function(){
+  const actuales = new Set(relacionadosDe(POE.base));
+  const otros = [...new Set(POES.map(p=>p.codigo_base))].filter(b=>b!==POE.base).sort();
+  modal(`<h3>Documentos relacionados de ${esc(POE.base)}</h3>
+    <p class="muted" style="margin:8px 0 12px">Marcá los POEs vinculados (se referencian mutuamente, o uno depende del otro). Al crear una nueva versión de cualquiera, el sistema te va a recordar evaluar el impacto sobre los relacionados.</p>
+    <div style="max-height:45vh;overflow-y:auto">
+    ${otros.length? otros.map(b=>`<label style="display:flex;align-items:center;gap:8px;margin:5px 0;font-weight:400">
+      <input type="checkbox" class="relChk" value="${esc(b)}" ${actuales.has(b)?'checked':''} style="width:auto">
+      <span class="codigo">${esc(b)}</span> <span class="muted" style="font-size:12px">${esc(tituloDe(b))}</span></label>`).join('')
+    : '<p class="muted">No hay otros POEs cargados todavía.</p>'}
+    </div>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="guardarRelaciones()">Guardar</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.guardarRelaciones = async function(){
+  const rels = $$('.relChk:checked').map(el=>el.value);
+  cerrarModal(); spin(true,'Guardando relaciones…');
+  try{
+    await api('/api/poe-relaciones/'+encodeURIComponent(POE.base),{method:'POST',body:{relacionados:rels}});
+    await cargarPoes(); POE.bit = await api('/api/expedientes/'+encodeURIComponent(POE.base)+'/bitacora');
+    spin(false); toast('Relaciones actualizadas'); render(); pintarBitacoraPoe();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.nuevaVersionPoe = function(base){
+  const rels = relacionadosDe(base);
+  modal(`<h3>Nueva versión de ${esc(base)}</h3>
+    ${rels.length?`<div class="card" style="background:#FBF0DA;border-color:var(--warn);margin:10px 0;padding:12px">
+      <b style="font-size:13px">⚠ Evaluá el impacto sobre los documentos relacionados:</b>
+      ${rels.map(b=>{
+        const vs = POES.filter(p=>p.codigo_base===b); const vig = vs.find(v=>v.estado==='Vigente');
+        return `<div style="margin:6px 0;font-size:13px"><span class="codigo">${esc(b)}</span> ${esc(tituloDe(b))} <span class="muted">— ${vig?('vigente v'+vig.version+(vig.fecha_vencimiento?', vence '+vig.fecha_vencimiento:'')):'sin versión vigente'}</span></div>`;
+      }).join('')}
+      <p class="muted" style="margin-top:8px;font-size:12px">No es obligatorio modificarlos, pero verificá si esta nueva versión los afecta. El aviso queda registrado en la bitácora.</p>
+    </div>`:'<p class="muted" style="margin:10px 0">Este POE no tiene documentos relacionados cargados.</p>'}
+    <label>Motivo de la nueva versión (va a la bitácora)</label>
+    <textarea id="nvPoeMotivo" placeholder="Ej: adecuación a la nueva plantilla y actualización de referencias"></textarea>
+    <p style="margin-top:14px;display:flex;gap:10px">
+      <button onclick="crearNuevaVersionPoe('${esc(base)}')">Crear nueva versión</button>
+      <button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.crearNuevaVersionPoe = async function(base){
+  const motivo = $('#nvPoeMotivo').value.trim();
+  cerrarModal(); spin(true,'Creando nueva versión…');
   try{
     const d = await api('/api/procedimientos/'+encodeURIComponent(base)+'/nueva-version',{method:'POST',body:{motivo}});
-    await cargarPoes(); spin(false); toast(d.codigo+' creado en Borrador'); abrirPoe(base);
+    await cargarPoes(); spin(false);
+    toast(d.codigo+' creado en Borrador'+(d.impactados?.length?' · impacto registrado sobre '+d.impactados.length+' POE(s)':''));
+    abrirPoe(base);
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
 window.guardarNotaPoe = async function(){
