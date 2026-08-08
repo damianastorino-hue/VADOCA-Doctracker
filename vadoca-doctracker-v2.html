@@ -395,7 +395,7 @@ function pintarBitacora(){
   el.innerHTML = FICHA.bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
     <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
     <div class="ntx">${esc(n.texto)}</div>
-    ${(n.adjuntos||[]).length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
+    ${(n.adjuntos||[]).length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener" title="Original: ${esc(a.original||a.nombre)}">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
   </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
 }
 function vistaFicha(){
@@ -575,6 +575,7 @@ function vistaPoes(){
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="flex:1">Procedimientos VADOCA</h2>
       ${esLector()?'':`<button onclick="modalNuevoPoe()">+ Nuevo procedimiento</button>`}
+      ${esAdmin()?`<button class="sec" onclick="modalImportarPoes()">Importación masiva</button>`:''}
     </div>
     ${bases.length? `<table class="docs-tabla" style="margin-top:12px"><thead><tr><th>Código</th><th>Título</th><th>Versión vigente</th><th>Vence</th><th>Versiones</th></tr></thead><tbody>
       ${bases.map(b=>{
@@ -592,18 +593,54 @@ function vistaPoes(){
 }
 window.modalNuevoPoe = function(){
   modal(`<h3>Nuevo procedimiento</h3>
+    <div class="row">
+      <div><label>Sector (texto libre)</label><input id="pSector" maxlength="6" placeholder="Ej: PGC, PRH, PTI" style="text-transform:uppercase"></div>
+      <div><label>Vigencia (meses)</label><input id="pVig" type="number" value="36"></div>
+    </div>
     <label>Título</label><input id="pTitulo" maxlength="60" placeholder="Ej: Control de documentos y registros">
-    <label>Vigencia (meses)</label><input id="pVig" type="number" value="36" style="width:120px">
-    <p class="muted" style="margin-top:8px">El código se asigna solo (correlativo POE-###). Nace en Borrador; al marcarlo Vigente se calcula el vencimiento.</p>
+    <p class="muted" style="margin-top:8px">Código: SECTOR-### con número correlativo global (independiente del sector). Nace en Borrador; al marcarlo Vigente se calcula el vencimiento.</p>
     <p style="margin-top:14px;display:flex;gap:10px"><button onclick="crearPoe()">Crear</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
 };
 window.crearPoe = async function(){
-  const titulo = $('#pTitulo').value.trim();
+  const titulo = $('#pTitulo').value.trim(), sector = $('#pSector').value.trim();
   if(!titulo){ toast('Falta el título','err'); return; }
+  if(!sector){ toast('Falta el sector (ej: PGC)','err'); return; }
   const vig = $('#pVig').value; cerrarModal(); spin(true,'Creando procedimiento…');
   try{
-    const d = await api('/api/procedimientos',{method:'POST',body:{titulo, vigencia_meses:vig}});
+    const d = await api('/api/procedimientos',{method:'POST',body:{titulo, sector, vigencia_meses:vig}});
     await cargarPoes(); spin(false); toast(d.codigo+' creado'); abrirPoe(d.base);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+const POES_PRECARGA = `PGC|1|1|Control de Documentos y Registros|2026-03-26|36
+PGD|1|1|Redacción, Revisión y Aprobación de Documentos GMP|2026-03-26|36
+PRH|1|1|Calificación y Selección del Personal Consultor|2026-03-26|36
+PVL|1|1|Calificación de Proveedores de Información Regulatoria|2026-03-26|36
+PCP|1|1|Revisión de Requisitos del Cliente|2026-03-26|36
+PMC|1|1|Gestión de Cambios (Change Control)|2026-03-26|36
+PPR|1|1|Calificación y Evaluación de Proveedores Externos|2026-03-26|36
+PTI|1|1|Gestión de Sistemas Informáticos Usados en Servicios|2026-03-26|36`;
+window.modalImportarPoes = function(){
+  modal(`<h3>Importación masiva de POEs</h3>
+    <p class="muted" style="margin:8px 0">Una línea por POE, campos separados por | :<br>
+    <b>SECTOR | NÚMERO | VERSIÓN | TÍTULO | FECHA_VIGENCIA (AAAA-MM-DD) | VIGENCIA_MESES</b><br>
+    Con fecha de vigencia entra como Vigente (vencimiento calculado); sin fecha, como Borrador. Te dejo precargados los 8 que ya conozco — completá el resto.</p>
+    <textarea id="impPoes" style="min-height:220px;font-family:var(--mono);font-size:12px">${esc(POES_PRECARGA)}</textarea>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="importarPoes()">Importar</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.importarPoes = async function(){
+  const filas = $('#impPoes').value.trim().split('\n').filter(Boolean).map(l=>{
+    const p = l.split('|').map(s=>s.trim());
+    return {sector:p[0], numero:p[1], version:p[2], titulo:p[3], fecha_vigencia:p[4]||'', vigencia_meses:p[5]||36};
+  });
+  if(!filas.length){ toast('No hay líneas','err'); return; }
+  if(!confirm('Se van a importar '+filas.length+' POEs. Los que ya existan se saltean. ¿Continuar?')) return;
+  cerrarModal(); spin(true,'Importando POEs…');
+  try{
+    const d = await api('/api/procedimientos/importar',{method:'POST',body:{filas}});
+    await cargarPoes(); spin(false);
+    toast(d.importados+' importados'+(d.saltados?', '+d.saltados+' ya existían':''));
+    if(d.errores?.length){ toast(d.errores.length+' con error (ver consola F12)','err'); console.warn(d.errores); }
+    render();
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
 window.abrirPoe = async function(base){
@@ -616,7 +653,7 @@ function pintarBitacoraPoe(){
   el.innerHTML = POE.bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
     <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
     <div class="ntx">${esc(n.texto)}</div>
-    ${(n.adjuntos||[]).length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
+    ${(n.adjuntos||[]).length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener" title="Original: ${esc(a.original||a.nombre)}">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
   </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
 }
 function vistaPoeFicha(){
