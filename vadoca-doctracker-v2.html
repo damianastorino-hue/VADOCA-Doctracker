@@ -442,6 +442,7 @@ function vistaFicha(){
       <button class="ghost" onclick="estadoTodos()">Aplicar a todos</button>
       · <button class="ghost" onclick="modalNuevaVersion()">⬆ Nueva versión</button>
       · <button class="ghost" onclick="modalCorregir()">✏ Corregir datos</button>
+      ${esAdmin()?`· <button class="ghost" onclick="modalReasignar()">🔁 Reasignar código</button>`:''}
       · <button class="ghost" onclick="verificarCadena()">⛓ Verificar integridad</button>
       · <button class="ghost" onclick="exportarAudit()">🖨 Exportar bitácora</button></p>`}
   </div>
@@ -503,6 +504,31 @@ window.guardarNota = async function(){
     await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/notas',{method:'POST',body:fd});
     await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
     PEGADOS=[]; spin(false); toast('Nota guardada'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.modalReasignar = function(){
+  const partes = FICHA.id.split('-');
+  modal(`<h3>🔁 Reasignar número de expediente</h3>
+    <p class="muted" style="margin:8px 0">Para expedientes con número mal asignado (típicamente conflictos del registro histórico). Cambia el código de <b>todos</b> los documentos del expediente, migra su bitácora y renombra la carpeta de Drive. Todo queda asentado con código viejo → nuevo. La cadena de integridad se preserva.</p>
+    <p>Actual: <span class="codigo">${esc(FICHA.id)}</span></p>
+    <label>Nuevo número (solo el número, ej: 013)</label>
+    <input id="rsNum" type="number" min="1" max="999" style="width:140px">
+    <label>Motivo (obligatorio)</label>
+    <textarea id="rsMotivo" placeholder="Ej: conflicto legacy — número 006 duplicado en el registro histórico; se reasigna al siguiente libre"></textarea>
+    <p style="margin-top:14px;display:flex;gap:10px">
+      <button class="rojo" onclick="reasignarExp()">Reasignar</button>
+      <button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.reasignarExp = async function(){
+  const nuevoNumero = $('#rsNum').value, motivo = $('#rsMotivo').value.trim();
+  if(!nuevoNumero){ toast('Falta el número nuevo','err'); return; }
+  if(!motivo){ toast('El motivo es obligatorio','err'); return; }
+  if(!confirm('Se reasigna el expediente '+FICHA.id+' al número '+String(nuevoNumero).padStart(3,'0')+'. ¿Confirmar?')) return;
+  cerrarModal(); spin(true,'Reasignando…');
+  try{
+    const d = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/reasignar',{method:'POST',body:{nuevoNumero,motivo}});
+    await cargarRegistro(); spin(false); toast('Reasignado a '+d.expediente);
+    abrirFicha(d.expediente);
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
 window.modalCorregir = function(){
