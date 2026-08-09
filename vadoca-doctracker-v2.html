@@ -97,6 +97,8 @@
       <button data-view="dashboard" class="active">Tablero</button>
       <button data-view="nuevo" id="navNuevo">+ Nuevo</button>
       <button data-view="poes">Procedimientos</button>
+      <button data-view="proyectos">Proyectos</button>
+      <button data-view="presupuestos" id="navPresu" class="hidden">Presupuestos</button>
       <button data-view="usuarios" id="navUsuarios" class="hidden">Usuarios</button>
       <button data-view="config">Ajustes</button>
     </nav>
@@ -138,6 +140,10 @@ let YO = JSON.parse(sessionStorage.getItem('vdt_yo') || 'null');
 let REG = [];        // documentos desde el backend (snake_case)
 let POES = [];       // procedimientos VADOCA
 let POE = null;      // procedimiento abierto (codigo_base)
+let PRESUS = [];     // presupuestos (solo admin)
+let PROYS = [];      // proyectos
+let PRESU = null;    // presupuesto abierto
+let PROY = null;     // proyecto abierto
 let VIEW = 'dashboard';
 let FICHA = null;
 
@@ -162,7 +168,7 @@ async function api(ruta, opt={}){
   if(!r.ok) throw new Error(data?.error || ('Error '+r.status));
   return data;
 }
-async function cargarRegistro(){ REG = await api('/api/registro'); }
+async function cargarRegistro(){ REG = await api('/api/registro'); try{ PROYS = await api('/api/proyectos'); }catch(e){} }
 function cerrarSesion(){ TOKEN=null; YO=null; sessionStorage.clear(); render(); }
 
 /* ============================================================
@@ -172,6 +178,7 @@ function render(){
   const app = $('#app');
   $('#mainNav').classList.toggle('hidden', !TOKEN);
   $('#navUsuarios').classList.toggle('hidden', !esAdmin());
+  $('#navPresu').classList.toggle('hidden', !esAdmin());
   $('#navNuevo').classList.toggle('hidden', esLector());
   $('#userChip').innerHTML = YO ? `${esc(YO.email)} <span class="rolchip">${esc(YO.rol)}</span> <button class="ghost" onclick="cerrarSesion()" style="font-size:12px">Salir</button>` : '';
   if(!TOKEN){ app.innerHTML = vistaLogin(); return; }
@@ -180,6 +187,10 @@ function render(){
   else if(VIEW==='nuevo') app.innerHTML = vistaNuevo();
   else if(VIEW==='poes') app.innerHTML = vistaPoes();
   else if(VIEW==='poeFicha') app.innerHTML = vistaPoeFicha();
+  else if(VIEW==='presupuestos') app.innerHTML = vistaPresupuestos();
+  else if(VIEW==='presuFicha') app.innerHTML = vistaPresuFicha();
+  else if(VIEW==='proyectos') app.innerHTML = vistaProyectos();
+  else if(VIEW==='proyFicha') app.innerHTML = vistaProyFicha();
   else if(VIEW==='usuarios') app.innerHTML = vistaUsuarios();
   else if(VIEW==='config') app.innerHTML = vistaConfig();
   else if(VIEW==='ficha') app.innerHTML = vistaFicha();
@@ -322,6 +333,8 @@ function vistaNuevo(){
       <div><label>Código interno del cliente (opcional)</label><input id="nInterno" placeholder="Ej: XLS144-00"></div>
       <div><label>Ref. presupuesto (opcional)</label><input id="nPresu" placeholder="Ej: 0068"></div>
     </div>
+    <label>Proyecto (opcional)</label>
+    <select id="nProy"><option value="">— Sin proyecto —</option>${PROYS.filter(p=>p.estado==='Activo').map(p=>`<option value="${esc(p.codigo)}">${esc(p.codigo)} · ${esc(p.nombre)}</option>`).join('')}</select>
     <p style="margin-top:18px"><button onclick="confirmarNuevo()">Revisar y crear →</button></p>
   </div>`;
 }
@@ -376,7 +389,8 @@ window.crearExpediente = async function(p){
     const clienteNombre = (CFG.clientes.find(c=>c[0]===p.cliente)||[])[1]||'';
     const d = await api('/api/expedientes',{method:'POST',body:{
       ttKey:p.ttKey, ttNombre:p.ttNombre, linea:p.linea, cliente:p.cliente, clienteNombre,
-      docs:p.docs, desc:p.desc, interno:$('#nInterno')?.value.trim()||'', presupuesto:$('#nPresu')?.value.trim()||''
+      docs:p.docs, desc:p.desc, interno:$('#nInterno')?.value.trim()||'', presupuesto:$('#nPresu')?.value.trim()||'',
+      proyecto:$('#nProy')?.value||''
     }});
     await cargarRegistro(); spin(false); toast('Expediente '+d.expediente+' creado');
     abrirFicha(d.expediente);
@@ -410,7 +424,11 @@ function vistaFicha(){
       <h2 style="flex:1;min-width:200px;font-size:17px">${esc(e.descripcion)}</h2>
       ${e.carpeta_drive_url?`<a href="${esc(e.carpeta_drive_url)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>`:''}
     </div>
-    <div class="muted" style="margin-top:8px">${esc(e.cliente_nombre)} · ${esc(e.tipo_trabajo)} ${e.codigo_interno_cliente?'· Cód. cliente: '+esc(e.codigo_interno_cliente):''} ${e.ref_presupuesto?'· Presup. '+esc(e.ref_presupuesto):''}</div>
+    <div class="muted" style="margin-top:8px">${esc(e.cliente_nombre)} · ${esc(e.tipo_trabajo)} ${e.codigo_interno_cliente?'· Cód. cliente: '+esc(e.codigo_interno_cliente):''} ${e.ref_presupuesto?'· Presup. '+esc(e.ref_presupuesto):''}
+      · Proyecto: ${e.proyecto?`<span class="codigo" style="font-size:11px;cursor:pointer" onclick="abrirProy('${esc(e.proyecto)}')">${esc(e.proyecto)}</span>`:'—'}
+      ${ro?'':`<select style="width:auto;padding:3px 6px;font-size:12px;margin-left:6px" onchange="asignarProyExp(this.value)">
+        <option value="">cambiar…</option><option value="__ninguno">— quitar —</option>
+        ${PROYS.map(p=>`<option value="${esc(p.codigo)}">${esc(p.codigo)}</option>`).join('')}</select>`}</div>
     <table class="docs-tabla"><thead><tr><th>Código</th><th>Doc</th><th>P/I</th><th>Autor</th><th>Estado</th></tr></thead><tbody>
       ${docs.map(d=>`<tr>
         <td><span class="codigo">${esc(d.codigo)}</span></td><td>${esc(d.tipo_doc)}</td><td>${esc(d.prot_inf)}</td>
@@ -444,6 +462,15 @@ function vistaFicha(){
   <div class="card"><h3>Bitácora</h3><div id="bitacora" style="margin-top:10px"><p class="muted">Cargando…</p></div></div>`;
 }
 let PEGADOS = [];
+window.asignarProyExp = async function(v){
+  if(!v) return;
+  spin(true,'Vinculando…');
+  try{
+    await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/proyecto',{method:'POST',body:{proyecto: v==='__ninguno'?'':v}});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    spin(false); toast('Proyecto actualizado'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
 window.cambiarEstado = async function(codigo, estado){
   spin(true,'Actualizando estado…');
   try{
@@ -790,6 +817,263 @@ window.verificarCadenaPoe = async function(){
     spin(false);
     if(d.ok) modal(`<h3>⛓ Integridad verificada</h3><p style="margin:12px 0">Las ${d.entradas} entradas forman una cadena válida.</p><p><button onclick="cerrarModal()">Cerrar</button></p>`);
     else modal(`<h3 style="color:var(--bad)">⚠ Cadena rota</h3><p style="margin:12px 0">Falla en la entrada #${d.rota_en}: la bitácora fue alterada por fuera del sistema.</p><p><button onclick="cerrarModal()">Cerrar</button></p>`);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ============================================================
+   MÓDULO PRESUPUESTOS (solo administradores)
+   ============================================================ */
+const PRESU_ESTADOS = ['Borrador','Enviado','Aceptado','Rechazado','Vencido'];
+async function cargarPresus(){ if(esAdmin()) PRESUS = await api('/api/presupuestos'); }
+function vistaPresupuestos(){
+  cargarPresus().then(()=>{ if(VIEW==='presupuestos') pintarListaPresus(); });
+  return `<div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 style="flex:1">Presupuestos</h2>
+      <button onclick="modalNuevoPresu()">+ Nuevo presupuesto</button>
+    </div>
+    <div id="presuLista" style="margin-top:12px"><p class="muted">Cargando…</p></div>
+  </div>`;
+}
+function pintarListaPresus(){
+  const el = $('#presuLista'); if(!el) return;
+  el.innerHTML = PRESUS.length? `<table class="docs-tabla"><thead><tr><th>Código</th><th>Cliente</th><th>Descripción</th><th>Monto</th><th>Estado</th><th>Últ. mov.</th></tr></thead><tbody>
+    ${PRESUS.map(p=>`<tr style="cursor:pointer" onclick="abrirPresu('${esc(p.codigo)}')">
+      <td><span class="codigo">${esc(p.codigo)}</span></td>
+      <td>${esc(p.cliente_nombre||'')}</td><td>${esc(p.descripcion)}</td>
+      <td>${p.monto?esc(p.moneda||'ARS')+' '+Number(p.monto).toLocaleString('es-AR'):'—'}</td>
+      <td><span class="badge ${p.estado==='Aceptado'?'b-ok':p.estado==='Rechazado'||p.estado==='Vencido'?'b-gris':'b-info'}">${esc(p.estado)}</span></td>
+      <td class="muted">${fFecha(p.ultimo_movimiento)}</td></tr>`).join('')}</tbody></table>`
+  : '<p class="muted">Sin presupuestos todavía. El próximo continúa tu serie: 0082.</p>';
+}
+window.modalNuevoPresu = function(){
+  modal(`<h3>Nuevo presupuesto</h3>
+    <label>Cliente</label><select id="prCliente">${CFG.clientes.map(c=>`<option value="${c[0]}">${c[0]} · ${esc(c[1])}</option>`).join('')}</select>
+    <label>Descripción</label><input id="prDesc" maxlength="100" placeholder="Ej: Validación de 10 planillas de cálculo - Fase 2">
+    <div class="row">
+      <div><label>Monto (opcional)</label><input id="prMonto" type="number" step="0.01"></div>
+      <div><label>Moneda</label><select id="prMoneda"><option>ARS</option><option>USD</option></select></div>
+    </div>
+    <p class="muted" style="margin-top:8px">El código se asigna solo, continuando la serie histórica.</p>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="crearPresu()">Crear</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.crearPresu = async function(){
+  const descripcion = $('#prDesc').value.trim();
+  if(!descripcion){ toast('Falta la descripción','err'); return; }
+  const cliente = $('#prCliente').value;
+  const body = { cliente, clienteNombre:(CFG.clientes.find(c=>c[0]===cliente)||[])[1]||'',
+    descripcion, monto:$('#prMonto').value||null, moneda:$('#prMoneda').value };
+  cerrarModal(); spin(true,'Creando presupuesto…');
+  try{
+    const d = await api('/api/presupuestos',{method:'POST',body});
+    await cargarPresus(); spin(false); toast('Presupuesto '+d.codigo+' creado'); abrirPresu(d.codigo);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.abrirPresu = async function(codigo){
+  PRESU = { codigo, bit:[] }; VIEW='presuFicha'; render();
+  try{ PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+codigo)+'/bitacora'); pintarBitacoraGen('bitacoraPresu', PRESU.bit); }
+  catch(e){ $('#bitacoraPresu').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+};
+function pintarBitacoraGen(id, bit){
+  const el = $('#'+id); if(!el) return;
+  el.innerHTML = bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
+    <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
+    <div class="ntx">${esc(n.texto)}</div>
+    ${(n.adjuntos||[]).length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener" title="Original: ${esc(a.original||a.nombre)}">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
+  </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
+}
+function vistaPresuFicha(){
+  const p = PRESUS.find(x=>x.codigo===PRESU.codigo);
+  if(!p) return `<div class="card">Presupuesto no encontrado. <button class="ghost" onclick="VIEW='presupuestos';render()">← Volver</button></div>`;
+  return `
+  <p><button class="ghost" onclick="VIEW='presupuestos';render()">← Volver a presupuestos</button></p>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="codigo" style="font-size:15px">${esc(p.codigo)}</span>
+      <h2 style="flex:1;min-width:200px;font-size:17px">${esc(p.descripcion)}</h2>
+      ${p.carpeta_drive_url?`<a href="${esc(p.carpeta_drive_url)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>`:''}
+    </div>
+    <div class="muted" style="margin-top:8px">${esc(p.cliente_nombre||'')} ${p.monto?'· '+esc(p.moneda||'ARS')+' '+Number(p.monto).toLocaleString('es-AR'):''} · Emitido: ${esc(p.fecha_emision||'—')}</div>
+    <p style="margin-top:10px">Estado:
+      <select style="width:auto" onchange="estadoPresu('${esc(p.codigo)}', this.value)">
+        ${PRESU_ESTADOS.map(s=>`<option ${p.estado===s?'selected':''}>${s}</option>`).join('')}</select>
+    </p>
+  </div>
+  <div class="card">
+    <h3>Agregar nota a la bitácora</h3>
+    <textarea id="prNotaTxt" placeholder="Envío al cliente, respuesta, negociación, aceptación…"></textarea>
+    <label>Adjuntar archivos (PDF del presupuesto, mail de aceptación…)</label><input type="file" id="prNotaFiles" multiple>
+    <p style="margin-top:12px"><button onclick="guardarNotaPresu()">Guardar en bitácora</button></p>
+  </div>
+  <div class="card"><h3>Bitácora</h3><div id="bitacoraPresu" style="margin-top:10px"><p class="muted">Cargando…</p></div></div>`;
+}
+window.estadoPresu = async function(codigo, estado){
+  spin(true,'Actualizando…');
+  try{
+    await api('/api/presupuestos/'+encodeURIComponent(codigo)+'/estado',{method:'POST',body:{estado}});
+    await cargarPresus(); PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+codigo)+'/bitacora');
+    spin(false); toast('Estado actualizado'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.guardarNotaPresu = async function(){
+  const txt = $('#prNotaTxt').value.trim();
+  const files = [...($('#prNotaFiles').files||[])];
+  if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
+  const fd = new FormData(); fd.append('texto',txt); fd.append('subcarpeta','02_evidencias');
+  for(const f of files) fd.append('archivos', f, f.name);
+  spin(true,'Guardando…');
+  try{
+    await api('/api/presupuestos/'+encodeURIComponent(PRESU.codigo)+'/notas',{method:'POST',body:fd});
+    await cargarPresus(); PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+PRESU.codigo)+'/bitacora');
+    spin(false); toast('Nota guardada'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ============================================================
+   MÓDULO PROYECTOS
+   ============================================================ */
+async function cargarProys(){ PROYS = await api('/api/proyectos'); }
+function vistaProyectos(){
+  Promise.all([cargarProys(), cargarPresus()]).then(()=>{ if(VIEW==='proyectos') pintarListaProys(); });
+  return `<div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 style="flex:1">Proyectos</h2>
+      ${esLector()?'':`<button onclick="modalNuevoProy()">+ Nuevo proyecto</button>`}
+    </div>
+    <div id="proyLista" style="margin-top:12px"><p class="muted">Cargando…</p></div>
+  </div>`;
+}
+function pintarListaProys(){
+  const el = $('#proyLista'); if(!el) return;
+  el.innerHTML = PROYS.length? `<table class="docs-tabla"><thead><tr><th>Código</th><th>Nombre</th><th>Cliente</th><th>Estado</th><th>Presup.</th><th>Expedientes</th></tr></thead><tbody>
+    ${PROYS.map(p=>{
+      const nExp = new Set(REG.filter(r=>r.proyecto===p.codigo).map(r=>r.expediente_id)).size;
+      return `<tr style="cursor:pointer" onclick="abrirProy('${esc(p.codigo)}')">
+      <td><span class="codigo">${esc(p.codigo)}</span></td>
+      <td>${esc(p.nombre)}</td><td>${esc(p.cliente_nombre||'')}</td>
+      <td><span class="badge ${p.estado==='Activo'?'b-info':p.estado==='Cerrado'?'b-gris':'b-bad'}">${esc(p.estado)}</span></td>
+      <td class="muted">${(p.presupuestos||[]).join(', ')||'—'}</td>
+      <td class="muted">${nExp}</td></tr>`;
+    }).join('')}</tbody></table>`
+  : '<p class="muted">Sin proyectos todavía.</p>';
+}
+window.modalNuevoProy = function(){
+  modal(`<h3>Nuevo proyecto</h3>
+    <label>Nombre</label><input id="pjNombre" maxlength="80" placeholder="Ej: LKM Fase 2 - Validación Control de Calidad">
+    <label>Cliente</label><select id="pjCliente">${CFG.clientes.map(c=>`<option value="${c[0]}">${c[0]} · ${esc(c[1])}</option>`).join('')}</select>
+    <label>Alcance y cronología (informativo)</label><textarea id="pjAlcance" placeholder="Resumen del alcance, hitos previstos, condiciones particulares…"></textarea>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="crearProy()">Crear</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.crearProy = async function(){
+  const nombre = $('#pjNombre').value.trim();
+  if(!nombre){ toast('Falta el nombre','err'); return; }
+  const cliente = $('#pjCliente').value;
+  const body = { nombre, cliente, clienteNombre:(CFG.clientes.find(c=>c[0]===cliente)||[])[1]||'', alcance:$('#pjAlcance').value.trim() };
+  cerrarModal(); spin(true,'Creando proyecto…');
+  try{
+    const d = await api('/api/proyectos',{method:'POST',body});
+    await cargarProys(); spin(false); toast(d.codigo+' creado'); abrirProy(d.codigo);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.abrirProy = async function(codigo){
+  PROY = { codigo, bit:[] }; VIEW='proyFicha'; render();
+  try{ PROY.bit = await api('/api/expedientes/'+encodeURIComponent(codigo)+'/bitacora'); pintarBitacoraGen('bitacoraProy', PROY.bit); }
+  catch(e){ $('#bitacoraProy').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+};
+function vistaProyFicha(){
+  const p = PROYS.find(x=>x.codigo===PROY.codigo);
+  if(!p) return `<div class="card">Proyecto no encontrado. <button class="ghost" onclick="VIEW='proyectos';render()">← Volver</button></div>`;
+  const exps = [...new Set(REG.filter(r=>r.proyecto===p.codigo).map(r=>r.expediente_id))];
+  const ro = esLector();
+  return `
+  <p><button class="ghost" onclick="VIEW='proyectos';render()">← Volver a proyectos</button></p>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="codigo" style="font-size:15px">${esc(p.codigo)}</span>
+      <h2 style="flex:1;min-width:200px;font-size:17px">${esc(p.nombre)}</h2>
+      ${p.carpeta_drive_url?`<a href="${esc(p.carpeta_drive_url)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>`:''}
+    </div>
+    <div class="muted" style="margin-top:8px">${esc(p.cliente_nombre||'')}
+      · Presupuestos: ${(p.presupuestos||[]).map(x=>`<span class="codigo" style="font-size:11px">${esc(x)}</span>`).join(' ')||'—'}
+      ${esAdmin()?` <button class="ghost" style="font-size:12px" onclick="modalPresusProy()">Editar</button>`:''}
+    </div>
+    ${ro?'':`<p style="margin-top:10px">Estado:
+      <select style="width:auto" onchange="actualizarProy({estado:this.value})">
+        ${['Activo','Pausado','Cerrado'].map(s=>`<option ${p.estado===s?'selected':''}>${s}</option>`).join('')}</select></p>`}
+    <label>Alcance y cronología (informativo)</label>
+    <textarea id="pjAlcanceEdit" ${ro?'disabled':''}>${esc(p.alcance||'')}</textarea>
+    ${ro?'':`<p style="margin-top:8px"><button class="sec" onclick="actualizarProy({alcance:$('#pjAlcanceEdit').value})">Guardar alcance</button></p>`}
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h3 style="flex:1">Expedientes del proyecto (${exps.length})</h3>
+      ${!ro && (p.presupuestos||[]).length?`<button class="sec" onclick="autovincular()">Autovincular por presupuesto</button>`:''}
+    </div>
+    ${exps.length? exps.map(id=>{
+      const docs = REG.filter(r=>r.expediente_id===id);
+      const activos = docs.filter(d=>!CFG.estadosFinales.includes(d.estado)).length;
+      return `<div class="exp" onclick="abrirFicha('${esc(id)}')" style="margin-top:8px">
+        <div class="top"><span class="codigo">${esc(id)}</span><span class="desc">${esc(docs[0].descripcion)}</span>
+        <span class="badge ${activos?'b-info':'b-gris'}">${activos?activos+' activos':'cerrado'}</span></div></div>`;
+    }).join('') : '<p class="muted" style="margin-top:8px">Sin expedientes vinculados. Vinculalos al crearlos, desde su ficha, o con la autovinculación por presupuesto.</p>'}
+  </div>
+  ${ro?'':`<div class="card">
+    <h3>Agregar nota a la bitácora</h3>
+    <textarea id="pjNotaTxt" placeholder="Hitos, reuniones, acuerdos con el cliente…"></textarea>
+    <label>Adjuntar archivos (opcional)</label><input type="file" id="pjNotaFiles" multiple>
+    <p style="margin-top:12px"><button onclick="guardarNotaProy()">Guardar en bitácora</button></p>
+  </div>`}
+  <div class="card"><h3>Bitácora</h3><div id="bitacoraProy" style="margin-top:10px"><p class="muted">Cargando…</p></div></div>`;
+}
+window.actualizarProy = async function(body){
+  spin(true,'Guardando…');
+  try{
+    await api('/api/proyectos/'+encodeURIComponent(PROY.codigo)+'/actualizar',{method:'POST',body});
+    await cargarProys(); PROY.bit = await api('/api/expedientes/'+encodeURIComponent(PROY.codigo)+'/bitacora');
+    spin(false); toast('Proyecto actualizado'); render(); pintarBitacoraGen('bitacoraProy', PROY.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.modalPresusProy = function(){
+  const p = PROYS.find(x=>x.codigo===PROY.codigo);
+  const actuales = new Set(p.presupuestos||[]);
+  modal(`<h3>Presupuestos del proyecto</h3>
+    <div style="max-height:45vh;overflow-y:auto;margin-top:10px">
+    ${PRESUS.length? PRESUS.map(pr=>`<label style="display:flex;align-items:center;gap:8px;margin:5px 0;font-weight:400">
+      <input type="checkbox" class="ppChk" value="${esc(pr.codigo)}" ${actuales.has(pr.codigo)?'checked':''} style="width:auto">
+      <span class="codigo">${esc(pr.codigo)}</span> <span class="muted" style="font-size:12px">${esc(pr.descripcion)} — ${esc(pr.estado)}</span></label>`).join('')
+    : '<p class="muted">No hay presupuestos cargados.</p>'}
+    </div>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="guardarPresusProy()">Guardar</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.guardarPresusProy = async function(){
+  const lista = $$('.ppChk:checked').map(el=>el.value);
+  cerrarModal(); spin(true,'Vinculando…');
+  try{
+    await api('/api/proyectos/'+encodeURIComponent(PROY.codigo)+'/presupuestos',{method:'POST',body:{presupuestos:lista}});
+    await cargarProys(); PROY.bit = await api('/api/expedientes/'+encodeURIComponent(PROY.codigo)+'/bitacora');
+    spin(false); toast('Presupuestos vinculados'); render(); pintarBitacoraGen('bitacoraProy', PROY.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.autovincular = async function(){
+  spin(true,'Autovinculando expedientes…');
+  try{
+    const d = await api('/api/proyectos/'+encodeURIComponent(PROY.codigo)+'/autovincular',{method:'POST'});
+    await cargarRegistro(); await cargarProys();
+    spin(false); toast(d.expedientes+' expediente(s) vinculados'); render(); 
+    PROY.bit = await api('/api/expedientes/'+encodeURIComponent(PROY.codigo)+'/bitacora'); pintarBitacoraGen('bitacoraProy', PROY.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.guardarNotaProy = async function(){
+  const txt = $('#pjNotaTxt').value.trim();
+  const files = [...($('#pjNotaFiles').files||[])];
+  if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
+  const fd = new FormData(); fd.append('texto',txt); fd.append('subcarpeta','02_evidencias');
+  for(const f of files) fd.append('archivos', f, f.name);
+  spin(true,'Guardando…');
+  try{
+    await api('/api/proyectos/'+encodeURIComponent(PROY.codigo)+'/notas',{method:'POST',body:fd});
+    await cargarProys(); PROY.bit = await api('/api/expedientes/'+encodeURIComponent(PROY.codigo)+'/bitacora');
+    spin(false); toast('Nota guardada'); render(); pintarBitacoraGen('bitacoraProy', PROY.bit);
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
 
