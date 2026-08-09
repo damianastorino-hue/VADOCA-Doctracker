@@ -67,6 +67,7 @@
   .nota.tipo-creacion{border-left-color:var(--tq)}
   .nota.tipo-estado{border-left-color:var(--warn)}
   .nota.tipo-version{border-left-color:var(--ok)}
+  .nota.tipo-correccion{border-left-color:var(--bad)}
   .nota .nts{font-size:11px;color:var(--g2);font-family:var(--mono)}
   .nota .ntx{margin:5px 0;white-space:pre-wrap}
   .nota .adj a{font-size:12px;margin-right:10px}
@@ -440,6 +441,7 @@ function vistaFicha(){
       <select id="estadoMasivo" style="width:auto;padding:5px 8px;font-size:13px">${CFG.estados.map(s=>`<option>${s}</option>`).join('')}</select>
       <button class="ghost" onclick="estadoTodos()">Aplicar a todos</button>
       · <button class="ghost" onclick="modalNuevaVersion()">⬆ Nueva versión</button>
+      · <button class="ghost" onclick="modalCorregir()">✏ Corregir datos</button>
       · <button class="ghost" onclick="verificarCadena()">⛓ Verificar integridad</button>
       · <button class="ghost" onclick="exportarAudit()">🖨 Exportar bitácora</button></p>`}
   </div>
@@ -501,6 +503,29 @@ window.guardarNota = async function(){
     await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/notas',{method:'POST',body:fd});
     await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
     PEGADOS=[]; spin(false); toast('Nota guardada'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.modalCorregir = function(){
+  const e = REG.filter(r=>r.expediente_id===FICHA.id)[0];
+  modal(`<h3>✏ Corregir datos del expediente</h3>
+    <p class="muted" style="margin:8px 0">Los cambios quedan asentados en la bitácora con el antes y el después. <b>El código VADOCA no se puede editar</b>: si el código fue mal asignado, cancelá el documento con una nota y creá el correcto.</p>
+    <label>Descripción</label><input id="cxDesc" value="${esc(e.descripcion)}" maxlength="60">
+    <label>Código interno del cliente</label><input id="cxInterno" value="${esc(e.codigo_interno_cliente||'')}">
+    <label>Ref. presupuesto</label><input id="cxPresu" value="${esc(e.ref_presupuesto||'')}">
+    <label>Observaciones</label><textarea id="cxObs">${esc(e.observaciones||'')}</textarea>
+    <label>Motivo de la corrección (obligatorio)</label><textarea id="cxMotivo" placeholder="Ej: el archivo referenciaba el código interno de otro equipo; se corrige según documento fuente"></textarea>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="corregirExp()">Aplicar corrección</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.corregirExp = async function(){
+  const motivo = $('#cxMotivo').value.trim();
+  if(!motivo){ toast('El motivo es obligatorio','err'); return; }
+  const body = { descripcion:$('#cxDesc').value.trim(), interno:$('#cxInterno').value.trim(),
+                 presupuesto:$('#cxPresu').value.trim(), observaciones:$('#cxObs').value.trim(), motivo };
+  cerrarModal(); spin(true,'Aplicando corrección…');
+  try{
+    await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/corregir',{method:'POST',body});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    spin(false); toast('Corrección registrada'); render(); pintarBitacora();
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
 window.verificarCadena = async function(){
@@ -831,6 +856,7 @@ function vistaPresupuestos(){
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="flex:1">Presupuestos</h2>
       <button onclick="modalNuevoPresu()">+ Nuevo presupuesto</button>
+      <button class="sec" onclick="reconstruirPresus()">Reconstruir históricos</button>
     </div>
     <div id="presuLista" style="margin-top:12px"><p class="muted">Cargando…</p></div>
   </div>`;
@@ -846,6 +872,16 @@ function pintarListaPresus(){
       <td class="muted">${fFecha(p.ultimo_movimiento)}</td></tr>`).join('')}</tbody></table>`
   : '<p class="muted">Sin presupuestos todavía. El próximo continúa tu serie: 0082.</p>';
 }
+window.reconstruirPresus = async function(){
+  if(!confirm('Se crean los presupuestos históricos a partir de las referencias que ya existen en el registro de expedientes (estado: Aceptado). Los ya existentes se saltean. ¿Continuar?')) return;
+  spin(true,'Reconstruyendo presupuestos…');
+  try{
+    const d = await api('/api/presupuestos/importar-desde-registro',{method:'POST'});
+    await cargarPresus(); spin(false);
+    toast(d.creados+' presupuesto(s) reconstruidos'+(d.saltados?', '+d.saltados+' ya existían':''));
+    pintarListaPresus();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
 window.modalNuevoPresu = function(){
   modal(`<h3>Nuevo presupuesto</h3>
     <label>Cliente</label><select id="prCliente">${CFG.clientes.map(c=>`<option value="${c[0]}">${c[0]} · ${esc(c[1])}</option>`).join('')}</select>
