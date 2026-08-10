@@ -882,7 +882,8 @@ function vistaPresupuestos(){
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="flex:1">Presupuestos</h2>
       <button onclick="modalNuevoPresu()">+ Nuevo presupuesto</button>
-      <button class="sec" onclick="reconstruirPresus()">Reconstruir históricos</button>
+      <button class="sec" onclick="modalImportarPresus()">Importación masiva</button>
+      <button class="sec" onclick="modalImportarPresus()">Importación masiva</button>
     </div>
     <div id="presuLista" style="margin-top:12px"><p class="muted">Cargando…</p></div>
   </div>`;
@@ -898,6 +899,64 @@ function pintarListaPresus(){
       <td class="muted">${fFecha(p.ultimo_movimiento)}</td></tr>`).join('')}</tbody></table>`
   : '<p class="muted">Sin presupuestos todavía. El próximo continúa tu serie: 0082.</p>';
 }
+const PRESUS_PRECARGA = `0005|001|2022-04-21|Validación Técnica Analítica HPLC|65960|ARS|Aceptado
+0006|001|2022-05-27|AR almacenamiento cápsulas|44000|ARS|Aceptado
+0008|001|2022-06-06|DQ Área Productiva Lecho Fluido (no realizado)|126350|ARS|Rechazado
+0017|001|2022-08-10|AR equivalencia equipos productivos de misma clase|35000|ARS|Aceptado
+0019|001|2022-08-18|Técnica HPLC|90000|ARS|Aceptado
+0021|001|2022-11-06|AR prioridad estabilidades MP, microgránulos y excipientes (2 etapas)|145000|ARS|Aceptado
+0032|001|2023-07-04|Validación de planillas de cálculo|199500|ARS|Aceptado
+0035|001|2023-07-04|Validación de planillas de cálculo|238500|ARS|Aceptado
+0036|001|2024-07-24|AR actividad de agua en reemplazo de controles microbiológicos|1020000|ARS|Aceptado
+0037|001|2023-08-31|AR equivalencia equipos móviles y fijos|460000|ARS|Aceptado
+0040|001|2023-09-12|AR equivalencia equipos fijos|125000|ARS|Aceptado
+0043|001|2024-09-24|AR frecuencia monitoreo de limpieza|630000|ARS|Aceptado
+0052|001|2024-12-20|AR criticidad extracciones localizadas Avellaneda|943500|ARS|Aceptado
+0055|001|2025-01-29|Actualización AR Validación de Limpieza|170000|ARS|Aceptado
+0058|001|2025-02-03|AR equivalencia encapsuladoras Avellaneda|1125000|ARS|Aceptado
+0060|001|2025-02-20|Actualización alcance AR equivalencia Lecho Fluido|637500|ARS|Aceptado
+0065|001|2025-05-07|Calificaciones Aire Comprimido + Tamizadora + LF05|2916800|ARS|Aceptado
+0066|001|2025-05-15|AR lotes envases secundarios|595000|ARS|Aceptado
+0067|001|2025-06-11|Humidificadores DQ + IQ/OQ|4020000|ARS|Aceptado
+0068|002|2025-08-25|Validación 96 planillas (etapas 2025-2026)|28800|USD|Aceptado
+0069|001|2025-07-17|AR ciclos de autoclave|930000|ARS|Aceptado
+0070|001|2025-07-25|AR frecuencia de recalificación|930000|ARS|Aceptado
+0071|001|2025-08-06|Actualización DQ Agua Purificada + DQ Área Mezclado (sin OC)|1835872|ARS|Vencido
+0074|002|2025-08-25|Validación 8 planillas|2400|USD|Aceptado
+0075|003|2025-11-01|Diagnóstico Virtual de Gestión y Documentación|750|USD|Vencido
+0076|002|2026-01-19|Desarrollo planilla + RU + IQ/OQ/PQ (actualizado al 0083)|1900|USD|Vencido
+0077|001|2026-01-26|Validación analítica método por titulación y ensayo de disolución|600|USD|Vencido
+0078|001|2026-04-23|Extensión AR equivalencia LF 1-3 hacia LF 4-5|450|USD|Vencido
+0079|001|2026-04-23|AR Equivalencia LF Avellaneda/Ezeiza|900|USD|Aceptado
+0080|002|2026-04-28|Validación 60 planillas Desarrollo Analítico LKM|29750|USD|Enviado
+0081|001|2026-05-06|Actualización AR LF + Estabilidad MP|250|USD|Aceptado
+0082|002|2026-01-26|Validación 42 planillas (2 normales + 40 estadísticas)|26600|USD|Enviado
+0083|002|2026-05-28|Desarrollo planilla + RU + IQ/OQ/PQ + impresión|2500|USD|Aceptado`;
+window.modalImportarPresus = function(){
+  modal(`<h3>Importación masiva de presupuestos</h3>
+    <p class="muted" style="margin:8px 0">Una línea por presupuesto: <b>CÓDIGO | CLIENTE | FECHA (AAAA-MM-DD) | DESCRIPCIÓN | MONTO | MONEDA | ESTADO</b><br>
+    Estados: Borrador, Enviado, Aceptado, Rechazado, Vencido. Te dejo precargada la serie completa de tu planilla histórica (incluidos rechazados y sin respuesta) — revisá y ajustá lo que haga falta antes de importar. Los ya reconstruidos se completan con estos datos; los cargados a mano no se tocan.</p>
+    <textarea id="impPresus" style="min-height:240px;font-family:var(--mono);font-size:11px">${esc(PRESUS_PRECARGA)}</textarea>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="importarPresus()">Importar</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.importarPresus = async function(){
+  const filas = $('#impPresus').value.trim().split('\n').filter(Boolean).map(l=>{
+    const p = l.split('|').map(s=>s.trim());
+    const cliente = p[1]||'';
+    return {codigo:p[0], cliente, clienteNombre:(CFG.clientes.find(c=>c[0]===cliente)||[])[1]||'',
+            fecha:p[2]||'', descripcion:p[3]||'', monto:p[4]||null, moneda:p[5]||'ARS', estado:p[6]||'Aceptado'};
+  });
+  if(!filas.length){ toast('No hay líneas','err'); return; }
+  if(!confirm('Se importan/completan '+filas.length+' presupuestos. ¿Continuar?')) return;
+  cerrarModal(); spin(true,'Importando presupuestos…');
+  try{
+    const d = await api('/api/presupuestos/importar',{method:'POST',body:{filas}});
+    await cargarPresus(); spin(false);
+    toast(d.creados+' creados, '+d.actualizados+' completados'+(d.saltados?', '+d.saltados+' sin cambios':''));
+    if(d.errores?.length){ toast(d.errores.length+' con error (ver consola F12)','err'); console.warn(d.errores); }
+    pintarListaPresus();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
 window.reconstruirPresus = async function(){
   if(!confirm('Se crean los presupuestos históricos a partir de las referencias que ya existen en el registro de expedientes (estado: Aceptado). Los ya existentes se saltean. ¿Continuar?')) return;
   spin(true,'Reconstruyendo presupuestos…');
