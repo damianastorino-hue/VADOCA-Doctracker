@@ -660,7 +660,6 @@ function vistaPoes(){
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="flex:1">Procedimientos VADOCA</h2>
       ${esLector()?'':`<button onclick="modalNuevoPoe()">+ Nuevo procedimiento</button>`}
-      ${esAdmin()?`<button class="sec" onclick="modalImportarPoes()">Importación masiva</button>`:''}
     </div>
     ${bases.length? `<table class="docs-tabla" style="margin-top:12px"><thead><tr><th>Código</th><th>Título</th><th>Versión vigente</th><th>Vence</th><th>Versiones</th></tr></thead><tbody>
       ${bases.map(b=>{
@@ -882,8 +881,6 @@ function vistaPresupuestos(){
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="flex:1">Presupuestos</h2>
       <button onclick="modalNuevoPresu()">+ Nuevo presupuesto</button>
-      <button class="sec" onclick="modalImportarPresus()">Importación masiva</button>
-      <button class="sec" onclick="modalImportarPresus()">Importación masiva</button>
     </div>
     <div id="presuLista" style="margin-top:12px"><p class="muted">Cargando…</p></div>
   </div>`;
@@ -1270,11 +1267,6 @@ function vistaConfig(){
       <button class="sec" onclick="render(); VIEW='config';">​</button>
     </p>
   </div>
-  ${esAdmin()?`<div class="card">
-    <h3>Herramientas del administrador</h3>
-    <p class="muted" style="margin:6px 0 12px">Recupera las bitácoras que la versión anterior guardó como historial.json en Drive y las incorpora a la cadena de integridad. Solo actúa sobre expedientes que aún no tienen bitácora — se puede ejecutar tranquilo.</p>
-    <button class="sec" onclick="importarHistoriales()">Recuperar bitácoras de la v1</button>
-  </div>`:''}
   <div class="card">
     <h3>Mi cuenta</h3>
     <p class="muted" style="margin:6px 0 12px">${esc(YO.email)} — rol ${esc(YO.rol)}</p>
