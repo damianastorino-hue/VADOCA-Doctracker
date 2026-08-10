@@ -1012,9 +1012,10 @@ function vistaPresuFicha(){
       ${p.carpeta_drive_url?`<a href="${esc(p.carpeta_drive_url)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>`:''}
     </div>
     <div class="muted" style="margin-top:8px">${esc(p.cliente_nombre||'')} ${p.monto?'· '+esc(p.moneda||'ARS')+' '+Number(p.monto).toLocaleString('es-AR'):''} · Emitido: ${esc(p.fecha_emision||'—')}</div>
-    <p style="margin-top:10px">Estado:
+    <p style="margin-top:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">Estado:
       <select style="width:auto" onchange="estadoPresu('${esc(p.codigo)}', this.value)">
         ${PRESU_ESTADOS.map(s=>`<option ${p.estado===s?'selected':''}>${s}</option>`).join('')}</select>
+      <button class="ghost" onclick="modalEditarPresu()">✏ Editar datos</button>
     </p>
   </div>
   <div class="card">
@@ -1025,6 +1026,32 @@ function vistaPresuFicha(){
   </div>
   <div class="card"><h3>Bitácora</h3><div id="bitacoraPresu" style="margin-top:10px"><p class="muted">Cargando…</p></div></div>`;
 }
+window.modalEditarPresu = function(){
+  const p = PRESUS.find(x=>x.codigo===PRESU.codigo);
+  modal(`<h3>✏ Editar presupuesto ${esc(p.codigo)}</h3>
+    <p class="muted" style="margin:8px 0">Los cambios quedan en la bitácora con el antes y el después. El código no se edita.</p>
+    <label>Cliente</label><select id="epCliente">${CFG.clientes.map(c=>`<option value="${c[0]}" ${p.cliente_num===c[0]?'selected':''}>${c[0]} · ${esc(c[1])}</option>`).join('')}</select>
+    <label>Descripción</label><input id="epDesc" value="${esc(p.descripcion)}" maxlength="100">
+    <div class="row">
+      <div><label>Monto</label><input id="epMonto" type="number" step="0.01" value="${p.monto??''}"></div>
+      <div><label>Moneda</label><select id="epMoneda"><option ${p.moneda==='ARS'?'selected':''}>ARS</option><option ${p.moneda==='USD'?'selected':''}>USD</option></select></div>
+    </div>
+    <label>Fecha de emisión</label><input id="epFecha" type="date" value="${esc(p.fecha_emision||'')}">
+    <label>Motivo (opcional)</label><input id="epMotivo" placeholder="Ej: se completa fecha faltante del histórico">
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="editarPresu()">Guardar cambios</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.editarPresu = async function(){
+  const cliente = $('#epCliente').value;
+  const body = { cliente, clienteNombre:(CFG.clientes.find(c=>c[0]===cliente)||[])[1]||'',
+    descripcion:$('#epDesc').value.trim(), monto:$('#epMonto').value, moneda:$('#epMoneda').value,
+    fecha_emision:$('#epFecha').value, motivo:$('#epMotivo').value.trim() };
+  cerrarModal(); spin(true,'Guardando…');
+  try{
+    await api('/api/presupuestos/'+encodeURIComponent(PRESU.codigo)+'/corregir',{method:'POST',body});
+    await cargarPresus(); PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+PRESU.codigo)+'/bitacora');
+    spin(false); toast('Presupuesto actualizado'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
 window.estadoPresu = async function(codigo, estado){
   spin(true,'Actualizando…');
   try{
