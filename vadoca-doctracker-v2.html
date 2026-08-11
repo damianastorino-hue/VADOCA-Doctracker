@@ -100,6 +100,8 @@
       <button data-view="poes">Procedimientos</button>
       <button data-view="proyectos">Proyectos</button>
       <button data-view="presupuestos" id="navPresu" class="hidden">Presupuestos</button>
+      <button data-view="indicadores">Indicadores</button>
+      <button data-view="auditoria" id="navAudit" class="hidden">Auditoría</button>
       <button data-view="usuarios" id="navUsuarios" class="hidden">Usuarios</button>
       <button data-view="config">Ajustes</button>
     </nav>
@@ -180,6 +182,7 @@ function render(){
   $('#mainNav').classList.toggle('hidden', !TOKEN);
   $('#navUsuarios').classList.toggle('hidden', !esAdmin());
   $('#navPresu').classList.toggle('hidden', !esAdmin());
+  $('#navAudit').classList.toggle('hidden', !esAdmin());
   $('#navNuevo').classList.toggle('hidden', esLector());
   $('#userChip').innerHTML = YO ? `${esc(YO.email)} <span class="rolchip">${esc(YO.rol)}</span> <button class="ghost" onclick="cerrarSesion()" style="font-size:12px">Salir</button>` : '';
   if(!TOKEN){ app.innerHTML = vistaLogin(); return; }
@@ -189,6 +192,8 @@ function render(){
   else if(VIEW==='poes') app.innerHTML = vistaPoes();
   else if(VIEW==='poeFicha') app.innerHTML = vistaPoeFicha();
   else if(VIEW==='presupuestos') app.innerHTML = vistaPresupuestos();
+  else if(VIEW==='indicadores') app.innerHTML = vistaIndicadores();
+  else if(VIEW==='auditoria') app.innerHTML = vistaAuditoria();
   else if(VIEW==='presuFicha') app.innerHTML = vistaPresuFicha();
   else if(VIEW==='proyectos') app.innerHTML = vistaProyectos();
   else if(VIEW==='proyFicha') app.innerHTML = vistaProyFicha();
@@ -1220,6 +1225,116 @@ window.guardarNotaProy = async function(){
     await cargarProys(); PROY.bit = await api('/api/expedientes/'+encodeURIComponent(PROY.codigo)+'/bitacora');
     spin(false); toast('Nota guardada'); render(); pintarBitacoraGen('bitacoraProy', PROY.bit);
   }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ============================================================
+   INDICADORES (PGC-003: cada indicador debe conducir a una decisión)
+   ============================================================ */
+function vistaIndicadores(){
+  api('/api/indicadores').then(d=>{ if(VIEW==='indicadores') pintarIndicadores(d); }).catch(e=>{ $('#indBody') && ($('#indBody').innerHTML='<p class="muted">'+esc(e.message)+'</p>'); });
+  return `<div class="card"><h2>Indicadores del SGC</h2>
+    <p class="muted" style="margin-top:4px">Calculados en vivo sobre el registro. Referencia: PGC-003 — Seguimiento y Evaluación del SGC.</p>
+    <div id="indBody" style="margin-top:12px"><p class="muted">Calculando…</p></div></div>`;
+}
+function barra(pct, color){ return `<div style="background:#E4E9ED;border-radius:4px;height:14px;overflow:hidden"><div style="width:${Math.min(100,pct)}%;height:100%;background:${color||'var(--acc)'}"></div></div>`; }
+function pintarIndicadores(d){
+  const el = $('#indBody'); if(!el) return;
+  const kpi = (v,lab,det)=>`<div class="kpi" style="cursor:default"><div class="num">${v}</div><div class="lab">${lab}</div>${det?`<div class="muted" style="font-size:11px;margin-top:2px">${det}</div>`:''}</div>`;
+  const totTipo = d.docs.porTipo.reduce((a,x)=>a+ +x.n,0)||1;
+  const maxSerie = Math.max(...d.docs.serie12.map(x=>+x.n),1);
+  el.innerHTML = `
+  <div class="kpis" style="margin-bottom:14px">
+    ${kpi(d.docs.mes,'Docs este mes')}
+    ${kpi(d.docs.anio,'Docs este año')}
+    ${kpi(d.expedientes.activos,'Expedientes activos', d.expedientes.estancados>0?('⚠ '+d.expedientes.estancados+' estancados'):'sin estancados')}
+    ${kpi(d.docs.cicloPromedioDias??'—','Días alta→entrega','promedio de '+d.docs.cicloMuestra+' docs')}
+    ${kpi(d.poes.vigentes,'POEs vigentes', (+d.poes.vencidos?('⚠ '+d.poes.vencidos+' vencidos'):(+d.poes.por_vencer?(d.poes.por_vencer+' por vencer'):'al día')))}
+    ${kpi(d.proyectos.activos,'Proyectos activos', d.proyectos.cerrados+' cerrados · '+(d.proyectos.promDocsPorProyecto??'—')+' docs/proyecto prom.')}
+  </div>
+  <div class="row">
+    <div class="card" style="margin:0">
+      <h3>Documentos por tipo (${new Date().getFullYear()})</h3>
+      ${d.docs.porTipo.length? d.docs.porTipo.map(x=>`<div style="display:grid;grid-template-columns:60px 1fr 70px;gap:8px;align-items:center;margin:6px 0;font-size:13px">
+        <span class="codigo" style="font-size:11px">${esc(x.t)}</span>${barra(100*x.n/ +d.docs.porTipo[0].n)}<span class="muted">${x.n} (${Math.round(100*x.n/totTipo)}%)</span></div>`).join('')
+      : '<p class="muted">Sin documentos este año.</p>'}
+    </div>
+    <div class="card" style="margin:0">
+      <h3>Altas por mes (últimos 12)</h3>
+      ${d.docs.serie12.map(x=>`<div style="display:grid;grid-template-columns:60px 1fr 40px;gap:8px;align-items:center;margin:6px 0;font-size:13px">
+        <span class="muted">${esc(x.m)}</span>${barra(100*x.n/maxSerie,'var(--ok)')}<span class="muted">${x.n}</span></div>`).join('') || '<p class="muted">Sin datos.</p>'}
+    </div>
+  </div>
+  ${d.comercial?`<div class="card" style="margin-top:14px">
+    <h3>Comercial (solo administradores)</h3>
+    <div class="kpis" style="margin-top:10px">
+      ${kpi(d.comercial.emitidos,'Presupuestos emitidos')}
+      ${kpi(d.comercial.aceptados,'Aceptados','tasa: '+(d.comercial.emitidos>0?Math.round(100*d.comercial.aceptados/d.comercial.emitidos):0)+'%')}
+      ${kpi(d.comercial.pipeline,'En espera (Enviado)', d.comercial.pipeline>0?'¡a perseguir!':'')}
+      ${kpi(d.comercial.rechazados+ +d.comercial.vencidos,'Rechazados + vencidos')}
+      ${d.comercial.montosAceptadosAnio.map(m=>kpi((+m.t).toLocaleString('es-AR'),'Aceptado '+esc(m.moneda)+' '+new Date().getFullYear())).join('')}
+    </div>
+  </div>`:''}`;
+}
+
+/* ============================================================
+   AUDITORÍA GLOBAL (solo admin)
+   ============================================================ */
+let AUD = [];
+function vistaAuditoria(){
+  setTimeout(cargarAuditoria, 50);
+  return `<div class="card">
+    <h2>Auditoría global del sistema</h2>
+    <p class="muted" style="margin-top:4px">Eventos de todos los módulos, la administración y los accesos, en orden cronológico. Máximo 500 resultados por consulta.</p>
+    <div class="row" style="margin-top:12px">
+      <div><label>Módulo</label><select id="auModulo" onchange="cargarAuditoria()">
+        <option value="">Todos</option><option>Expedientes</option><option>Procedimientos</option><option>Presupuestos</option><option>Proyectos</option><option>Administración</option><option>Accesos</option></select></div>
+      <div><label>Usuario</label><input id="auAutor" placeholder="parte del email" onchange="cargarAuditoria()"></div>
+    </div>
+    <div class="row">
+      <div><label>Buscar en texto/código</label><input id="auQ" placeholder="Ej: PGC-001, corrección, 0080…" onchange="cargarAuditoria()"></div>
+      <div class="row" style="gap:8px"><div><label>Desde</label><input type="date" id="auDesde" onchange="cargarAuditoria()"></div>
+      <div><label>Hasta</label><input type="date" id="auHasta" onchange="cargarAuditoria()"></div></div>
+    </div>
+    <p style="margin-top:10px"><button class="sec" onclick="exportarAuditoria()">🖨 Exportar / imprimir</button></p>
+    <div id="audLista" style="margin-top:12px"><p class="muted">Cargando…</p></div>
+  </div>`;
+}
+window.cargarAuditoria = async function(){
+  const p = new URLSearchParams();
+  if($('#auModulo').value) p.set('modulo',$('#auModulo').value);
+  if($('#auAutor').value.trim()) p.set('autor',$('#auAutor').value.trim());
+  if($('#auQ').value.trim()) p.set('q',$('#auQ').value.trim());
+  if($('#auDesde').value) p.set('desde',$('#auDesde').value);
+  if($('#auHasta').value) p.set('hasta',$('#auHasta').value);
+  try{
+    AUD = await api('/api/auditoria?'+p.toString());
+    const el = $('#audLista'); if(!el) return;
+    el.innerHTML = AUD.length? `<table class="docs-tabla"><thead><tr><th>Fecha/hora</th><th>Módulo</th><th>Clave</th><th>Usuario</th><th>Tipo</th><th>Detalle</th></tr></thead><tbody>
+      ${AUD.map(a=>`<tr>
+        <td style="white-space:nowrap">${fFecha(a.ts)}</td>
+        <td><span class="badge ${a.modulo==='Accesos'?'b-gris':a.modulo==='Administración'?'b-bad':'b-info'}" style="font-size:10px">${esc(a.modulo)}</span></td>
+        <td>${a.clave!=='ADMINISTRACIÓN'&&a.clave!=='ACCESOS'?`<span class="codigo" style="font-size:11px">${esc(a.clave)}</span>`:''}</td>
+        <td class="muted" style="font-size:11px">${esc((a.autor||'').split('@')[0])}</td>
+        <td class="muted" style="font-size:11px">${esc(a.tipo)}</td>
+        <td style="font-size:12px">${esc(a.texto)}</td></tr>`).join('')}</tbody></table>
+      <p class="muted" style="margin-top:8px">${AUD.length} evento(s)${AUD.length===500?' — hay más: acotá los filtros':''}</p>`
+    : '<p class="muted">Sin eventos con esos filtros.</p>';
+  }catch(e){ $('#audLista').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+};
+window.exportarAuditoria = function(){
+  if(!AUD.length){ toast('No hay eventos para exportar','err'); return; }
+  const w = window.open('','_blank');
+  w.document.write(`<html><head><title>Auditoría VADOCA DocTracker</title><style>
+    body{font-family:Arial,sans-serif;font-size:11px;margin:24px}h1{font-size:16px}
+    table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}
+    th{background:#eee}@media print{button{display:none}}</style></head><body>
+    <h1>VADOCA DocTracker — Auditoría global del sistema</h1>
+    <p>Generado: ${new Date().toLocaleString('es-AR')} · Usuario: ${esc(USUARIO.email)} · ${AUD.length} evento(s)</p>
+    <button onclick="window.print()">Imprimir / Guardar PDF</button>
+    <table><thead><tr><th>Fecha/hora</th><th>Módulo</th><th>Clave</th><th>Usuario</th><th>Tipo</th><th>Detalle</th></tr></thead><tbody>
+    ${AUD.map(a=>`<tr><td>${fFecha(a.ts)}</td><td>${esc(a.modulo)}</td><td>${esc(a.clave)}</td><td>${esc(a.autor)}</td><td>${esc(a.tipo)}</td><td>${esc(a.texto)}</td></tr>`).join('')}
+    </tbody></table></body></html>`);
+  w.document.close();
 };
 
 /* ----- Usuarios (solo admin) ----- */
