@@ -62,7 +62,15 @@ main{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
 @media(max-width:760px){.hoy-grid{grid-template-columns:1fr}}
 .col-titulo{font-family:'Sora';font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:4px 0 10px;display:flex;align-items:center;gap:8px}
 .col-titulo.mia{color:#9A5B12}.col-titulo.cli{color:#1663A8}
-.pcard{cursor:pointer;transition:border-color .15s}
+.pcard{cursor:pointer;transition:border-color .15s;border-left:4px solid var(--turq)}
+.pcard.personal{border-left-color:#8E6CC8}
+.tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:5px;vertical-align:middle}
+.tag.dt{background:#E6F7F7;color:var(--turq-dim)}
+.tag.pro{background:#E6F7F7;color:var(--turq-dim)}
+.tag.per{background:#F0EAFB;color:#6B4FA3}
+.filtros{display:flex;gap:6px;margin-bottom:14px}
+.filtros button{background:#fff;border:1px solid var(--borde);color:var(--gris-osc);padding:6px 13px;border-radius:20px;font-size:12px;font-weight:600}
+.filtros button.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .pcard:hover{border-color:var(--turq)}
 .pcard h3{font-size:15px;margin-bottom:2px}
 .pcard .prox{margin-top:8px;padding:8px 10px;background:var(--fondo);border-radius:8px;font-size:13px}
@@ -104,6 +112,17 @@ main{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
 #modal select,#modal input,#modal textarea{width:100%}
 #modal .acciones{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 .tarea-vacia{text-align:center;color:var(--gris);padding:30px 10px;font-size:13px}
+
+/* ---------- Expedientes (proyectos DocTracker) ---------- */
+details.exp{border:1px solid var(--borde);border-radius:10px;margin-bottom:8px;background:#FAFCFD}
+details.exp summary{cursor:pointer;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;list-style:none;font-size:13px}
+details.exp summary::-webkit-details-marker{display:none}
+details.exp summary .cod{font-weight:600;color:var(--turq-dim)}
+details.exp[open] summary{border-bottom:1px solid var(--borde)}
+.doc-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--fondo);font-size:12.5px;flex-wrap:wrap}
+.doc-row:last-child{border-bottom:none}
+.doc-row select{padding:4px 6px;font-size:12px}
+.seccion{font-family:'Sora';font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--gris-osc);margin:16px 0 8px}
 </style>
 </head>
 <body>
@@ -144,8 +163,26 @@ const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto'
 
 let TOKEN = sessionStorage.getItem('faro_token') || '';
 let USUARIO = JSON.parse(sessionStorage.getItem('faro_usuario') || 'null');
-let DATA = { proyectos:[], items:[], templates:[], documentos:[] };
-let VISTA = 'hoy', PROY_SEL = null, CAL_MES = null;
+let DATA = { proyectos:[], proyectos_faro:[], items:[], templates:[], documentos:[] };
+let VISTA = 'hoy', PROY_SEL = null, CAL_MES = null, FILTRO_AMBITO = 'todos';
+
+// Unifica proyectos de DocTracker (siempre profesionales) y propios de FARO
+function todosProyectos() {
+  const dt = DATA.proyectos.map(p => ({ codigo:p.codigo, nombre:p.nombre, cliente_nombre:p.cliente_nombre||'',
+    estado:p.estado, origen:'dt', ambito:'profesional' }));
+  const faro = (DATA.proyectos_faro||[]).map(p => ({ codigo:p.codigo, nombre:p.nombre, cliente_nombre:p.cliente||'',
+    estado:p.estado, origen:'faro', ambito:p.ambito }));
+  return dt.concat(faro);
+}
+function pasaFiltro(p){ return FILTRO_AMBITO === 'todos' || p.ambito === FILTRO_AMBITO; }
+function chipsFiltro() {
+  return `<div class="filtros">${[['todos','Todos'],['profesional','Profesional'],['personal','Personal']]
+    .map(([v,t]) => `<button class="${FILTRO_AMBITO===v?'on':''}" onclick="FILTRO_AMBITO='${v}';render()">${t}</button>`).join('')}</div>`;
+}
+function tagDe(p) {
+  if (p.origen === 'dt') return '<span class="tag dt">DocTracker</span>';
+  return p.ambito === 'personal' ? '<span class="tag per">Personal</span>' : '<span class="tag pro">Profesional</span>';
+}
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const hoyISO = () => new Date().toISOString().slice(0,10);
@@ -186,13 +223,14 @@ async function cargar(){ DATA = await api('/api/seguimiento/data'); }
 
 /* ---------- Lógica de cancha ---------- */
 function estadoEfectivo(it){ return it.doc_codigo ? (it.doc_estado || 'Borrador') : it.estado; }
+function canchaDoc(e) {
+  if (['Entregado','Suspendido','Cancelado'].includes(e)) return 'cerrado';
+  if (e === 'Enviado a cliente') return 'cliente';
+  return 'mia';
+}
 function cancha(it) {
   const e = estadoEfectivo(it);
-  if (it.doc_codigo) {
-    if (['Entregado','Suspendido','Cancelado'].includes(e)) return 'cerrado';
-    if (e === 'Enviado a cliente') return 'cliente';
-    return 'mia';
-  }
+  if (it.doc_codigo) return canchaDoc(e);
   if (['aprobado','n/a'].includes(e)) return 'cerrado';
   if (['enviado a cliente','esperando respuesta'].includes(e)) return 'cliente';
   return 'mia';
@@ -200,6 +238,19 @@ function cancha(it) {
 const CHIP = { mia:['c-mia','En tu cancha'], cliente:['c-cliente','Espera al cliente'], cerrado:['c-cerrado','Cerrado'] };
 function chip(c){ return `<span class="chip ${CHIP[c][0]}"><span class="punto"></span>${CHIP[c][1]}</span>`; }
 function itemsDe(cod){ return DATA.items.filter(i => i.proyecto === cod); }
+function docsDe(cod){ return DATA.documentos.filter(d => d.proyecto === cod); }
+
+// Unidades de trabajo de un proyecto: documentos reales de DocTracker + ítems de seguimiento.
+// Los ítems vinculados a un documento del mismo proyecto se omiten (ya cuentan como documento).
+function unidadesDe(cod) {
+  const docs = docsDe(cod);
+  const codsDocs = new Set(docs.map(d => d.codigo));
+  const uDocs = docs.map(d => ({ clase:'doc', nombre:(d.codigo + ' · ' + (d.tipo_doc||'') + ' ' + (d.prot_inf||'')).trim(),
+    estado:d.estado, cancha:canchaDoc(d.estado), fecha_limite:null }));
+  const uItems = itemsDe(cod).filter(i => !(i.doc_codigo && codsDocs.has(i.doc_codigo)))
+    .map(i => ({ clase:'seg', nombre:i.nombre, estado:estadoEfectivo(i), cancha:cancha(i), fecha_limite:i.fecha_limite }));
+  return uDocs.concat(uItems);
+}
 
 /* ---------- Navegación ---------- */
 function ir(v){ VISTA = v; if(v!=='proyectos') PROY_SEL = null; render(); }
@@ -216,33 +267,36 @@ function render() {
 
 /* ---------- Vista HOY ---------- */
 function tarjetaProyecto(p) {
-  const its = itemsDe(p.codigo);
-  const cerrados = its.filter(i => cancha(i) === 'cerrado').length;
-  const prox = its.find(i => cancha(i) !== 'cerrado');
-  const pct = its.length ? Math.round(cerrados / its.length * 100) : 0;
-  return `<div class="card pcard" onclick="abrirProyecto('${esc(p.codigo)}')">
+  const us = unidadesDe(p.codigo);
+  const cerrados = us.filter(u => u.cancha === 'cerrado').length;
+  const enMia = us.filter(u => u.cancha === 'mia').length;
+  const enCli = us.filter(u => u.cancha === 'cliente').length;
+  const prox = us.find(u => u.cancha === 'mia') || us.find(u => u.cancha === 'cliente');
+  const pct = us.length ? Math.round(cerrados / us.length * 100) : 0;
+  return `<div class="card pcard ${p.ambito === 'personal' ? 'personal' : ''}" onclick="abrirProyecto('${esc(p.codigo)}')">
     <div class="fila" style="justify-content:space-between">
-      <h3>${esc(p.codigo)} · ${esc(p.nombre)}</h3>${prox ? chip(cancha(prox)) : chip('cerrado')}
+      <h3>${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</h3>${prox ? chip(prox.cancha) : chip('cerrado')}
     </div>
-    <div class="muted">${esc(p.cliente_nombre || '')} · ${cerrados}/${its.length} ítems cerrados</div>
-    ${prox ? `<div class="prox">Próxima acción: <b>${esc(prox.nombre)}</b> — ${esc(estadoEfectivo(prox))}${prox.fecha_limite ? ' · vence ' + esc(prox.fecha_limite) : ''}</div>` : ''}
+    <div class="muted">${esc(p.cliente_nombre || '')} · ${cerrados}/${us.length} cerrados${enMia ? ` · ${enMia} en tu cancha` : ''}${enCli ? ` · ${enCli} del cliente` : ''}</div>
+    ${prox ? `<div class="prox">Próxima acción: <b>${esc(prox.nombre)}</b> — ${esc(prox.estado)}${prox.fecha_limite ? ' · vence ' + esc(prox.fecha_limite) : ''}</div>` : ''}
     <div class="barra"><i style="width:${pct}%"></i></div>
   </div>`;
 }
 function vistaHoy() {
-  const activos = DATA.proyectos.filter(p => p.estado === 'Activo' && itemsDe(p.codigo).length);
-  const mios = [], deCliente = [], listos = [];
+  const activos = todosProyectos().filter(p => p.estado === 'Activo' && pasaFiltro(p) && unidadesDe(p.codigo).length);
+  const mios = [], deCliente = [];
   for (const p of activos) {
-    const prox = itemsDe(p.codigo).find(i => cancha(i) !== 'cerrado');
-    if (!prox) listos.push(p);
-    else (cancha(prox) === 'mia' ? mios : deCliente).push(p);
+    const us = unidadesDe(p.codigo);
+    if (us.some(u => u.cancha === 'mia')) mios.push(p);
+    else if (us.some(u => u.cancha === 'cliente')) deCliente.push(p);
   }
   const h = hoyISO();
   const lim = new Date(Date.now() + 7*864e5).toISOString().slice(0,10);
+  const codsVisibles = new Set(activos.map(p => p.codigo));
   const vencen = DATA.items
-    .filter(i => i.fecha_limite && cancha(i) !== 'cerrado' && i.fecha_limite <= lim)
+    .filter(i => i.fecha_limite && cancha(i) !== 'cerrado' && i.fecha_limite <= lim && codsVisibles.has(i.proyecto))
     .sort((a,b) => a.fecha_limite < b.fecha_limite ? -1 : 1);
-  return `
+  return chipsFiltro() + `
     ${vencen.length ? `<div class="card"><h2 style="font-size:15px;margin-bottom:8px">⏰ Vencimientos próximos</h2>
       ${vencen.map(i => `<div class="venc ${i.fecha_limite < h ? 'tarde' : ''}">
         <span>${esc(i.nombre)} <span class="muted">· ${esc(i.proyecto)}</span></span>
@@ -259,39 +313,113 @@ function vistaHoy() {
 
 /* ---------- Vista PROYECTOS ---------- */
 function vistaProyectos() {
-  const conSeg = DATA.proyectos.filter(p => itemsDe(p.codigo).length);
-  const sinSeg = DATA.proyectos.filter(p => !itemsDe(p.codigo).length && p.estado === 'Activo');
-  return `
-    ${conSeg.map(tarjetaProyecto).join('') || '<div class="card tarea-vacia">Ningún proyecto tiene seguimiento todavía.</div>'}
-    ${sinSeg.length ? `<div class="card"><h3 style="font-size:14px;margin-bottom:8px">Proyectos de DocTracker sin seguimiento</h3>
-      ${sinSeg.map(p => `<div class="fila" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--fondo)">
-        <span>${esc(p.codigo)} · ${esc(p.nombre)} <span class="muted">${esc(p.cliente_nombre || '')}</span></span>
-        <button class="btn mini" onclick="modalTemplate('${esc(p.codigo)}')">+ Aplicar template</button></div>`).join('')}
-      <p class="muted" style="margin-top:10px">¿Falta un proyecto? Crealo primero en DocTracker (módulo Proyectos) y va a aparecer acá.</p></div>` : ''}`;
+  const todos = todosProyectos();
+  const conSeg = todos.filter(p => unidadesDe(p.codigo).length && pasaFiltro(p));
+  const sinSegDT = todos.filter(p => p.origen === 'dt' && !unidadesDe(p.codigo).length);
+  const sinSegFaro = todos.filter(p => p.origen === 'faro' && !unidadesDe(p.codigo).length && pasaFiltro(p));
+  return `<div class="fila" style="justify-content:space-between;margin-bottom:12px">
+      ${chipsFiltro()}
+      <button class="btn mini" onclick="modalNuevoProyecto()">+ Nuevo proyecto</button></div>
+    ${conSeg.map(tarjetaProyecto).join('') || '<div class="card tarea-vacia">Ningún proyecto tiene seguimiento todavía (con este filtro).</div>'}
+    ${sinSegFaro.map(p => `<div class="card fila" style="justify-content:space-between">
+      <span>${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</span>
+      <button class="btn mini" onclick="abrirProyecto('${esc(p.codigo)}')">Abrir</button></div>`).join('')}
+    ${FILTRO_AMBITO !== 'personal' ? `<div class="card"><h3 style="font-size:14px;margin-bottom:8px">Proyectos de DocTracker sin seguimiento</h3>
+      ${sinSegDT.map(p => `<div class="fila" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--fondo)">
+        <span>${esc(p.codigo)} · ${esc(p.nombre)} <span class="muted">${esc(p.cliente_nombre || '')} · ${esc(p.estado)}</span></span>
+        <button class="btn mini" onclick="modalTemplate('${esc(p.codigo)}')">+ Aplicar template</button></div>`).join('')
+        || '<div class="muted">DocTracker no tiene proyectos cargados en su módulo Proyectos.</div>'}
+      <p class="muted" style="margin-top:10px">Diagnóstico: DocTracker tiene ${DATA.proyectos.length} proyecto(s) y ${DATA.documentos.length} documento(s).
+      FARO lee el módulo <b>Proyectos</b> de DocTracker — si tu trabajo está solo como expedientes, crealo también como Proyecto allá, o creá acá un proyecto FARO.</p></div>` : ''}`;
+}
+
+function modalNuevoProyecto() {
+  abrirModal(`<h3>Nuevo proyecto FARO</h3>
+    <p class="muted">Para proyectos que no viven en DocTracker (personales o profesionales sueltos).</p>
+    <label>Nombre</label><input id="mPNom" placeholder="Ej: Pintar el portón / Habilitación farmacia">
+    <label>Ámbito</label>
+    <select id="mPAmb"><option value="personal">Personal</option><option value="profesional">Profesional</option></select>
+    <label>Cliente / referencia (opcional)</label><input id="mPCli">
+    <div class="acciones"><button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn" onclick="crearProyecto()">Crear</button></div>`);
+}
+async function crearProyecto() {
+  const nombre = document.getElementById('mPNom').value.trim();
+  if (!nombre) return alert('Falta el nombre');
+  try {
+    const p = await api('/api/seguimiento/proyectos', { method:'POST', body:{
+      nombre, ambito: document.getElementById('mPAmb').value,
+      cliente: document.getElementById('mPCli').value.trim() } });
+    cerrarModal(); await cargar(); abrirProyecto(p.codigo);
+  } catch(e){ alert(e.message); }
 }
 
 function abrirProyecto(cod){ VISTA = 'proyectos'; PROY_SEL = cod; render(); }
 
 function vistaDetalle() {
-  const p = DATA.proyectos.find(x => x.codigo === PROY_SEL);
+  const p = todosProyectos().find(x => x.codigo === PROY_SEL);
   if (!p) { PROY_SEL = null; return vistaProyectos(); }
   const its = itemsDe(p.codigo);
-  const docsProy = DATA.documentos.filter(d => d.proyecto === p.codigo);
+  const docsProy = docsDe(p.codigo);
+  const codsDocs = new Set(docsProy.map(d => d.codigo));
+  const itsVisibles = its.filter(i => !(i.doc_codigo && codsDocs.has(i.doc_codigo)));
+
+  // Agrupar documentos por expediente
+  const exps = new Map();
+  for (const d of docsProy) {
+    if (!exps.has(d.expediente_id)) exps.set(d.expediente_id, []);
+    exps.get(d.expediente_id).push(d);
+  }
+  let htmlExps = '';
+  for (const [expId, docs] of exps) {
+    const activosN = docs.filter(d => canchaDoc(d.estado) !== 'cerrado').length;
+    const resumen = activosN ? `<span class="chip c-mia"><span class="punto"></span>${activosN} activo${activosN > 1 ? 's' : ''}</span>` : chip('cerrado');
+    htmlExps += `<details class="exp">
+      <summary><span><span class="cod">${esc(expId)}</span> <span class="muted">${esc((docs[0].descripcion || '').slice(0,60))}</span></span>${resumen}</summary>
+      ${docs.map(d => `<div class="doc-row">
+        <span><b>${esc(d.codigo)}</b> · ${esc(d.tipo_doc || '')} ${esc(d.prot_inf || '')}</span>
+        <span class="fila">${chip(canchaDoc(d.estado))}
+        <select onchange="cambiarEstadoDoc('${esc(d.codigo)}', this.value)">
+          ${DOC_ESTADOS.map(s => `<option ${d.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select></span>
+      </div>`).join('')}
+    </details>`;
+  }
+
   return `<button class="btn sec mini" onclick="PROY_SEL=null;render()">← Volver</button>
-  <div class="card" style="margin-top:12px">
+  <div class="card" style="margin-top:12px;border-left:4px solid ${p.ambito === 'personal' ? '#8E6CC8' : 'var(--turq)'}">
     <div class="fila" style="justify-content:space-between">
-      <div><h2 style="font-size:17px">${esc(p.codigo)} · ${esc(p.nombre)}</h2>
-      <div class="muted">${esc(p.cliente_nombre || '')} · ${esc(p.estado)}</div></div>
+      <div><h2 style="font-size:17px">${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</h2>
+      <div class="muted">${esc(p.cliente_nombre || '')}${p.origen === 'dt' ? ' · ' + esc(p.estado) : ''}</div></div>
       <div class="fila">
+        ${p.origen === 'faro' ? `<select onchange="editarProyectoFaro('${esc(p.codigo)}',{estado:this.value})" style="padding:5px 7px;font-size:12px">
+          ${['Activo','Pausado','Cerrado'].map(s => `<option ${p.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select>` : ''}
         <button class="btn sec mini" onclick="modalTemplate('${esc(p.codigo)}')">+ Template</button>
         <button class="btn mini" onclick="modalItem('${esc(p.codigo)}')">+ Ítem</button>
+        ${p.origen === 'faro' ? `<button class="btn rojo mini" onclick="borrarProyectoFaro('${esc(p.codigo)}')">✕</button>` : ''}
       </div>
     </div>
-    <div style="margin-top:12px">
-      ${its.map(i => filaItem(i, docsProy)).join('') || '<div class="tarea-vacia">Sin ítems. Aplicá un template o agregá ítems sueltos.</div>'}
+    ${docsProy.length ? `<div class="seccion">Expedientes y documentos · DocTracker (${exps.size} exp / ${docsProy.length} docs)</div>${htmlExps}` : ''}
+    ${(docsProy.length || itsVisibles.length) ? `<div class="seccion">Ítems de seguimiento (extra: comercial, esperas, tareas sin documento)</div>` : ''}
+    <div>
+      ${itsVisibles.map(i => filaItem(i, docsProy)).join('') || (docsProy.length ? '<div class="muted" style="padding:4px 6px">Sin ítems extra. Usá "+ Ítem" para el ping-pong comercial (ej: esperando OC).</div>' : '<div class="tarea-vacia">Sin ítems. Aplicá un template o agregá ítems sueltos.</div>')}
     </div>
     <div class="bita" id="bitacora"><div class="muted">Cargando bitácora…</div></div>
   </div>`;
+}
+
+async function cambiarEstadoDoc(codigo, estado) {
+  try { await api('/api/documentos/' + encodeURIComponent(codigo) + '/estado', { method:'POST', body:{ estado } }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+
+async function editarProyectoFaro(cod, body) {
+  try { await api('/api/seguimiento/proyectos/' + encodeURIComponent(cod), { method:'PATCH', body }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+async function borrarProyectoFaro(cod) {
+  if (!confirm('¿Eliminar este proyecto FARO y todos sus ítems de seguimiento?')) return;
+  try { await api('/api/seguimiento/proyectos/' + encodeURIComponent(cod), { method:'DELETE' }); PROY_SEL = null; await cargar(); render(); }
+  catch(e){ alert(e.message); }
 }
 
 function filaItem(i, docsProy) {
