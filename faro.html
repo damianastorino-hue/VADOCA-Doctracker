@@ -172,6 +172,7 @@ function configBackend() {
 const SEG_ESTADOS = ['pendiente','en curso','enviado a cliente','esperando respuesta','observado','aprobado','n/a'];
 const DOC_ESTADOS = ['Borrador','En revisión','Validable','No validable','En ejecución','Enviado a cliente','Aprobado','Entregado','Suspendido','Cancelado'];
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const TAREAS = '__TAREAS__'; // pseudo-proyecto para tareas sueltas sin proyecto
 
 let TOKEN = sessionStorage.getItem('faro_token') || '';
 let USUARIO = JSON.parse(sessionStorage.getItem('faro_usuario') || 'null');
@@ -229,7 +230,16 @@ async function arrancar() {
   document.getElementById('login').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('quien').textContent = USUARIO ? USUARIO.nombre || USUARIO.email : '';
-  await cargar(); render();
+  try { await cargar(); render(); }
+  catch(e) {
+    document.getElementById('main').innerHTML = `<div class="card" style="border-left:4px solid var(--peligro)">
+      <h3 style="color:var(--peligro);font-size:14px">No se pudieron cargar los datos</h3>
+      <p style="margin-top:6px;font-size:13px">El backend respondió: <b>${esc(e.message)}</b></p>
+      <p class="muted" style="margin-top:8px">Si dice "Error 404" o "Cannot GET", el backend en Railway todavía corre la versión vieja sin el módulo de seguimiento — revisá que el deploy del server.js nuevo haya quedado en verde.</p>
+      <button class="btn" style="margin-top:12px" onclick="arrancar()">Reintentar</button>
+      <button class="btn sec" style="margin-top:12px" onclick="salir()">Salir</button>
+    </div>`;
+  }
 }
 async function cargar(){ DATA = await api('/api/seguimiento/data'); }
 
@@ -305,10 +315,27 @@ function vistaHoy() {
   const h = hoyISO();
   const lim = new Date(Date.now() + 7*864e5).toISOString().slice(0,10);
   const codsVisibles = new Set(activos.map(p => p.codigo));
+  codsVisibles.add(TAREAS);
   const vencen = DATA.items
     .filter(i => i.fecha_limite && cancha(i) !== 'cerrado' && i.fecha_limite <= lim && codsVisibles.has(i.proyecto))
     .sort((a,b) => a.fecha_limite < b.fecha_limite ? -1 : 1);
+  const tareas = itemsDe(TAREAS);
+  const tareasActivas = tareas.filter(i => cancha(i) !== 'cerrado');
+  const tareasCerradas = tareas.length - tareasActivas.length;
   return chipsFiltro() + `
+    <div class="card">
+      <div class="fila" style="justify-content:space-between">
+        <h2 style="font-size:15px">✓ Tareas sueltas</h2>
+        ${tareasCerradas ? `<span class="muted">${tareasCerradas} cerrada${tareasCerradas > 1 ? 's' : ''}</span>` : ''}
+      </div>
+      <div style="margin-top:6px">${tareasActivas.map(i => filaItem(i, [])).join('') ||
+        '<div class="muted" style="padding:6px 4px">Sin tareas pendientes.</div>'}</div>
+      <div class="fila" style="margin-top:10px">
+        <input id="tareaNueva" placeholder="Ej: Emitir factura abril LKM" style="flex:1" onkeydown="if(event.key==='Enter')crearTarea()">
+        <input id="tareaFecha" type="date" title="Fecha límite (opcional)">
+        <button class="btn mini" onclick="crearTarea()">+ Agregar</button>
+      </div>
+    </div>
     ${vencen.length ? `<div class="card"><h2 style="font-size:15px;margin-bottom:8px">⏰ Vencimientos próximos</h2>
       ${vencen.map(i => `<div class="venc ${i.fecha_limite < h ? 'tarde' : ''}">
         <span>${esc(i.nombre)} <span class="muted">· ${esc(i.proyecto)}</span></span>
@@ -319,8 +346,18 @@ function vistaHoy() {
       <div><div class="col-titulo cli"><span class="punto" style="background:#1663A8"></span>Esperando al cliente (${deCliente.length})</div>
         ${deCliente.map(tarjetaProyecto).join('') || '<div class="tarea-vacia">Nada esperando respuesta</div>'}</div>
     </div>
-    ${!activos.length ? `<div class="card tarea-vacia">Todavía no hay proyectos con seguimiento.<br><br>
+    ${!activos.length && !tareas.length ? `<div class="card tarea-vacia">Todavía no hay proyectos con seguimiento.<br><br>
       <button class="btn" onclick="ir('proyectos')">Ir a Proyectos para arrancar</button></div>` : ''}`;
+}
+
+async function crearTarea() {
+  const nombre = document.getElementById('tareaNueva').value.trim();
+  if (!nombre) return;
+  const fecha = document.getElementById('tareaFecha').value || null;
+  try {
+    await api('/api/seguimiento/items', { method:'POST', body:{ proyecto: TAREAS, nombre, fecha_limite: fecha } });
+    await cargar(); render();
+  } catch(e){ alert(e.message); }
 }
 
 /* ---------- Vista PROYECTOS ---------- */
@@ -366,7 +403,7 @@ async function crearProyecto() {
   } catch(e){ alert(e.message); }
 }
 
-function abrirProyecto(cod){ VISTA = 'proyectos'; PROY_SEL = cod; render(); }
+function abrirProyecto(cod){ if (cod === TAREAS) { ir('hoy'); return; } VISTA = 'proyectos'; PROY_SEL = cod; render(); }
 
 function vistaDetalle() {
   const p = todosProyectos().find(x => x.codigo === PROY_SEL);
