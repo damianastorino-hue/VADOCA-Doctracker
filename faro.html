@@ -135,6 +135,9 @@ details.exp[open] summary{border-bottom:1px solid var(--borde)}
     <input id="lPass" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
     <button onclick="login()">Entrar</button>
     <div class="err" id="lErr"></div>
+    <div style="margin-top:14px;text-align:center">
+      <a href="#" onclick="configBackend();return false" style="color:var(--gris);font-size:11px">⚙ Backend: <span id="lBk"></span></a>
+    </div>
   </div>
 </div>
 
@@ -156,7 +159,16 @@ details.exp[open] summary{border-bottom:1px solid var(--borde)}
 <div id="modal"><div class="caja" id="modalCaja"></div></div>
 
 <script>
-const BACKEND = 'https://vadoca-doctracker-backend-production.up.railway.app';
+const BACKEND_DEFAULT = 'https://vadoca-doctracker-backend-production.up.railway.app';
+let BACKEND = localStorage.getItem('faro_backend') || BACKEND_DEFAULT;
+function configBackend() {
+  const u = prompt('URL del backend de DocTracker (sin barra final):', BACKEND);
+  if (!u) return;
+  BACKEND = u.trim().replace(/\/+$/, '');
+  localStorage.setItem('faro_backend', BACKEND);
+  const el = document.getElementById('lBk'); if (el) el.textContent = BACKEND.replace('https://','');
+  alert('Backend actualizado. Probá loguearte de nuevo.');
+}
 const SEG_ESTADOS = ['pendiente','en curso','enviado a cliente','esperando respuesta','observado','aprobado','n/a'];
 const DOC_ESTADOS = ['Borrador','En revisión','Validable','No validable','En ejecución','Enviado a cliente','Aprobado','Entregado','Suspendido','Cancelado'];
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -607,6 +619,7 @@ async function borrarTemplate(id) {
 
 /* ---------- Init ---------- */
 document.getElementById('modal').addEventListener('click', e => { if (e.target.id === 'modal') cerrarModal(); });
+const _lbk = document.getElementById('lBk'); if (_lbk) _lbk.textContent = BACKEND.replace('https://','');
 if (TOKEN) arrancar().catch(() => salir());
 </script>
 </body>
