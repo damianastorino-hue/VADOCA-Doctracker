@@ -306,12 +306,13 @@ function tarjetaProyecto(p) {
 }
 function vistaHoy() {
   const activos = todosProyectos().filter(p => p.estado === 'Activo' && pasaFiltro(p) && unidadesDe(p.codigo).length);
-  const mios = [], deCliente = [];
-  for (const p of activos) {
-    const us = unidadesDe(p.codigo);
-    if (us.some(u => u.cancha === 'mia')) mios.push(p);
-    else if (us.some(u => u.cancha === 'cliente')) deCliente.push(p);
-  }
+  const mios = activos.filter(p => unidadesDe(p.codigo).some(u => u.cancha === 'mia'));
+  // Del lado del cliente: documentos e ítems individuales, no proyectos enteros
+  const esperando = [];
+  for (const p of activos)
+    for (const u of unidadesDe(p.codigo)) if (u.cancha === 'cliente') esperando.push({ ...u, proyecto: p.codigo });
+  for (const i of itemsDe(TAREAS)) if (cancha(i) === 'cliente')
+    esperando.push({ clase:'seg', nombre:i.nombre, estado:estadoEfectivo(i), fecha_limite:i.fecha_limite, proyecto: TAREAS });
   const h = hoyISO();
   const lim = new Date(Date.now() + 7*864e5).toISOString().slice(0,10);
   const codsVisibles = new Set(activos.map(p => p.codigo));
@@ -343,8 +344,13 @@ function vistaHoy() {
     <div class="hoy-grid">
       <div><div class="col-titulo mia"><span class="punto" style="background:#D9822B"></span>En tu cancha (${mios.length})</div>
         ${mios.map(tarjetaProyecto).join('') || '<div class="tarea-vacia">Nada pendiente de tu lado 🎉</div>'}</div>
-      <div><div class="col-titulo cli"><span class="punto" style="background:#1663A8"></span>Esperando al cliente (${deCliente.length})</div>
-        ${deCliente.map(tarjetaProyecto).join('') || '<div class="tarea-vacia">Nada esperando respuesta</div>'}</div>
+      <div><div class="col-titulo cli"><span class="punto" style="background:#1663A8"></span>Esperando al cliente (${esperando.length})</div>
+        ${esperando.map(u => `<div class="card pcard" style="border-left-color:#1663A8;padding:11px 14px" onclick="abrirProyecto('${esc(u.proyecto)}')">
+          <div class="fila" style="justify-content:space-between;gap:8px">
+            <b style="font-size:13px">${esc(u.nombre)}</b>
+            <span class="muted" style="white-space:nowrap">${u.proyecto === TAREAS ? 'Tarea suelta' : esc(u.proyecto)}</span></div>
+          <div class="muted" style="margin-top:3px">${esc(u.estado)}${u.fecha_limite ? ' · vence ' + esc(u.fecha_limite) : ''}</div>
+        </div>`).join('') || '<div class="tarea-vacia">Nada esperando respuesta</div>'}</div>
     </div>
     ${!activos.length && !tareas.length ? `<div class="card tarea-vacia">Todavía no hay proyectos con seguimiento.<br><br>
       <button class="btn" onclick="ir('proyectos')">Ir a Proyectos para arrancar</button></div>` : ''}`;
