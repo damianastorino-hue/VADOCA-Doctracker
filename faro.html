@@ -123,6 +123,37 @@ details.exp[open] summary{border-bottom:1px solid var(--borde)}
 .doc-row:last-child{border-bottom:none}
 .doc-row select{padding:4px 6px;font-size:12px}
 .seccion{font-family:'Sora';font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--gris-osc);margin:16px 0 8px}
+
+/* ---------- Mapa (matriz de estados) ---------- */
+.mapa-wrap{overflow-x:auto;margin-top:8px}
+.mapa{border-collapse:collapse;font-size:11px}
+.mapa th{padding:4px 6px;color:var(--gris-osc);font-weight:600;text-align:center;white-space:nowrap}
+.mapa td{padding:3px}
+.mapa td.exp-nom{white-space:nowrap;color:var(--gris-osc);font-weight:600;padding-right:10px;position:sticky;left:0;background:var(--card)}
+.celda{width:22px;height:22px;border-radius:5px;margin:0 auto;cursor:default}
+.celda.vacia{background:var(--fondo)}
+.leyenda{display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:var(--gris-osc);align-items:center}
+.leyenda .celda{display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px}
+.modo-btns{display:flex;gap:4px}
+.modo-btns button{background:#EAF0F3;color:var(--gris-osc);padding:5px 11px;font-size:12px;font-weight:600}
+.modo-btns button.on{background:var(--navy);color:#fff}
+
+/* ---------- Árbol ---------- */
+.arbol{margin-top:10px}
+.arbol .raiz{display:inline-block;background:var(--navy);color:#fff;border-radius:10px;padding:10px 16px;font-family:'Sora';font-weight:700;font-size:13px}
+.arbol .ramas{margin-left:14px;border-left:3px solid #E6B93C;padding-left:0}
+.arbol .exp-nodo{position:relative;margin:10px 0 10px 22px}
+.arbol .exp-nodo::before{content:'';position:absolute;left:-25px;top:18px;width:22px;height:3px;background:#E6B93C}
+.arbol .exp-caja{display:inline-flex;align-items:center;gap:10px;background:#FFF6DE;border:2px solid #E6B93C;border-radius:10px;padding:7px 12px;cursor:pointer;font-size:12.5px;color:#8A6D1D;max-width:100%}
+.arbol .exp-caja b{white-space:nowrap}
+.arbol .exp-caja .desc{color:#A98E3B;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:260px}
+.arbol .exp-caja .caret{font-size:10px}
+.arbol .resumen{display:inline-flex;gap:8px;font-size:11px;font-weight:700}
+.arbol .resumen span{display:inline-flex;align-items:center;gap:3px;color:#fff;border-radius:10px;padding:1px 7px}
+.arbol .hojas{margin-left:16px;border-left:2px solid var(--borde);padding:4px 0 2px}
+.arbol .hoja{position:relative;margin:7px 0 7px 20px}
+.arbol .hoja::before{content:'';position:absolute;left:-22px;top:12px;width:18px;height:2px;background:var(--h-color,#DDE4E9)}
+.arbol .hoja-chip{display:inline-block;color:#fff;border-radius:8px;padding:5px 11px;font-size:11.5px;font-weight:600}
 </style>
 </head>
 <body>
@@ -177,7 +208,12 @@ const TAREAS = '__TAREAS__'; // pseudo-proyecto para tareas sueltas sin proyecto
 let TOKEN = sessionStorage.getItem('faro_token') || '';
 let USUARIO = JSON.parse(sessionStorage.getItem('faro_usuario') || 'null');
 let DATA = { proyectos:[], proyectos_faro:[], items:[], templates:[], documentos:[] };
-let VISTA = 'hoy', PROY_SEL = null, CAL_MES = null, FILTRO_AMBITO = 'todos';
+let VISTA = 'hoy', PROY_SEL = null, CAL_MES = null, FILTRO_AMBITO = 'todos', MODO_DETALLE = 'lista';
+const ARBOL_EXP = new Set(); // expedientes expandidos en la vista árbol
+const CANCHA_COLOR = { mia:'#D9822B', cliente:'#1663A8', cerrado:'#2E9E5B' };
+const ARBOL_COLOR = { mia:'#C0392B', cliente:'#1663A8', cerrado:'#2E9E5B' }; // semáforo pedido para el árbol
+const ORDEN_TIPOS = ['PM','PMV','VMP','RU','DQ','IQ','OQ','PQ','IV','IF','INF'];
+function ordenTipo(t){ const i = ORDEN_TIPOS.indexOf((t||'').toUpperCase()); return i === -1 ? 99 : i; }
 
 // Unifica proyectos de DocTracker (siempre profesionales) y propios de FARO
 function todosProyectos() {
@@ -453,7 +489,14 @@ function vistaDetalle() {
         ${p.origen === 'faro' ? `<button class="btn rojo mini" onclick="borrarProyectoFaro('${esc(p.codigo)}')">✕</button>` : ''}
       </div>
     </div>
-    ${docsProy.length ? `<div class="seccion">Expedientes y documentos · DocTracker (${exps.size} exp / ${docsProy.length} docs)</div>${htmlExps}` : ''}
+    ${docsProy.length ? `<div class="fila" style="justify-content:space-between;margin-top:14px">
+      <div class="seccion" style="margin:0">Expedientes y documentos · DocTracker (${exps.size} exp / ${docsProy.length} docs)</div>
+      <div class="modo-btns">
+        <button class="${MODO_DETALLE === 'lista' ? 'on' : ''}" onclick="MODO_DETALLE='lista';render()">☰ Lista</button>
+        <button class="${MODO_DETALLE === 'mapa' ? 'on' : ''}" onclick="MODO_DETALLE='mapa';render()">▦ Mapa</button>
+        <button class="${MODO_DETALLE === 'arbol' ? 'on' : ''}" onclick="MODO_DETALLE='arbol';render()">🌳 Árbol</button>
+      </div></div>
+      ${MODO_DETALLE === 'mapa' ? mapaProyecto(exps) : MODO_DETALLE === 'arbol' ? arbolProyecto(p, exps) : htmlExps}` : ''}
     ${(docsProy.length || itsVisibles.length) ? `<div class="seccion">Ítems de seguimiento (extra: comercial, esperas, tareas sin documento)</div>` : ''}
     <div>
       ${itsVisibles.map(i => filaItem(i, docsProy)).join('') || (docsProy.length ? '<div class="muted" style="padding:4px 6px">Sin ítems extra. Usá "+ Ítem" para el ping-pong comercial (ej: esperando OC).</div>' : '<div class="tarea-vacia">Sin ítems. Aplicá un template o agregá ítems sueltos.</div>')}
@@ -465,6 +508,82 @@ function vistaDetalle() {
 async function cambiarEstadoDoc(codigo, estado) {
   try { await api('/api/documentos/' + encodeURIComponent(codigo) + '/estado', { method:'POST', body:{ estado } }); await cargar(); render(); }
   catch(e){ alert(e.message); }
+}
+
+// Árbol: proyecto → expedientes ABIERTOS (amarillo) → documentos por color.
+// Los expedientes 100% cerrados no aparecen. Clic en un expediente lo expande/colapsa.
+function arbolProyecto(p, exps) {
+  const abiertos = [...exps.entries()].filter(([, docs]) => docs.some(d => canchaDoc(d.estado) !== 'cerrado'));
+  if (!abiertos.length) return '<div class="tarea-vacia">🎉 Todos los expedientes están cerrados — no queda nada abierto en este proyecto.</div>';
+  const cerradosOcultos = exps.size - abiertos.length;
+
+  let ramas = '';
+  for (const [expId, docs] of abiertos) {
+    const n = { mia:0, cliente:0, cerrado:0 };
+    for (const d of docs) n[canchaDoc(d.estado)]++;
+    const abierto = ARBOL_EXP.has(expId);
+    const resumen = ['mia','cliente','cerrado'].filter(c => n[c])
+      .map(c => `<span style="background:${ARBOL_COLOR[c]}">${n[c]}</span>`).join('');
+    const hojas = !abierto ? '' : `<div class="hojas">${docs
+      .slice().sort((a,b) => ordenTipo(a.tipo_doc) - ordenTipo(b.tipo_doc))
+      .map(d => { const c = ARBOL_COLOR[canchaDoc(d.estado)];
+        return `<div class="hoja" style="--h-color:${c}">
+          <span class="hoja-chip" style="background:${c}" title="${esc(d.codigo)}">${esc(d.tipo_doc || '')} ${esc(d.prot_inf || '')} · ${esc(d.estado)}${d.estado === 'Entregado' ? ' ✓' : ''}</span>
+        </div>`; }).join('')}</div>`;
+    ramas += `<div class="exp-nodo">
+      <div class="exp-caja" onclick="toggleExp('${esc(expId)}')">
+        <span class="caret">${abierto ? '▾' : '▸'}</span>
+        <b>${esc(expId)}</b>
+        <span class="desc">${esc(docs[0].descripcion || '')}</span>
+        <span class="resumen">${resumen}</span>
+      </div>
+      ${hojas}
+    </div>`;
+  }
+
+  return `<div class="arbol">
+      <div class="raiz">${esc(p.codigo)} · ${esc(p.nombre)}</div>
+      <div class="ramas">${ramas}</div>
+    </div>
+    <div class="leyenda">
+      <span><span class="celda" style="background:${ARBOL_COLOR.mia}"></span>Tenés que entregarlo</span>
+      <span><span class="celda" style="background:${ARBOL_COLOR.cliente}"></span>Lo tiene el cliente</span>
+      <span><span class="celda" style="background:${ARBOL_COLOR.cerrado}"></span>Entregado</span>
+      ${cerradosOcultos ? `<span class="muted">· ${cerradosOcultos} expediente(s) cerrados ocultos</span>` : ''}
+    </div>`;
+}
+function toggleExp(id){ ARBOL_EXP.has(id) ? ARBOL_EXP.delete(id) : ARBOL_EXP.add(id); render(); }
+
+// Matriz: filas = expedientes, columnas = tipo de documento, celda = color por cancha
+function mapaProyecto(exps) {
+  const claveCol = d => ((d.tipo_doc || '?') + (d.prot_inf ? ' ' + d.prot_inf : '')).trim();
+  const cols = [...new Set([...exps.values()].flat().map(claveCol))]
+    .sort((a,b) => ordenTipo(a.split(' ')[0]) - ordenTipo(b.split(' ')[0]) || a.localeCompare(b));
+  let filas = '';
+  for (const [expId, docs] of exps) {
+    let celdas = '';
+    for (const c of cols) {
+      const ds = docs.filter(d => claveCol(d) === c);
+      if (!ds.length) { celdas += '<td><div class="celda vacia" title="No aplica"></div></td>'; continue; }
+      // Si hay varios docs en la celda, manda el "peor": tu cancha > cliente > cerrado
+      const canchas = ds.map(d => canchaDoc(d.estado));
+      const peor = canchas.includes('mia') ? 'mia' : canchas.includes('cliente') ? 'cliente' : 'cerrado';
+      const titulo = ds.map(d => `${d.codigo}: ${d.estado}`).join('\n');
+      celdas += `<td><div class="celda" style="background:${CANCHA_COLOR[peor]}" title="${esc(titulo)}"></div></td>`;
+    }
+    const desc = (docs => (docs[0].descripcion || ''))(exps.get(expId));
+    filas += `<tr><td class="exp-nom" title="${esc(desc)}">${esc(expId)}</td>${celdas}</tr>`;
+  }
+  return `<div class="mapa-wrap"><table class="mapa">
+      <tr><th style="text-align:left">Expediente</th>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>
+      ${filas}</table></div>
+    <div class="leyenda">
+      <span><span class="celda" style="background:${CANCHA_COLOR.mia}"></span>En tu cancha</span>
+      <span><span class="celda" style="background:${CANCHA_COLOR.cliente}"></span>Espera al cliente</span>
+      <span><span class="celda" style="background:${CANCHA_COLOR.cerrado}"></span>Cerrado</span>
+      <span><span class="celda vacia"></span>No aplica</span>
+      <span class="muted">· Pasá el mouse por una celda para ver código y estado</span>
+    </div>`;
 }
 
 async function editarProyectoFaro(cod, body) {
