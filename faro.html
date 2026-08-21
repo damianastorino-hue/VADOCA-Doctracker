@@ -560,7 +560,8 @@ function mapaProyecto(exps) {
   const cols = [...new Set([...exps.values()].flat().map(claveCol))]
     .sort((a,b) => ordenTipo(a.split(' ')[0]) - ordenTipo(b.split(' ')[0]) || a.localeCompare(b));
   let filas = '';
-  for (const [expId, docs] of exps) {
+  // Más nuevos arriba: en batches largos, los viejos ya cerrados se van al fondo
+  for (const [expId, docs] of [...exps.entries()].reverse()) {
     let celdas = '';
     for (const c of cols) {
       const ds = docs.filter(d => claveCol(d) === c);
