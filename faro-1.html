@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FARO · Seguimiento VADOCA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0D1C2E; --navy2:#16283E; --turq:#00B4B6; --turq-dim:#007e80;
+  --gris:#6D7985; --gris-osc:#435561; --fondo:#F2F5F7; --card:#FFFFFF;
+  --ok:#2E9E5B; --warn:#D9822B; --peligro:#C0392B; --borde:#DDE4E9;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--fondo);color:var(--navy);font-size:14px}
+h1,h2,h3,.brand{font-family:'Sora',sans-serif}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-size:13px}
+select,input,textarea{font-family:inherit;font-size:13px;border:1px solid var(--borde);border-radius:8px;padding:7px 9px;background:#fff;color:var(--navy)}
+select:focus,input:focus,textarea:focus{outline:2px solid var(--turq);outline-offset:0;border-color:var(--turq)}
+
+/* ---------- Login ---------- */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--navy)}
+#login .caja{background:var(--navy2);padding:40px 36px;border-radius:16px;width:340px;border:1px solid #23374d}
+#login .brand{color:#fff;font-size:28px;font-weight:700;letter-spacing:.5px}
+#login .brand span{color:var(--turq)}
+#login p{color:var(--gris);margin:6px 0 24px;font-size:13px}
+#login input{width:100%;margin-bottom:12px;background:#0f2136;border-color:#23374d;color:#fff;padding:11px}
+#login button{width:100%;background:var(--turq);color:var(--navy);font-weight:600;padding:12px;font-size:14px}
+#login .err{color:#ff8a80;font-size:12px;margin-top:10px;min-height:16px}
+
+/* ---------- Shell ---------- */
+#app{display:none}
+header{background:var(--navy);color:#fff;padding:0 20px;display:flex;align-items:center;gap:24px;height:56px;position:sticky;top:0;z-index:20}
+header .brand{font-size:19px;font-weight:700}
+header .brand span{color:var(--turq)}
+nav{display:flex;gap:4px;flex:1}
+nav button{background:transparent;color:#B9C4CE;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500}
+nav button.on{background:var(--turq);color:var(--navy);font-weight:600}
+nav button:hover:not(.on){background:#1d3048}
+header .quien{color:var(--gris);font-size:12px}
+header .salir{background:transparent;color:#B9C4CE;border:1px solid var(--gris-osc);padding:6px 12px}
+main{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
+
+.card{background:var(--card);border:1px solid var(--borde);border-radius:12px;padding:16px;margin-bottom:14px}
+.muted{color:var(--gris);font-size:12px}
+.fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{background:var(--turq);color:#fff;font-weight:600;padding:8px 14px}
+.btn.sec{background:#EAF0F3;color:var(--gris-osc)}
+.btn.mini{padding:4px 9px;font-size:12px}
+.btn.rojo{background:transparent;color:var(--peligro);border:1px solid #E7C4C0}
+
+/* ---------- Chips de estado ---------- */
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.c-mia{background:#FFF3E4;color:#9A5B12}
+.c-cliente{background:#E3F2FD;color:#1663A8}
+.c-cerrado{background:#E7F5EC;color:#1F7A44}
+.punto{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+/* ---------- Hoy ---------- */
+.hoy-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.hoy-grid{grid-template-columns:1fr}}
+.col-titulo{font-family:'Sora';font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:4px 0 10px;display:flex;align-items:center;gap:8px}
+.col-titulo.mia{color:#9A5B12}.col-titulo.cli{color:#1663A8}
+.pcard{cursor:pointer;transition:border-color .15s;border-left:4px solid var(--turq)}
+.pcard.personal{border-left-color:#8E6CC8}
+.tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:5px;vertical-align:middle}
+.tag.dt{background:#E6F7F7;color:var(--turq-dim)}
+.tag.pro{background:#E6F7F7;color:var(--turq-dim)}
+.tag.per{background:#F0EAFB;color:#6B4FA3}
+.filtros{display:flex;gap:6px;margin-bottom:14px}
+.filtros button{background:#fff;border:1px solid var(--borde);color:var(--gris-osc);padding:6px 13px;border-radius:20px;font-size:12px;font-weight:600}
+.filtros button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.pcard:hover{border-color:var(--turq)}
+.pcard h3{font-size:15px;margin-bottom:2px}
+.pcard .prox{margin-top:8px;padding:8px 10px;background:var(--fondo);border-radius:8px;font-size:13px}
+.pcard .prox b{color:var(--turq-dim)}
+.barra{height:5px;background:#E8EDF1;border-radius:3px;margin-top:10px;overflow:hidden}
+.barra i{display:block;height:100%;background:var(--turq)}
+.venc{display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--fondo);font-size:13px}
+.venc.tarde{color:var(--peligro);font-weight:600}
+
+/* ---------- Detalle proyecto ---------- */
+.item-row{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;padding:9px 6px;border-bottom:1px solid var(--fondo)}
+.item-row:last-child{border-bottom:none}
+.item-row .nom{font-size:13.5px}
+.item-row .nom .doc{color:var(--turq-dim);font-size:11px;display:block}
+.item-row .ops{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.item-row select{padding:5px 7px;font-size:12px}
+.item-row input[type=date]{padding:4px 6px;font-size:12px}
+.tilde{width:18px;height:18px;border-radius:50%;border:2px solid var(--borde);display:inline-block}
+.tilde.done{background:var(--turq);border-color:var(--turq);position:relative}
+.tilde.done::after{content:'✓';color:#fff;font-size:11px;position:absolute;left:3px;top:0}
+.bita{margin-top:14px;border-top:2px solid var(--fondo);padding-top:10px;max-height:260px;overflow:auto}
+.bita .e{padding:6px 4px;border-bottom:1px solid var(--fondo);font-size:12.5px}
+.bita .e .muted{font-size:11px}
+
+/* ---------- Calendario ---------- */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal .dia{background:#fff;border:1px solid var(--borde);border-radius:8px;min-height:78px;padding:5px;font-size:11px}
+.cal .dia.hoy-dia{border-color:var(--turq);border-width:2px}
+.cal .dia .n{color:var(--gris);font-weight:600}
+.cal .dia .it{background:#E6F7F7;color:var(--turq-dim);border-radius:5px;padding:2px 4px;margin-top:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
+.cal .dia .it.tarde{background:#FBE9E7;color:var(--peligro)}
+.cal-cab{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:6px;text-align:center;font-size:11px;color:var(--gris);font-weight:600}
+
+/* ---------- Modal ---------- */
+#modal{display:none;position:fixed;inset:0;background:rgba(13,28,46,.55);z-index:50;align-items:center;justify-content:center;padding:16px}
+#modal .caja{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:440px;max-height:88vh;overflow:auto}
+#modal h3{margin-bottom:14px}
+#modal label{display:block;font-size:12px;color:var(--gris-osc);font-weight:600;margin:10px 0 4px}
+#modal select,#modal input,#modal textarea{width:100%}
+#modal .acciones{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.tarea-vacia{text-align:center;color:var(--gris);padding:30px 10px;font-size:13px}
+
+/* ---------- Expedientes (proyectos DocTracker) ---------- */
+details.exp{border:1px solid var(--borde);border-radius:10px;margin-bottom:8px;background:#FAFCFD}
+details.exp summary{cursor:pointer;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;list-style:none;font-size:13px}
+details.exp summary::-webkit-details-marker{display:none}
+details.exp summary .cod{font-weight:600;color:var(--turq-dim)}
+details.exp[open] summary{border-bottom:1px solid var(--borde)}
+.doc-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--fondo);font-size:12.5px;flex-wrap:wrap}
+.doc-row:last-child{border-bottom:none}
+.doc-row select{padding:4px 6px;font-size:12px}
+.seccion{font-family:'Sora';font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--gris-osc);margin:16px 0 8px}
+
+/* ---------- Mapa (matriz de estados) ---------- */
+.mapa-wrap{overflow-x:auto;margin-top:8px}
+.mapa{border-collapse:collapse;font-size:11px}
+.mapa th{padding:4px 6px;color:var(--gris-osc);font-weight:600;text-align:center;white-space:nowrap}
+.mapa td{padding:3px}
+.mapa td.exp-nom{white-space:nowrap;color:var(--gris-osc);font-weight:600;padding-right:10px;position:sticky;left:0;background:var(--card)}
+.celda{width:22px;height:22px;border-radius:5px;margin:0 auto;cursor:default}
+.celda.vacia{background:var(--fondo)}
+.leyenda{display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:var(--gris-osc);align-items:center}
+.leyenda .celda{display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px}
+.modo-btns{display:flex;gap:4px}
+.modo-btns button{background:#EAF0F3;color:var(--gris-osc);padding:5px 11px;font-size:12px;font-weight:600}
+.modo-btns button.on{background:var(--navy);color:#fff}
+
+/* ---------- Árbol ---------- */
+.arbol{margin-top:10px}
+.arbol .raiz{display:inline-block;background:var(--navy);color:#fff;border-radius:10px;padding:10px 16px;font-family:'Sora';font-weight:700;font-size:13px}
+.arbol .ramas{margin-left:14px;border-left:3px solid #E6B93C;padding-left:0}
+.arbol .exp-nodo{position:relative;margin:10px 0 10px 22px}
+.arbol .exp-nodo::before{content:'';position:absolute;left:-25px;top:18px;width:22px;height:3px;background:#E6B93C}
+.arbol .exp-caja{display:inline-flex;align-items:center;gap:10px;background:#FFF6DE;border:2px solid #E6B93C;border-radius:10px;padding:7px 12px;cursor:pointer;font-size:12.5px;color:#8A6D1D;max-width:100%}
+.arbol .exp-caja b{white-space:nowrap}
+.arbol .exp-caja .desc{color:#A98E3B;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:260px}
+.arbol .exp-caja .caret{font-size:10px}
+.arbol .resumen{display:inline-flex;gap:8px;font-size:11px;font-weight:700}
+.arbol .resumen span{display:inline-flex;align-items:center;gap:3px;color:#fff;border-radius:10px;padding:1px 7px}
+.arbol .hojas{margin-left:16px;border-left:2px solid var(--borde);padding:4px 0 2px}
+.arbol .hoja{position:relative;margin:7px 0 7px 20px}
+.arbol .hoja::before{content:'';position:absolute;left:-22px;top:12px;width:18px;height:2px;background:var(--h-color,#DDE4E9)}
+.arbol .hoja-chip{display:inline-block;color:#fff;border-radius:8px;padding:5px 11px;font-size:11.5px;font-weight:600}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="caja">
+    <div class="brand">FARO<span>.</span></div>
+    <p>Seguimiento de proyectos · VADOCA<br>Ingresá con tu usuario de DocTracker</p>
+    <input id="lEmail" type="email" placeholder="Email" autocomplete="username">
+    <input id="lPass" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
+    <button onclick="login()">Entrar</button>
+    <div class="err" id="lErr"></div>
+    <div style="margin-top:14px;text-align:center">
+      <a href="#" onclick="configBackend();return false" style="color:var(--gris);font-size:11px">⚙ Backend: <span id="lBk"></span></a>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="brand">FARO<span>.</span></div>
+    <nav>
+      <button id="nHoy" class="on" onclick="ir('hoy')">Hoy</button>
+      <button id="nProy" onclick="ir('proyectos')">Proyectos</button>
+      <button id="nCal" onclick="ir('calendario')">Calendario</button>
+      <button id="nTpl" onclick="ir('templates')">Templates</button>
+    </nav>
+    <span class="quien" id="quien"></span>
+    <button class="salir" onclick="salir()">Salir</button>
+  </header>
+  <main id="main"></main>
+</div>
+
+<div id="modal"><div class="caja" id="modalCaja"></div></div>
+
+<script>
+const BACKEND_DEFAULT = 'https://vadoca-doctracker-backend-production.up.railway.app';
+let BACKEND = localStorage.getItem('faro_backend') || BACKEND_DEFAULT;
+function configBackend() {
+  const u = prompt('URL del backend de DocTracker (sin barra final):', BACKEND);
+  if (!u) return;
+  BACKEND = u.trim().replace(/\/+$/, '');
+  localStorage.setItem('faro_backend', BACKEND);
+  const el = document.getElementById('lBk'); if (el) el.textContent = BACKEND.replace('https://','');
+  alert('Backend actualizado. Probá loguearte de nuevo.');
+}
+const SEG_ESTADOS = ['pendiente','en curso','enviado a cliente','esperando respuesta','observado','aprobado','n/a'];
+const DOC_ESTADOS = ['Borrador','En revisión','Validable','No validable','En ejecución','Enviado a cliente','Aprobado','Entregado','Suspendido','Cancelado'];
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const TAREAS = '__TAREAS__'; // pseudo-proyecto para tareas sueltas sin proyecto
+
+let TOKEN = sessionStorage.getItem('faro_token') || '';
+let USUARIO = JSON.parse(sessionStorage.getItem('faro_usuario') || 'null');
+let DATA = { proyectos:[], proyectos_faro:[], items:[], templates:[], documentos:[] };
+let VISTA = 'hoy', PROY_SEL = null, CAL_MES = null, FILTRO_AMBITO = 'todos', MODO_DETALLE = 'lista';
+const ARBOL_EXP = new Set(); // expedientes expandidos en la vista árbol
+const CANCHA_COLOR = { mia:'#D9822B', cliente:'#1663A8', cerrado:'#2E9E5B' };
+const ARBOL_COLOR = { mia:'#C0392B', cliente:'#1663A8', cerrado:'#2E9E5B' }; // semáforo pedido para el árbol
+const ORDEN_TIPOS = ['PM','PMV','VMP','RU','DQ','IQ','OQ','PQ','IV','IF','INF'];
+function ordenTipo(t){ const i = ORDEN_TIPOS.indexOf((t||'').toUpperCase()); return i === -1 ? 99 : i; }
+
+// Unifica proyectos de DocTracker (siempre profesionales) y propios de FARO
+function todosProyectos() {
+  const dt = DATA.proyectos.map(p => ({ codigo:p.codigo, nombre:p.nombre, cliente_nombre:p.cliente_nombre||'',
+    estado:p.estado, origen:'dt', ambito:'profesional' }));
+  const faro = (DATA.proyectos_faro||[]).map(p => ({ codigo:p.codigo, nombre:p.nombre, cliente_nombre:p.cliente||'',
+    estado:p.estado, origen:'faro', ambito:p.ambito }));
+  return dt.concat(faro);
+}
+function pasaFiltro(p){ return FILTRO_AMBITO === 'todos' || p.ambito === FILTRO_AMBITO; }
+function chipsFiltro() {
+  return `<div class="filtros">${[['todos','Todos'],['profesional','Profesional'],['personal','Personal']]
+    .map(([v,t]) => `<button class="${FILTRO_AMBITO===v?'on':''}" onclick="FILTRO_AMBITO='${v}';render()">${t}</button>`).join('')}</div>`;
+}
+function tagDe(p) {
+  if (p.origen === 'dt') return '<span class="tag dt">DocTracker</span>';
+  return p.ambito === 'personal' ? '<span class="tag per">Personal</span>' : '<span class="tag pro">Profesional</span>';
+}
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hoyISO = () => new Date().toISOString().slice(0,10);
+
+async function api(ruta, opt = {}) {
+  opt.headers = Object.assign({'Content-Type':'application/json'}, opt.headers || {});
+  if (TOKEN) opt.headers.Authorization = 'Bearer ' + TOKEN;
+  if (opt.body && typeof opt.body !== 'string') opt.body = JSON.stringify(opt.body);
+  const r = await fetch(BACKEND + ruta, opt);
+  if (r.status === 401 && ruta !== '/api/login') { salir(); throw new Error('Sesión vencida'); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'Error ' + r.status);
+  return j;
+}
+
+/* ---------- Sesión ---------- */
+async function login() {
+  const err = document.getElementById('lErr'); err.textContent = '';
+  try {
+    const j = await api('/api/login', { method:'POST', body:{
+      email: document.getElementById('lEmail').value,
+      password: document.getElementById('lPass').value } });
+    TOKEN = j.token; USUARIO = j.usuario;
+    sessionStorage.setItem('faro_token', TOKEN);
+    sessionStorage.setItem('faro_usuario', JSON.stringify(USUARIO));
+    arrancar();
+  } catch(e){ err.textContent = e.message; }
+}
+function salir(){ sessionStorage.clear(); location.reload(); }
+
+async function arrancar() {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('quien').textContent = USUARIO ? USUARIO.nombre || USUARIO.email : '';
+  try { await cargar(); render(); }
+  catch(e) {
+    document.getElementById('main').innerHTML = `<div class="card" style="border-left:4px solid var(--peligro)">
+      <h3 style="color:var(--peligro);font-size:14px">No se pudieron cargar los datos</h3>
+      <p style="margin-top:6px;font-size:13px">El backend respondió: <b>${esc(e.message)}</b></p>
+      <p class="muted" style="margin-top:8px">Si dice "Error 404" o "Cannot GET", el backend en Railway todavía corre la versión vieja sin el módulo de seguimiento — revisá que el deploy del server.js nuevo haya quedado en verde.</p>
+      <button class="btn" style="margin-top:12px" onclick="arrancar()">Reintentar</button>
+      <button class="btn sec" style="margin-top:12px" onclick="salir()">Salir</button>
+    </div>`;
+  }
+}
+async function cargar(){ DATA = await api('/api/seguimiento/data'); }
+
+/* ---------- Lógica de cancha ---------- */
+function estadoEfectivo(it){ return it.doc_codigo ? (it.doc_estado || 'Borrador') : it.estado; }
+function canchaDoc(e) {
+  if (['Entregado','Suspendido','Cancelado'].includes(e)) return 'cerrado';
+  if (e === 'Enviado a cliente') return 'cliente';
+  return 'mia';
+}
+function cancha(it) {
+  const e = estadoEfectivo(it);
+  if (it.doc_codigo) return canchaDoc(e);
+  if (['aprobado','n/a'].includes(e)) return 'cerrado';
+  if (['enviado a cliente','esperando respuesta'].includes(e)) return 'cliente';
+  return 'mia';
+}
+const CHIP = { mia:['c-mia','En tu cancha'], cliente:['c-cliente','Espera al cliente'], cerrado:['c-cerrado','Cerrado'] };
+function chip(c){ return `<span class="chip ${CHIP[c][0]}"><span class="punto"></span>${CHIP[c][1]}</span>`; }
+function itemsDe(cod){ return DATA.items.filter(i => i.proyecto === cod); }
+function docsDe(cod){ return DATA.documentos.filter(d => d.proyecto === cod); }
+
+// Unidades de trabajo de un proyecto: documentos reales de DocTracker + ítems de seguimiento.
+// Los ítems vinculados a un documento del mismo proyecto se omiten (ya cuentan como documento).
+function unidadesDe(cod) {
+  const docs = docsDe(cod);
+  const codsDocs = new Set(docs.map(d => d.codigo));
+  const uDocs = docs.map(d => ({ clase:'doc', nombre:(d.codigo + ' · ' + (d.tipo_doc||'') + ' ' + (d.prot_inf||'')).trim(),
+    estado:d.estado, cancha:canchaDoc(d.estado), fecha_limite:null }));
+  const uItems = itemsDe(cod).filter(i => !(i.doc_codigo && codsDocs.has(i.doc_codigo)))
+    .map(i => ({ clase:'seg', nombre:i.nombre, estado:estadoEfectivo(i), cancha:cancha(i), fecha_limite:i.fecha_limite }));
+  return uDocs.concat(uItems);
+}
+
+/* ---------- Navegación ---------- */
+function ir(v){ VISTA = v; if(v!=='proyectos') PROY_SEL = null; render(); }
+function render() {
+  for (const [id,v] of [['nHoy','hoy'],['nProy','proyectos'],['nCal','calendario'],['nTpl','templates']])
+    document.getElementById(id).classList.toggle('on', VISTA === v);
+  const m = document.getElementById('main');
+  if (VISTA === 'hoy') m.innerHTML = vistaHoy();
+  else if (VISTA === 'proyectos') m.innerHTML = PROY_SEL ? vistaDetalle() : vistaProyectos();
+  else if (VISTA === 'calendario') m.innerHTML = vistaCalendario();
+  else m.innerHTML = vistaTemplates();
+  if (VISTA === 'proyectos' && PROY_SEL) cargarBitacora();
+}
+
+/* ---------- Vista HOY ---------- */
+function tarjetaProyecto(p) {
+  const us = unidadesDe(p.codigo);
+  const cerrados = us.filter(u => u.cancha === 'cerrado').length;
+  const enMia = us.filter(u => u.cancha === 'mia').length;
+  const enCli = us.filter(u => u.cancha === 'cliente').length;
+  const prox = us.find(u => u.cancha === 'mia') || us.find(u => u.cancha === 'cliente');
+  const pct = us.length ? Math.round(cerrados / us.length * 100) : 0;
+  return `<div class="card pcard ${p.ambito === 'personal' ? 'personal' : ''}" onclick="abrirProyecto('${esc(p.codigo)}')">
+    <div class="fila" style="justify-content:space-between">
+      <h3>${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</h3>${prox ? chip(prox.cancha) : chip('cerrado')}
+    </div>
+    <div class="muted">${esc(p.cliente_nombre || '')} · ${cerrados}/${us.length} cerrados${enMia ? ` · ${enMia} en tu cancha` : ''}${enCli ? ` · ${enCli} del cliente` : ''}</div>
+    ${prox ? `<div class="prox">Próxima acción: <b>${esc(prox.nombre)}</b> — ${esc(prox.estado)}${prox.fecha_limite ? ' · vence ' + esc(prox.fecha_limite) : ''}</div>` : ''}
+    <div class="barra"><i style="width:${pct}%"></i></div>
+  </div>`;
+}
+function vistaHoy() {
+  const activos = todosProyectos().filter(p => p.estado === 'Activo' && pasaFiltro(p) && unidadesDe(p.codigo).length);
+  const mios = activos.filter(p => unidadesDe(p.codigo).some(u => u.cancha === 'mia'));
+  // Del lado del cliente: documentos e ítems individuales, no proyectos enteros
+  const esperando = [];
+  for (const p of activos)
+    for (const u of unidadesDe(p.codigo)) if (u.cancha === 'cliente') esperando.push({ ...u, proyecto: p.codigo });
+  for (const i of itemsDe(TAREAS)) if (cancha(i) === 'cliente')
+    esperando.push({ clase:'seg', nombre:i.nombre, estado:estadoEfectivo(i), fecha_limite:i.fecha_limite, proyecto: TAREAS });
+  const h = hoyISO();
+  const lim = new Date(Date.now() + 7*864e5).toISOString().slice(0,10);
+  const codsVisibles = new Set(activos.map(p => p.codigo));
+  codsVisibles.add(TAREAS);
+  const vencen = DATA.items
+    .filter(i => i.fecha_limite && cancha(i) !== 'cerrado' && i.fecha_limite <= lim && codsVisibles.has(i.proyecto))
+    .sort((a,b) => a.fecha_limite < b.fecha_limite ? -1 : 1);
+  const tareas = itemsDe(TAREAS);
+  const tareasActivas = tareas.filter(i => cancha(i) !== 'cerrado');
+  const tareasCerradas = tareas.length - tareasActivas.length;
+  return chipsFiltro() + `
+    <div class="card">
+      <div class="fila" style="justify-content:space-between">
+        <h2 style="font-size:15px">✓ Tareas sueltas</h2>
+        ${tareasCerradas ? `<span class="muted">${tareasCerradas} cerrada${tareasCerradas > 1 ? 's' : ''}</span>` : ''}
+      </div>
+      <div style="margin-top:6px">${tareasActivas.map(i => filaItem(i, [])).join('') ||
+        '<div class="muted" style="padding:6px 4px">Sin tareas pendientes.</div>'}</div>
+      <div class="fila" style="margin-top:10px">
+        <input id="tareaNueva" placeholder="Ej: Emitir factura abril LKM" style="flex:1" onkeydown="if(event.key==='Enter')crearTarea()">
+        <input id="tareaFecha" type="date" title="Fecha límite (opcional)">
+        <button class="btn mini" onclick="crearTarea()">+ Agregar</button>
+      </div>
+    </div>
+    ${vencen.length ? `<div class="card"><h2 style="font-size:15px;margin-bottom:8px">⏰ Vencimientos próximos</h2>
+      ${vencen.map(i => `<div class="venc ${i.fecha_limite < h ? 'tarde' : ''}">
+        <span>${esc(i.nombre)} <span class="muted">· ${esc(i.proyecto)}</span></span>
+        <span>${i.fecha_limite < h ? 'VENCIDO · ' : ''}${esc(i.fecha_limite)}</span></div>`).join('')}</div>` : ''}
+    <div class="hoy-grid">
+      <div><div class="col-titulo mia"><span class="punto" style="background:#D9822B"></span>En tu cancha (${mios.length})</div>
+        ${mios.map(tarjetaProyecto).join('') || '<div class="tarea-vacia">Nada pendiente de tu lado 🎉</div>'}</div>
+      <div><div class="col-titulo cli"><span class="punto" style="background:#1663A8"></span>Esperando al cliente (${esperando.length})</div>
+        ${esperando.map(u => `<div class="card pcard" style="border-left-color:#1663A8;padding:11px 14px" onclick="abrirProyecto('${esc(u.proyecto)}')">
+          <div class="fila" style="justify-content:space-between;gap:8px">
+            <b style="font-size:13px">${esc(u.nombre)}</b>
+            <span class="muted" style="white-space:nowrap">${u.proyecto === TAREAS ? 'Tarea suelta' : esc(u.proyecto)}</span></div>
+          <div class="muted" style="margin-top:3px">${esc(u.estado)}${u.fecha_limite ? ' · vence ' + esc(u.fecha_limite) : ''}</div>
+        </div>`).join('') || '<div class="tarea-vacia">Nada esperando respuesta</div>'}</div>
+    </div>
+    ${!activos.length && !tareas.length ? `<div class="card tarea-vacia">Todavía no hay proyectos con seguimiento.<br><br>
+      <button class="btn" onclick="ir('proyectos')">Ir a Proyectos para arrancar</button></div>` : ''}`;
+}
+
+async function crearTarea() {
+  const nombre = document.getElementById('tareaNueva').value.trim();
+  if (!nombre) return;
+  const fecha = document.getElementById('tareaFecha').value || null;
+  try {
+    await api('/api/seguimiento/items', { method:'POST', body:{ proyecto: TAREAS, nombre, fecha_limite: fecha } });
+    await cargar(); render();
+  } catch(e){ alert(e.message); }
+}
+
+/* ---------- Vista PROYECTOS ---------- */
+function vistaProyectos() {
+  const todos = todosProyectos();
+  const conSeg = todos.filter(p => unidadesDe(p.codigo).length && pasaFiltro(p));
+  const sinSegDT = todos.filter(p => p.origen === 'dt' && !unidadesDe(p.codigo).length);
+  const sinSegFaro = todos.filter(p => p.origen === 'faro' && !unidadesDe(p.codigo).length && pasaFiltro(p));
+  return `<div class="fila" style="justify-content:space-between;margin-bottom:12px">
+      ${chipsFiltro()}
+      <button class="btn mini" onclick="modalNuevoProyecto()">+ Nuevo proyecto</button></div>
+    ${conSeg.map(tarjetaProyecto).join('') || '<div class="card tarea-vacia">Ningún proyecto tiene seguimiento todavía (con este filtro).</div>'}
+    ${sinSegFaro.map(p => `<div class="card fila" style="justify-content:space-between">
+      <span>${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</span>
+      <button class="btn mini" onclick="abrirProyecto('${esc(p.codigo)}')">Abrir</button></div>`).join('')}
+    ${FILTRO_AMBITO !== 'personal' ? `<div class="card"><h3 style="font-size:14px;margin-bottom:8px">Proyectos de DocTracker sin seguimiento</h3>
+      ${sinSegDT.map(p => `<div class="fila" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--fondo)">
+        <span>${esc(p.codigo)} · ${esc(p.nombre)} <span class="muted">${esc(p.cliente_nombre || '')} · ${esc(p.estado)}</span></span>
+        <button class="btn mini" onclick="modalTemplate('${esc(p.codigo)}')">+ Aplicar template</button></div>`).join('')
+        || '<div class="muted">DocTracker no tiene proyectos cargados en su módulo Proyectos.</div>'}
+      <p class="muted" style="margin-top:10px">Diagnóstico: DocTracker tiene ${DATA.proyectos.length} proyecto(s) y ${DATA.documentos.length} documento(s).
+      FARO lee el módulo <b>Proyectos</b> de DocTracker — si tu trabajo está solo como expedientes, crealo también como Proyecto allá, o creá acá un proyecto FARO.</p></div>` : ''}`;
+}
+
+function modalNuevoProyecto() {
+  abrirModal(`<h3>Nuevo proyecto FARO</h3>
+    <p class="muted">Para proyectos que no viven en DocTracker (personales o profesionales sueltos).</p>
+    <label>Nombre</label><input id="mPNom" placeholder="Ej: Pintar el portón / Habilitación farmacia">
+    <label>Ámbito</label>
+    <select id="mPAmb"><option value="personal">Personal</option><option value="profesional">Profesional</option></select>
+    <label>Cliente / referencia (opcional)</label><input id="mPCli">
+    <div class="acciones"><button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn" onclick="crearProyecto()">Crear</button></div>`);
+}
+async function crearProyecto() {
+  const nombre = document.getElementById('mPNom').value.trim();
+  if (!nombre) return alert('Falta el nombre');
+  try {
+    const p = await api('/api/seguimiento/proyectos', { method:'POST', body:{
+      nombre, ambito: document.getElementById('mPAmb').value,
+      cliente: document.getElementById('mPCli').value.trim() } });
+    cerrarModal(); await cargar(); abrirProyecto(p.codigo);
+  } catch(e){ alert(e.message); }
+}
+
+function abrirProyecto(cod){ if (cod === TAREAS) { ir('hoy'); return; } VISTA = 'proyectos'; PROY_SEL = cod; render(); }
+
+function vistaDetalle() {
+  const p = todosProyectos().find(x => x.codigo === PROY_SEL);
+  if (!p) { PROY_SEL = null; return vistaProyectos(); }
+  const its = itemsDe(p.codigo);
+  const docsProy = docsDe(p.codigo);
+  const codsDocs = new Set(docsProy.map(d => d.codigo));
+  const itsVisibles = its.filter(i => !(i.doc_codigo && codsDocs.has(i.doc_codigo)));
+
+  // Agrupar documentos por expediente
+  const exps = new Map();
+  for (const d of docsProy) {
+    if (!exps.has(d.expediente_id)) exps.set(d.expediente_id, []);
+    exps.get(d.expediente_id).push(d);
+  }
+  let htmlExps = '';
+  for (const [expId, docs] of exps) {
+    const activosN = docs.filter(d => canchaDoc(d.estado) !== 'cerrado').length;
+    const resumen = activosN ? `<span class="chip c-mia"><span class="punto"></span>${activosN} activo${activosN > 1 ? 's' : ''}</span>` : chip('cerrado');
+    htmlExps += `<details class="exp">
+      <summary><span><span class="cod">${esc(expId)}</span> <span class="muted">${esc((docs[0].descripcion || '').slice(0,60))}</span></span>${resumen}</summary>
+      ${docs.map(d => `<div class="doc-row">
+        <span><b>${esc(d.codigo)}</b> · ${esc(d.tipo_doc || '')} ${esc(d.prot_inf || '')}</span>
+        <span class="fila">${chip(canchaDoc(d.estado))}
+        <select onchange="cambiarEstadoDoc('${esc(d.codigo)}', this.value)">
+          ${DOC_ESTADOS.map(s => `<option ${d.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select></span>
+      </div>`).join('')}
+    </details>`;
+  }
+
+  return `<button class="btn sec mini" onclick="PROY_SEL=null;render()">← Volver</button>
+  <div class="card" style="margin-top:12px;border-left:4px solid ${p.ambito === 'personal' ? '#8E6CC8' : 'var(--turq)'}">
+    <div class="fila" style="justify-content:space-between">
+      <div><h2 style="font-size:17px">${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</h2>
+      <div class="muted">${esc(p.cliente_nombre || '')}${p.origen === 'dt' ? ' · ' + esc(p.estado) : ''}</div></div>
+      <div class="fila">
+        ${p.origen === 'faro' ? `<select onchange="editarProyectoFaro('${esc(p.codigo)}',{estado:this.value})" style="padding:5px 7px;font-size:12px">
+          ${['Activo','Pausado','Cerrado'].map(s => `<option ${p.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select>` : ''}
+        <button class="btn sec mini" onclick="modalTemplate('${esc(p.codigo)}')">+ Template</button>
+        <button class="btn mini" onclick="modalItem('${esc(p.codigo)}')">+ Ítem</button>
+        ${p.origen === 'faro' ? `<button class="btn rojo mini" onclick="borrarProyectoFaro('${esc(p.codigo)}')">✕</button>` : ''}
+      </div>
+    </div>
+    ${docsProy.length ? `<div class="fila" style="justify-content:space-between;margin-top:14px">
+      <div class="seccion" style="margin:0">Expedientes y documentos · DocTracker (${exps.size} exp / ${docsProy.length} docs)</div>
+      <div class="modo-btns">
+        <button class="${MODO_DETALLE === 'lista' ? 'on' : ''}" onclick="MODO_DETALLE='lista';render()">☰ Lista</button>
+        <button class="${MODO_DETALLE === 'mapa' ? 'on' : ''}" onclick="MODO_DETALLE='mapa';render()">▦ Mapa</button>
+        <button class="${MODO_DETALLE === 'arbol' ? 'on' : ''}" onclick="MODO_DETALLE='arbol';render()">🌳 Árbol</button>
+      </div></div>
+      ${MODO_DETALLE === 'mapa' ? mapaProyecto(exps) : MODO_DETALLE === 'arbol' ? arbolProyecto(p, exps) : htmlExps}` : ''}
+    ${(docsProy.length || itsVisibles.length) ? `<div class="seccion">Ítems de seguimiento (extra: comercial, esperas, tareas sin documento)</div>` : ''}
+    <div>
+      ${itsVisibles.map(i => filaItem(i, docsProy)).join('') || (docsProy.length ? '<div class="muted" style="padding:4px 6px">Sin ítems extra. Usá "+ Ítem" para el ping-pong comercial (ej: esperando OC).</div>' : '<div class="tarea-vacia">Sin ítems. Aplicá un template o agregá ítems sueltos.</div>')}
+    </div>
+    <div class="bita" id="bitacora"><div class="muted">Cargando bitácora…</div></div>
+  </div>`;
+}
+
+async function cambiarEstadoDoc(codigo, estado) {
+  try { await api('/api/documentos/' + encodeURIComponent(codigo) + '/estado', { method:'POST', body:{ estado } }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+
+// Árbol: proyecto → expedientes ABIERTOS (amarillo) → documentos por color.
+// Los expedientes 100% cerrados no aparecen. Clic en un expediente lo expande/colapsa.
+function arbolProyecto(p, exps) {
+  const abiertos = [...exps.entries()].filter(([, docs]) => docs.some(d => canchaDoc(d.estado) !== 'cerrado'));
+  if (!abiertos.length) return '<div class="tarea-vacia">🎉 Todos los expedientes están cerrados — no queda nada abierto en este proyecto.</div>';
+  const cerradosOcultos = exps.size - abiertos.length;
+
+  let ramas = '';
+  for (const [expId, docs] of abiertos) {
+    const n = { mia:0, cliente:0, cerrado:0 };
+    for (const d of docs) n[canchaDoc(d.estado)]++;
+    const abierto = ARBOL_EXP.has(expId);
+    const resumen = ['mia','cliente','cerrado'].filter(c => n[c])
+      .map(c => `<span style="background:${ARBOL_COLOR[c]}">${n[c]}</span>`).join('');
+    const hojas = !abierto ? '' : `<div class="hojas">${docs
+      .slice().sort((a,b) => ordenTipo(a.tipo_doc) - ordenTipo(b.tipo_doc))
+      .map(d => { const c = ARBOL_COLOR[canchaDoc(d.estado)];
+        return `<div class="hoja" style="--h-color:${c}">
+          <span class="hoja-chip" style="background:${c}" title="${esc(d.codigo)}">${esc(d.tipo_doc || '')} ${esc(d.prot_inf || '')} · ${esc(d.estado)}${d.estado === 'Entregado' ? ' ✓' : ''}</span>
+        </div>`; }).join('')}</div>`;
+    ramas += `<div class="exp-nodo">
+      <div class="exp-caja" onclick="toggleExp('${esc(expId)}')">
+        <span class="caret">${abierto ? '▾' : '▸'}</span>
+        <b>${esc(expId)}</b>
+        <span class="desc">${esc(docs[0].descripcion || '')}</span>
+        <span class="resumen">${resumen}</span>
+      </div>
+      ${hojas}
+    </div>`;
+  }
+
+  return `<div class="arbol">
+      <div class="raiz">${esc(p.codigo)} · ${esc(p.nombre)}</div>
+      <div class="ramas">${ramas}</div>
+    </div>
+    <div class="leyenda">
+      <span><span class="celda" style="background:${ARBOL_COLOR.mia}"></span>Tenés que entregarlo</span>
+      <span><span class="celda" style="background:${ARBOL_COLOR.cliente}"></span>Lo tiene el cliente</span>
+      <span><span class="celda" style="background:${ARBOL_COLOR.cerrado}"></span>Entregado</span>
+      ${cerradosOcultos ? `<span class="muted">· ${cerradosOcultos} expediente(s) cerrados ocultos</span>` : ''}
+    </div>`;
+}
+function toggleExp(id){ ARBOL_EXP.has(id) ? ARBOL_EXP.delete(id) : ARBOL_EXP.add(id); render(); }
+
+// Matriz: filas = expedientes, columnas = tipo de documento, celda = color por cancha
+function mapaProyecto(exps) {
+  const claveCol = d => ((d.tipo_doc || '?') + (d.prot_inf ? ' ' + d.prot_inf : '')).trim();
+  const cols = [...new Set([...exps.values()].flat().map(claveCol))]
+    .sort((a,b) => ordenTipo(a.split(' ')[0]) - ordenTipo(b.split(' ')[0]) || a.localeCompare(b));
+  let filas = '';
+  // Más nuevos arriba: en batches largos, los viejos ya cerrados se van al fondo
+  for (const [expId, docs] of [...exps.entries()].reverse()) {
+    let celdas = '';
+    for (const c of cols) {
+      const ds = docs.filter(d => claveCol(d) === c);
+      if (!ds.length) { celdas += '<td><div class="celda vacia" title="No aplica"></div></td>'; continue; }
+      // Si hay varios docs en la celda, manda el "peor": tu cancha > cliente > cerrado
+      const canchas = ds.map(d => canchaDoc(d.estado));
+      const peor = canchas.includes('mia') ? 'mia' : canchas.includes('cliente') ? 'cliente' : 'cerrado';
+      const titulo = ds.map(d => `${d.codigo}: ${d.estado}`).join('\n');
+      celdas += `<td><div class="celda" style="background:${CANCHA_COLOR[peor]}" title="${esc(titulo)}"></div></td>`;
+    }
+    const desc = (docs => (docs[0].descripcion || ''))(exps.get(expId));
+    filas += `<tr><td class="exp-nom" title="${esc(desc)}">${esc(expId)}</td>${celdas}</tr>`;
+  }
+  return `<div class="mapa-wrap"><table class="mapa">
+      <tr><th style="text-align:left">Expediente</th>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>
+      ${filas}</table></div>
+    <div class="leyenda">
+      <span><span class="celda" style="background:${CANCHA_COLOR.mia}"></span>En tu cancha</span>
+      <span><span class="celda" style="background:${CANCHA_COLOR.cliente}"></span>Espera al cliente</span>
+      <span><span class="celda" style="background:${CANCHA_COLOR.cerrado}"></span>Cerrado</span>
+      <span><span class="celda vacia"></span>No aplica</span>
+      <span class="muted">· Pasá el mouse por una celda para ver código y estado</span>
+    </div>`;
+}
+
+async function editarProyectoFaro(cod, body) {
+  try { await api('/api/seguimiento/proyectos/' + encodeURIComponent(cod), { method:'PATCH', body }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+async function borrarProyectoFaro(cod) {
+  if (!confirm('¿Eliminar este proyecto FARO y todos sus ítems de seguimiento?')) return;
+  try { await api('/api/seguimiento/proyectos/' + encodeURIComponent(cod), { method:'DELETE' }); PROY_SEL = null; await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+
+function filaItem(i, docsProy) {
+  const c = cancha(i), e = estadoEfectivo(i);
+  const estados = i.doc_codigo ? DOC_ESTADOS : SEG_ESTADOS;
+  return `<div class="item-row">
+    <span class="tilde ${c === 'cerrado' ? 'done' : ''}"></span>
+    <div class="nom">${esc(i.nombre)}
+      ${i.doc_codigo ? `<span class="doc">📄 ${esc(i.doc_codigo)} — el estado lo manda el documento</span>` : ''}
+    </div>
+    <div class="ops">
+      ${chip(c)}
+      <select onchange="cambiarEstado(${i.id}, this.value)">
+        ${estados.map(s => `<option ${e === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      <input type="date" value="${esc(i.fecha_limite || '')}" onchange="editarItem(${i.id},{fecha_limite:this.value})" title="Fecha límite">
+      <button class="btn sec mini" onclick="notaItem(${i.id})" title="Agregar nota a la bitácora">✎</button>
+      <button class="btn sec mini" onclick="modalVincular(${i.id})" title="Vincular documento de DocTracker">🔗</button>
+      <button class="btn rojo mini" onclick="borrarItem(${i.id})">✕</button>
+    </div>
+  </div>`;
+}
+
+async function cargarBitacora() {
+  const el = document.getElementById('bitacora'); if (!el || !PROY_SEL) return;
+  try {
+    const ent = await api('/api/seguimiento/proyectos/' + encodeURIComponent(PROY_SEL) + '/bitacora');
+    el.innerHTML = '<h3 style="font-size:13px;margin-bottom:6px">Bitácora del proyecto</h3>' +
+      (ent.map(n => `<div class="e"><span class="muted">${new Date(n.ts).toLocaleString('es-AR')} · ${esc(n.autor)} · ${esc(n.tipo)}</span><br>${esc(n.texto)}</div>`).join('')
+       || '<div class="muted">Sin entradas todavía.</div>');
+  } catch(e){ el.innerHTML = '<div class="muted">No se pudo cargar la bitácora.</div>'; }
+}
+
+/* ---------- Acciones sobre ítems ---------- */
+async function cambiarEstado(id, estado) {
+  try { await api('/api/seguimiento/items/' + id, { method:'PATCH', body:{ estado } }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+async function editarItem(id, body) {
+  try { await api('/api/seguimiento/items/' + id, { method:'PATCH', body }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+async function borrarItem(id) {
+  if (!confirm('¿Eliminar este ítem del seguimiento? (no toca documentos de DocTracker)')) return;
+  try { await api('/api/seguimiento/items/' + id, { method:'DELETE' }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+async function notaItem(id) {
+  const t = prompt('Nota para la bitácora (ej: "cliente respondió con observaciones"):');
+  if (!t) return;
+  try { await api('/api/seguimiento/items/' + id + '/nota', { method:'POST', body:{ texto: t } }); render(); }
+  catch(e){ alert(e.message); }
+}
+
+/* ---------- Modales ---------- */
+function abrirModal(html){ document.getElementById('modalCaja').innerHTML = html; document.getElementById('modal').style.display = 'flex'; }
+function cerrarModal(){ document.getElementById('modal').style.display = 'none'; }
+
+function modalTemplate(cod) {
+  abrirModal(`<h3>Aplicar template</h3>
+    <label>Proyecto</label><input value="${esc(cod)}" disabled>
+    <label>Template</label>
+    <select id="mTpl">${DATA.templates.map(t => `<option value="${t.id}">${esc(t.nombre)} (${t.items.length} ítems)</option>`).join('')}</select>
+    <div class="acciones"><button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn" onclick="aplicarTemplate('${esc(cod)}')">Aplicar</button></div>`);
+}
+async function aplicarTemplate(cod) {
+  try {
+    await api('/api/seguimiento/aplicar-template', { method:'POST',
+      body:{ proyecto: cod, template_id: +document.getElementById('mTpl').value } });
+    cerrarModal(); await cargar(); abrirProyecto(cod);
+  } catch(e){ alert(e.message); }
+}
+
+function modalItem(cod) {
+  abrirModal(`<h3>Nuevo ítem</h3>
+    <label>Nombre</label><input id="mNom" placeholder="Ej: Esperando OC del cliente">
+    <label>Fecha límite (opcional)</label><input id="mFec" type="date">
+    <div class="acciones"><button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn" onclick="crearItem('${esc(cod)}')">Crear</button></div>`);
+}
+async function crearItem(cod) {
+  const nombre = document.getElementById('mNom').value.trim();
+  if (!nombre) return alert('Falta el nombre');
+  try {
+    await api('/api/seguimiento/items', { method:'POST',
+      body:{ proyecto: cod, nombre, fecha_limite: document.getElementById('mFec').value || null } });
+    cerrarModal(); await cargar(); render();
+  } catch(e){ alert(e.message); }
+}
+
+function modalVincular(id) {
+  const it = DATA.items.find(x => x.id === id);
+  const docs = DATA.documentos.filter(d => d.proyecto === it.proyecto);
+  const otros = DATA.documentos.filter(d => d.proyecto !== it.proyecto);
+  abrirModal(`<h3>Vincular documento</h3>
+    <p class="muted">Al vincular, el estado del ítem pasa a leerse del documento en DocTracker (fuente única). Cambiarlo desde acá lo cambia allá, con su bitácora.</p>
+    <label>Documento</label>
+    <select id="mDoc">
+      <option value="">— Sin vínculo (estado manual) —</option>
+      ${docs.length ? `<optgroup label="Del proyecto ${esc(it.proyecto)}">${docs.map(d =>
+        `<option value="${esc(d.codigo)}" ${it.doc_codigo === d.codigo ? 'selected' : ''}>${esc(d.codigo)} · ${esc(d.tipo_doc)} ${esc(d.prot_inf)} · ${esc(d.estado)}</option>`).join('')}</optgroup>` : ''}
+      <optgroup label="Otros documentos">${otros.map(d =>
+        `<option value="${esc(d.codigo)}" ${it.doc_codigo === d.codigo ? 'selected' : ''}>${esc(d.codigo)} · ${esc(d.descripcion || '').slice(0,40)}</option>`).join('')}</optgroup>
+    </select>
+    <div class="acciones"><button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn" onclick="vincular(${id})">Guardar</button></div>`);
+}
+async function vincular(id) {
+  try {
+    await api('/api/seguimiento/items/' + id, { method:'PATCH',
+      body:{ doc_codigo: document.getElementById('mDoc').value || '' } });
+    cerrarModal(); await cargar(); render();
+  } catch(e){ alert(e.message); }
+}
+
+/* ---------- Vista CALENDARIO ---------- */
+function vistaCalendario() {
+  if (!CAL_MES) { const d = new Date(); CAL_MES = [d.getFullYear(), d.getMonth()]; }
+  const [anio, mes] = CAL_MES;
+  const primero = new Date(anio, mes, 1);
+  const inicio = (primero.getDay() + 6) % 7; // lunes = 0
+  const dias = new Date(anio, mes + 1, 0).getDate();
+  const h = hoyISO();
+  const porFecha = {};
+  for (const i of DATA.items) if (i.fecha_limite && cancha(i) !== 'cerrado')
+    (porFecha[i.fecha_limite] = porFecha[i.fecha_limite] || []).push(i);
+  let celdas = '';
+  for (let x = 0; x < inicio; x++) celdas += '<div></div>';
+  for (let d = 1; d <= dias; d++) {
+    const f = `${anio}-${String(mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    celdas += `<div class="dia ${f === h ? 'hoy-dia' : ''}"><div class="n">${d}</div>
+      ${(porFecha[f] || []).map(i => `<div class="it ${f < h ? 'tarde' : ''}" onclick="abrirProyecto('${esc(i.proyecto)}')" title="${esc(i.proyecto)}">${esc(i.nombre)}</div>`).join('')}</div>`;
+  }
+  return `<div class="card">
+    <div class="fila" style="justify-content:space-between;margin-bottom:12px">
+      <button class="btn sec mini" onclick="CAL_MES=[${mes===0?anio-1:anio},${mes===0?11:mes-1}];render()">←</button>
+      <h2 style="font-size:16px">${MESES[mes]} ${anio}</h2>
+      <button class="btn sec mini" onclick="CAL_MES=[${mes===11?anio+1:anio},${mes===11?0:mes+1}];render()">→</button>
+    </div>
+    <div class="cal-cab"><div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div><div>Do</div></div>
+    <div class="cal">${celdas}</div>
+  </div>`;
+}
+
+/* ---------- Vista TEMPLATES ---------- */
+function vistaTemplates() {
+  return `<div class="fila" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="font-size:17px">Templates de entregables</h2>
+      <button class="btn mini" onclick="modalNuevoTemplate()">+ Nuevo</button></div>
+    ${DATA.templates.map(t => `<div class="card">
+      <div class="fila" style="justify-content:space-between">
+        <h3 style="font-size:14px">${esc(t.nombre)} <span class="muted">· ${t.items.length} ítems</span></h3>
+        <div class="fila">
+          <button class="btn sec mini" onclick="modalEditarTemplate(${t.id})">Editar</button>
+          <button class="btn rojo mini" onclick="borrarTemplate(${t.id})">✕</button></div>
+      </div>
+      <div class="muted" style="margin-top:6px">${t.items.map(esc).join(' → ') || 'Sin ítems (proyecto libre)'}</div>
+    </div>`).join('')}`;
+}
+function modalNuevoTemplate(){ modalTpl({ id:null, nombre:'', items:[] }); }
+function modalEditarTemplate(id){ modalTpl(DATA.templates.find(t => t.id === id)); }
+function modalTpl(t) {
+  abrirModal(`<h3>${t.id ? 'Editar' : 'Nuevo'} template</h3>
+    <label>Nombre</label><input id="tNom" value="${esc(t.nombre)}">
+    <label>Ítems (uno por línea, en orden)</label>
+    <textarea id="tIts" rows="10">${esc(t.items.join('\n'))}</textarea>
+    <div class="acciones"><button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn" onclick="guardarTemplate(${t.id ?? 'null'})">Guardar</button></div>`);
+}
+async function guardarTemplate(id) {
+  const nombre = document.getElementById('tNom').value.trim();
+  const items = document.getElementById('tIts').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!nombre) return alert('Falta el nombre');
+  try {
+    if (id) await api('/api/seguimiento/templates/' + id, { method:'PATCH', body:{ nombre, items } });
+    else await api('/api/seguimiento/templates', { method:'POST', body:{ nombre, items } });
+    cerrarModal(); await cargar(); render();
+  } catch(e){ alert(e.message); }
+}
+async function borrarTemplate(id) {
+  if (!confirm('¿Eliminar template? Los ítems ya aplicados a proyectos no se tocan.')) return;
+  try { await api('/api/seguimiento/templates/' + id, { method:'DELETE' }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+
+/* ---------- Init ---------- */
+document.getElementById('modal').addEventListener('click', e => { if (e.target.id === 'modal') cerrarModal(); });
+const _lbk = document.getElementById('lBk'); if (_lbk) _lbk.textContent = BACKEND.replace('https://','');
+if (TOKEN) arrancar().catch(() => salir());
+</script>
+</body>
+</html>
