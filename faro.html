@@ -131,7 +131,7 @@ details.exp[open] summary{border-bottom:1px solid var(--borde)}
 .mapa td{padding:3px}
 .mapa td.exp-nom{white-space:nowrap;color:var(--gris-osc);font-weight:600;padding-right:10px;position:sticky;left:0;background:var(--card)}
 .celda{width:22px;height:22px;border-radius:5px;margin:0 auto;cursor:default}
-.celda.vacia{background:var(--fondo)}
+.celda.vacia{background:var(--fondo);display:flex;align-items:center;justify-content:center;color:#C3CDD5;font-size:12px;font-weight:700}
 .leyenda{display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:var(--gris-osc);align-items:center}
 .leyenda .celda{display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px}
 .modo-btns{display:flex;gap:4px}
@@ -179,6 +179,7 @@ details.exp[open] summary{border-bottom:1px solid var(--borde)}
       <button id="nHoy" class="on" onclick="ir('hoy')">Hoy</button>
       <button id="nProy" onclick="ir('proyectos')">Proyectos</button>
       <button id="nCal" onclick="ir('calendario')">Calendario</button>
+      <button id="nFac" onclick="ir('facturas')">Facturación</button>
       <button id="nTpl" onclick="ir('templates')">Templates</button>
     </nav>
     <span class="quien" id="quien"></span>
@@ -313,12 +314,13 @@ function unidadesDe(cod) {
 /* ---------- Navegación ---------- */
 function ir(v){ VISTA = v; if(v!=='proyectos') PROY_SEL = null; render(); }
 function render() {
-  for (const [id,v] of [['nHoy','hoy'],['nProy','proyectos'],['nCal','calendario'],['nTpl','templates']])
+  for (const [id,v] of [['nHoy','hoy'],['nProy','proyectos'],['nCal','calendario'],['nFac','facturas'],['nTpl','templates']])
     document.getElementById(id).classList.toggle('on', VISTA === v);
   const m = document.getElementById('main');
   if (VISTA === 'hoy') m.innerHTML = vistaHoy();
   else if (VISTA === 'proyectos') m.innerHTML = PROY_SEL ? vistaDetalle() : vistaProyectos();
   else if (VISTA === 'calendario') m.innerHTML = vistaCalendario();
+  else if (VISTA === 'facturas') m.innerHTML = vistaFacturas();
   else m.innerHTML = vistaTemplates();
   if (VISTA === 'proyectos' && PROY_SEL) cargarBitacora();
 }
@@ -554,22 +556,23 @@ function arbolProyecto(p, exps) {
 }
 function toggleExp(id){ ARBOL_EXP.has(id) ? ARBOL_EXP.delete(id) : ARBOL_EXP.add(id); render(); }
 
-// Matriz: filas = expedientes, columnas = tipo de documento, celda = color por cancha
+// Matriz: filas = expedientes, columnas = TIPO de documento (P, I y PI unificados),
+// celda = color del "peor" doc del grupo. Gris con "–" = ese expediente no lleva ese tipo.
 function mapaProyecto(exps) {
-  const claveCol = d => ((d.tipo_doc || '?') + (d.prot_inf ? ' ' + d.prot_inf : '')).trim();
+  const claveCol = d => (d.tipo_doc || '?').toUpperCase().trim();
   const cols = [...new Set([...exps.values()].flat().map(claveCol))]
-    .sort((a,b) => ordenTipo(a.split(' ')[0]) - ordenTipo(b.split(' ')[0]) || a.localeCompare(b));
+    .sort((a,b) => ordenTipo(a) - ordenTipo(b) || a.localeCompare(b));
   let filas = '';
   // Más nuevos arriba: en batches largos, los viejos ya cerrados se van al fondo
   for (const [expId, docs] of [...exps.entries()].reverse()) {
     let celdas = '';
     for (const c of cols) {
       const ds = docs.filter(d => claveCol(d) === c);
-      if (!ds.length) { celdas += '<td><div class="celda vacia" title="No aplica"></div></td>'; continue; }
-      // Si hay varios docs en la celda, manda el "peor": tu cancha > cliente > cerrado
+      if (!ds.length) { celdas += '<td><div class="celda vacia" title="No aplica — no es entregable de este expediente">–</div></td>'; continue; }
+      // Si hay varios docs del mismo tipo (P + I, versiones), manda el "peor": tu cancha > cliente > cerrado
       const canchas = ds.map(d => canchaDoc(d.estado));
       const peor = canchas.includes('mia') ? 'mia' : canchas.includes('cliente') ? 'cliente' : 'cerrado';
-      const titulo = ds.map(d => `${d.codigo}: ${d.estado}`).join('\n');
+      const titulo = ds.map(d => `${d.codigo} (${d.prot_inf || '—'}): ${d.estado}`).join('\n');
       celdas += `<td><div class="celda" style="background:${CANCHA_COLOR[peor]}" title="${esc(titulo)}"></div></td>`;
     }
     const desc = (docs => (docs[0].descripcion || ''))(exps.get(expId));
@@ -582,8 +585,8 @@ function mapaProyecto(exps) {
       <span><span class="celda" style="background:${CANCHA_COLOR.mia}"></span>En tu cancha</span>
       <span><span class="celda" style="background:${CANCHA_COLOR.cliente}"></span>Espera al cliente</span>
       <span><span class="celda" style="background:${CANCHA_COLOR.cerrado}"></span>Cerrado</span>
-      <span><span class="celda vacia"></span>No aplica</span>
-      <span class="muted">· Pasá el mouse por una celda para ver código y estado</span>
+      <span><span class="celda vacia">–</span>No aplica</span>
+      <span class="muted">· La celda agrupa protocolo + informe del tipo; el hover detalla cada documento</span>
     </div>`;
 }
 
@@ -737,6 +740,177 @@ function vistaCalendario() {
     <div class="cal-cab"><div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div><div>Do</div></div>
     <div class="cal">${celdas}</div>
   </div>`;
+}
+
+/* ---------- Vista FACTURACIÓN ---------- */
+let FACT_F = { cliente:'', estado:'todas', desde:'', hasta:'' };
+const fmtMonto = (n, m) => (m === 'USD' ? 'USD ' : '$ ') + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+
+function factRango(desde, hasta) { FACT_F.desde = desde; FACT_F.hasta = hasta; render(); }
+function enRango(f) { return (!FACT_F.desde || (f || '') >= FACT_F.desde) && (!FACT_F.hasta || (f || '') <= FACT_F.hasta); }
+
+function vistaFacturas() {
+  const todas = DATA.facturas || [];
+  const clientes = [...new Set(todas.map(f => f.cliente).filter(Boolean))].sort();
+
+  // Totales del período, separados por moneda:
+  // Facturado y Pendiente por fecha de emisión; Cobrado por fecha de cobro.
+  const tot = { fact:{}, cob:{}, pend:{} };
+  for (const f of todas) {
+    if ((FACT_F.cliente && f.cliente !== FACT_F.cliente)) continue;
+    if (enRango(f.fecha_emision)) {
+      tot.fact[f.moneda] = (tot.fact[f.moneda] || 0) + +f.monto;
+      if (f.estado !== 'Cobrada') tot.pend[f.moneda] = (tot.pend[f.moneda] || 0) + +f.monto;
+    }
+    if (f.estado === 'Cobrada' && enRango(f.fecha_cobro))
+      tot.cob[f.moneda] = (tot.cob[f.moneda] || 0) + +f.monto;
+  }
+  const rTot = o => Object.keys(o).sort().map(m => `<div style="font-size:16px;font-weight:700">${fmtMonto(o[m], m)}</div>`).join('') || '<div class="muted">—</div>';
+
+  const lista = todas.filter(f =>
+    (!FACT_F.cliente || f.cliente === FACT_F.cliente) &&
+    (FACT_F.estado === 'todas' || f.estado === FACT_F.estado) &&
+    enRango(f.fecha_emision));
+
+  const hoy = new Date(); const y = hoy.getFullYear();
+  const hace3m = new Date(hoy - 90*864e5).toISOString().slice(0,10);
+
+  // Por presupuesto: aceptados y/o con facturas cargadas. El ciclo se cierra a mano.
+  const presRelevantes = (DATA.presupuestos || []).filter(p =>
+    (!FACT_F.cliente || p.cliente_nombre === FACT_F.cliente) &&
+    (p.estado === 'Aceptado' || todas.some(f => f.presupuesto === p.codigo)));
+  const htmlPres = presRelevantes.map(p => {
+    const fs = todas.filter(f => f.presupuesto === p.codigo);
+    const sumas = {};
+    for (const f of fs) sumas[f.moneda] = (sumas[f.moneda] || 0) + +f.monto;
+    const cobradas = fs.filter(f => f.estado === 'Cobrada').length;
+    const pct = (p.moneda && sumas[p.moneda] && +p.monto) ? Math.round(sumas[p.moneda] / +p.monto * 100) : null;
+    const cerrada = p.facturacion === 'Cerrada';
+    const sumasTxt = Object.keys(sumas).sort().map(m => fmtMonto(sumas[m], m)).join(' + ') || 'sin facturas';
+    return `<div class="card" style="border-left:4px solid ${cerrada ? '#2E9E5B' : '#E6B93C'}">
+      <div class="fila" style="justify-content:space-between">
+        <div><b>${esc(p.codigo)}</b> · ${esc(p.cliente_nombre || '')} <span class="muted">· ${esc((p.descripcion || '').slice(0,50))}</span>
+          <div class="muted" style="margin-top:3px">Presupuesto: ${fmtMonto(p.monto || 0, p.moneda || 'ARS')} ·
+          ${fs.length} factura${fs.length === 1 ? '' : 's'} (${cobradas} cobrada${cobradas === 1 ? '' : 's'}) · Facturado: ${sumasTxt}${pct !== null ? ` · ${pct}%` : ''}</div>
+        </div>
+        <div class="fila">
+          <span class="chip ${cerrada ? 'c-cerrado' : 'c-mia'}"><span class="punto"></span>Facturación ${cerrada ? 'cerrada' : 'abierta'}</span>
+          ${cerrada
+            ? `<button class="btn sec mini" onclick="cicloPresup('${esc(p.codigo)}','Abierta')">Reabrir</button>`
+            : `<button class="btn mini" onclick="cicloPresup('${esc(p.codigo)}','Cerrada')">Cerrar ciclo</button>`}
+        </div>
+      </div></div>`;
+  }).join('');
+
+  return `<div class="fila" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="font-size:17px">Facturación</h2>
+      <button class="btn mini" onclick="modalFactura(null)">+ Nueva factura</button></div>
+
+    <div class="card"><div class="fila">
+      <select onchange="FACT_F.cliente=this.value;render()">
+        <option value="">Todos los clientes</option>
+        ${clientes.map(c => `<option ${FACT_F.cliente === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+      <select onchange="FACT_F.estado=this.value;render()">
+        <option value="todas" ${FACT_F.estado === 'todas' ? 'selected' : ''}>Todas</option>
+        <option value="Emitida" ${FACT_F.estado === 'Emitida' ? 'selected' : ''}>Emitidas (sin cobrar)</option>
+        <option value="Cobrada" ${FACT_F.estado === 'Cobrada' ? 'selected' : ''}>Cobradas</option></select>
+      <input type="date" value="${esc(FACT_F.desde)}" onchange="FACT_F.desde=this.value;render()" title="Desde">
+      <input type="date" value="${esc(FACT_F.hasta)}" onchange="FACT_F.hasta=this.value;render()" title="Hasta">
+      <div class="modo-btns">
+        <button onclick="factRango('${hace3m}','')">3 meses</button>
+        <button onclick="factRango('${y}-01-01','')">Este año</button>
+        <button onclick="factRango('','')">Todo</button></div>
+    </div></div>
+
+    <div class="hoy-grid" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="card"><div class="muted" style="font-weight:600">FACTURADO</div>${rTot(tot.fact)}</div>
+      <div class="card"><div class="muted" style="font-weight:600;color:#1F7A44">COBRADO</div>${rTot(tot.cob)}</div>
+      <div class="card"><div class="muted" style="font-weight:600;color:#9A5B12">PENDIENTE DE COBRO</div>${rTot(tot.pend)}</div>
+    </div>
+
+    ${htmlPres ? `<div class="seccion">Por presupuesto</div>${htmlPres}` : ''}
+    <div class="seccion">Facturas</div>
+    <div class="card">
+    ${lista.map(f => {
+      const pres = (DATA.presupuestos || []).find(p => p.codigo === f.presupuesto);
+      return `<div class="item-row" style="grid-template-columns:1fr auto">
+        <div class="nom"><b>${esc(f.numero)}</b> · ${esc(f.cliente)} <span class="muted">· ${esc(f.fecha_emision)}</span>
+          ${f.presupuesto ? `<span class="doc">Presup. ${esc(f.presupuesto)}${pres ? ` (${fmtMonto(pres.monto || 0, pres.moneda || 'ARS')})` : ''}</span>` : ''}
+          ${f.estado === 'Cobrada' && f.fecha_cobro ? `<span class="doc" style="color:#1F7A44">Cobrada el ${esc(f.fecha_cobro)}</span>` : ''}
+        </div>
+        <div class="ops">
+          <b style="font-size:13px">${fmtMonto(f.monto, f.moneda)}</b>
+          <span class="chip ${f.estado === 'Cobrada' ? 'c-cerrado' : 'c-mia'}"><span class="punto"></span>${esc(f.estado)}</span>
+          ${f.estado !== 'Cobrada' ? `<button class="btn mini" onclick="cobrarFactura(${f.id})">Cobrar</button>` : ''}
+          <button class="btn sec mini" onclick="modalFactura(${f.id})">✎</button>
+          <button class="btn rojo mini" onclick="borrarFactura(${f.id})">✕</button>
+        </div>
+      </div>`; }).join('') || '<div class="tarea-vacia">No hay facturas en este filtro.</div>'}
+    </div>`;
+}
+
+function modalFactura(id) {
+  const f = id ? DATA.facturas.find(x => x.id === id) : { numero:'', cliente:'', presupuesto:'', fecha_emision: hoyISO(), monto:'', moneda:'ARS', notas:'' };
+  // Solo presupuestos Aceptados con ciclo de facturación abierto (más el ya vinculado, si se edita)
+  const pres = (DATA.presupuestos || []).filter(p =>
+    (p.estado === 'Aceptado' && p.facturacion !== 'Cerrada') || p.codigo === f.presupuesto);
+  abrirModal(`<h3>${id ? 'Editar' : 'Nueva'} factura</h3>
+    <label>Número</label><input id="fNum" value="${esc(f.numero)}" placeholder="Ej: 0003-00000123">
+    <label>Presupuesto vinculado (opcional)</label>
+    <select id="fPres" onchange="presupSeleccionado()">
+      <option value="">— Sin presupuesto —</option>
+      ${pres.map(p => `<option value="${esc(p.codigo)}" data-cliente="${esc(p.cliente_nombre || '')}" ${f.presupuesto === p.codigo ? 'selected' : ''}>
+        ${esc(p.codigo)} · ${esc(p.cliente_nombre || '')} · ${fmtMonto(p.monto || 0, p.moneda || 'ARS')} · ${esc(p.estado)}</option>`).join('')}</select>
+    <div class="muted" id="fPresRef" style="margin-top:4px"></div>
+    <label>Cliente</label><input id="fCli" value="${esc(f.cliente)}" list="fClientes">
+    <datalist id="fClientes">${[...new Set([...(DATA.facturas||[]).map(x=>x.cliente), ...pres.map(p=>p.cliente_nombre)].filter(Boolean))].map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    <label>Fecha de emisión</label><input id="fFec" type="date" value="${esc(f.fecha_emision)}">
+    <div class="fila"><div style="flex:1"><label>Monto de la factura</label><input id="fMonto" type="number" step="0.01" value="${esc(f.monto)}"></div>
+    <div><label>Moneda</label><select id="fMon"><option ${f.moneda === 'ARS' ? 'selected' : ''}>ARS</option><option ${f.moneda === 'USD' ? 'selected' : ''}>USD</option></select></div></div>
+    <label>Notas</label><input id="fNotas" value="${esc(f.notas)}">
+    <div class="acciones"><button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn" onclick="guardarFactura(${id ?? 'null'})">Guardar</button></div>`);
+  presupSeleccionado(true);
+}
+function presupSeleccionado(soloRef) {
+  const sel = document.getElementById('fPres');
+  const op = sel.options[sel.selectedIndex];
+  const p = (DATA.presupuestos || []).find(x => x.codigo === sel.value);
+  document.getElementById('fPresRef').textContent = p ? `Referencia del presupuesto: ${fmtMonto(p.monto || 0, p.moneda || 'ARS')} — la factura lleva su propio monto y moneda` : '';
+  if (!soloRef && op && op.dataset.cliente) document.getElementById('fCli').value = op.dataset.cliente;
+}
+async function guardarFactura(id) {
+  const body = {
+    numero: document.getElementById('fNum').value.trim(),
+    presupuesto: document.getElementById('fPres').value,
+    cliente: document.getElementById('fCli').value.trim(),
+    fecha_emision: document.getElementById('fFec').value,
+    monto: +document.getElementById('fMonto').value || 0,
+    moneda: document.getElementById('fMon').value,
+    notas: document.getElementById('fNotas').value.trim()
+  };
+  if (!body.numero || !body.fecha_emision) return alert('Faltan número o fecha');
+  try {
+    if (id) await api('/api/seguimiento/facturas/' + id, { method:'PATCH', body });
+    else await api('/api/seguimiento/facturas', { method:'POST', body });
+    cerrarModal(); await cargar(); render();
+  } catch(e){ alert(e.message); }
+}
+async function cobrarFactura(id) {
+  const fecha = prompt('Fecha de cobro:', hoyISO());
+  if (!fecha) return;
+  try { await api('/api/seguimiento/facturas/' + id, { method:'PATCH', body:{ estado:'Cobrada', fecha_cobro: fecha } }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+async function borrarFactura(id) {
+  if (!confirm('¿Eliminar esta factura del registro?')) return;
+  try { await api('/api/seguimiento/facturas/' + id, { method:'DELETE' }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+async function cicloPresup(codigo, estado) {
+  if (estado === 'Cerrada' && !confirm(`¿Cerrar el ciclo de facturación de ${codigo}? No vas a poder vincularle facturas nuevas (se puede reabrir).`)) return;
+  try { await api('/api/seguimiento/presupuestos/' + encodeURIComponent(codigo) + '/facturacion', { method:'PATCH', body:{ estado } }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
 }
 
 /* ---------- Vista TEMPLATES ---------- */
