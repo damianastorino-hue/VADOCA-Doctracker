@@ -238,9 +238,14 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const hoyISO = () => new Date().toISOString().slice(0,10);
 
 async function api(ruta, opt = {}) {
-  opt.headers = Object.assign({'Content-Type':'application/json'}, opt.headers || {});
+  opt.headers = Object.assign({}, opt.headers || {});
   if (TOKEN) opt.headers.Authorization = 'Bearer ' + TOKEN;
-  if (opt.body && typeof opt.body !== 'string') opt.body = JSON.stringify(opt.body);
+  if (opt.body instanceof FormData) {
+    // multipart: el navegador pone el Content-Type con boundary
+  } else {
+    opt.headers['Content-Type'] = 'application/json';
+    if (opt.body && typeof opt.body !== 'string') opt.body = JSON.stringify(opt.body);
+  }
   const r = await fetch(BACKEND + ruta, opt);
   if (r.status === 401 && ruta !== '/api/login') { salir(); throw new Error('Sesión vencida'); }
   const j = await r.json().catch(() => ({}));
@@ -556,12 +561,12 @@ function arbolProyecto(p, exps) {
 }
 function toggleExp(id){ ARBOL_EXP.has(id) ? ARBOL_EXP.delete(id) : ARBOL_EXP.add(id); render(); }
 
-// Matriz: filas = expedientes, columnas = TIPO de documento (P, I y PI unificados),
-// celda = color del "peor" doc del grupo. Gris con "–" = ese expediente no lleva ese tipo.
+// Matriz: filas = expedientes, columnas = tipo de documento CON su P/I/PI separado
+// (P e I se siguen por separado). Gris con "–" = ese expediente no lleva ese documento.
 function mapaProyecto(exps) {
-  const claveCol = d => (d.tipo_doc || '?').toUpperCase().trim();
+  const claveCol = d => ((d.tipo_doc || '?') + (d.prot_inf ? ' ' + d.prot_inf : '')).trim().toUpperCase();
   const cols = [...new Set([...exps.values()].flat().map(claveCol))]
-    .sort((a,b) => ordenTipo(a) - ordenTipo(b) || a.localeCompare(b));
+    .sort((a,b) => ordenTipo(a.split(' ')[0]) - ordenTipo(b.split(' ')[0]) || a.localeCompare(b));
   let filas = '';
   // Más nuevos arriba: en batches largos, los viejos ya cerrados se van al fondo
   for (const [expId, docs] of [...exps.entries()].reverse()) {
@@ -586,7 +591,7 @@ function mapaProyecto(exps) {
       <span><span class="celda" style="background:${CANCHA_COLOR.cliente}"></span>Espera al cliente</span>
       <span><span class="celda" style="background:${CANCHA_COLOR.cerrado}"></span>Cerrado</span>
       <span><span class="celda vacia">–</span>No aplica</span>
-      <span class="muted">· La celda agrupa protocolo + informe del tipo; el hover detalla cada documento</span>
+      <span class="muted">· P = protocolo, I = informe, cada uno con su celda; el hover muestra código y estado</span>
     </div>`;
 }
 
@@ -775,10 +780,10 @@ function vistaFacturas() {
   const hoy = new Date(); const y = hoy.getFullYear();
   const hace3m = new Date(hoy - 90*864e5).toISOString().slice(0,10);
 
-  // Por presupuesto: aceptados y/o con facturas cargadas. El ciclo se cierra a mano.
+  // Presupuestos: gestión completa. El correlativo lo asigna DocTracker.
+  const PRES_ESTADOS = ['Borrador','Enviado','Aceptado','Rechazado','Vencido'];
   const presRelevantes = (DATA.presupuestos || []).filter(p =>
-    (!FACT_F.cliente || p.cliente_nombre === FACT_F.cliente) &&
-    (p.estado === 'Aceptado' || todas.some(f => f.presupuesto === p.codigo)));
+    (!FACT_F.cliente || p.cliente_nombre === FACT_F.cliente));
   const htmlPres = presRelevantes.map(p => {
     const fs = todas.filter(f => f.presupuesto === p.codigo);
     const sumas = {};
@@ -786,25 +791,34 @@ function vistaFacturas() {
     const cobradas = fs.filter(f => f.estado === 'Cobrada').length;
     const pct = (p.moneda && sumas[p.moneda] && +p.monto) ? Math.round(sumas[p.moneda] / +p.monto * 100) : null;
     const cerrada = p.facturacion === 'Cerrada';
-    const sumasTxt = Object.keys(sumas).sort().map(m => fmtMonto(sumas[m], m)).join(' + ') || 'sin facturas';
-    return `<div class="card" style="border-left:4px solid ${cerrada ? '#2E9E5B' : '#E6B93C'}">
+    const aceptado = p.estado === 'Aceptado';
+    const sumasTxt = Object.keys(sumas).sort().map(m => fmtMonto(sumas[m], m)).join(' + ');
+    const borde = cerrada ? '#2E9E5B' : aceptado ? '#E6B93C' : 'var(--borde)';
+    return `<div class="card" style="border-left:4px solid ${borde}">
       <div class="fila" style="justify-content:space-between">
-        <div><b>${esc(p.codigo)}</b> · ${esc(p.cliente_nombre || '')} <span class="muted">· ${esc((p.descripcion || '').slice(0,50))}</span>
-          <div class="muted" style="margin-top:3px">Presupuesto: ${fmtMonto(p.monto || 0, p.moneda || 'ARS')} ·
-          ${fs.length} factura${fs.length === 1 ? '' : 's'} (${cobradas} cobrada${cobradas === 1 ? '' : 's'}) · Facturado: ${sumasTxt}${pct !== null ? ` · ${pct}%` : ''}</div>
+        <div style="min-width:0"><b>${esc(p.codigo)}</b> · ${esc(p.cliente_nombre || '')} <span class="muted">· ${esc((p.descripcion || '').slice(0,50))}</span>
+          <div class="muted" style="margin-top:3px">Presupuesto: ${fmtMonto(p.monto || 0, p.moneda || 'ARS')}${p.fecha_emision ? ' · ' + esc(p.fecha_emision) : ''}${fs.length ? ` · ${fs.length} factura${fs.length === 1 ? '' : 's'} (${cobradas} cobrada${cobradas === 1 ? '' : 's'}) · Facturado: ${sumasTxt}${pct !== null ? ` · ${pct}%` : ''}` : ''}</div>
         </div>
-        <div class="fila">
-          <span class="chip ${cerrada ? 'c-cerrado' : 'c-mia'}"><span class="punto"></span>Facturación ${cerrada ? 'cerrada' : 'abierta'}</span>
-          ${cerrada
-            ? `<button class="btn sec mini" onclick="cicloPresup('${esc(p.codigo)}','Abierta')">Reabrir</button>`
-            : `<button class="btn mini" onclick="cicloPresup('${esc(p.codigo)}','Cerrada')">Cerrar ciclo</button>`}
+        <div class="ops">
+          <select onchange="estadoPresup('${esc(p.codigo)}', this.value)" title="Estado del presupuesto">
+            ${PRES_ESTADOS.map(s => `<option ${p.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+          ${aceptado ? `<span class="chip ${cerrada ? 'c-cerrado' : 'c-mia'}"><span class="punto"></span>Fact. ${cerrada ? 'cerrada' : 'abierta'}</span>
+            ${cerrada
+              ? `<button class="btn sec mini" onclick="cicloPresup('${esc(p.codigo)}','Abierta')">Reabrir</button>`
+              : `<button class="btn mini" onclick="cicloPresup('${esc(p.codigo)}','Cerrada')">Cerrar ciclo</button>`}` : ''}
+          <button class="btn sec mini" title="Editar datos" onclick="modalEditarPresup('${esc(p.codigo)}')">✎</button>
+          <button class="btn sec mini" title="Adjuntar archivo (presupuesto, comprobantes) a la carpeta Drive con bitácora" onclick="modalAdjunto('${esc(p.codigo)}','')">📎</button>
+          ${p.carpeta_drive_url ? `<a href="${esc(p.carpeta_drive_url)}" target="_blank" class="btn sec mini" style="text-decoration:none" title="Abrir carpeta en Drive">🗂</a>` : ''}
         </div>
       </div></div>`;
   }).join('');
 
   return `<div class="fila" style="justify-content:space-between;margin-bottom:12px">
       <h2 style="font-size:17px">Facturación</h2>
-      <button class="btn mini" onclick="modalFactura(null)">+ Nueva factura</button></div>
+      <div class="fila">
+        <button class="btn sec mini" onclick="modalNuevoPresup()">+ Presupuesto</button>
+        <button class="btn mini" onclick="modalFactura(null)">+ Nueva factura</button>
+      </div></div>
 
     <div class="card"><div class="fila">
       <select onchange="FACT_F.cliente=this.value;render()">
@@ -842,6 +856,7 @@ function vistaFacturas() {
           <b style="font-size:13px">${fmtMonto(f.monto, f.moneda)}</b>
           <span class="chip ${f.estado === 'Cobrada' ? 'c-cerrado' : 'c-mia'}"><span class="punto"></span>${esc(f.estado)}</span>
           ${f.estado !== 'Cobrada' ? `<button class="btn mini" onclick="cobrarFactura(${f.id})">Cobrar</button>` : ''}
+          ${f.presupuesto ? `<button class="btn sec mini" title="Adjuntar PDF de la factura o comprobante de pago" onclick="modalAdjunto('${esc(f.presupuesto)}','[Factura ${esc(f.numero)}] ')">📎</button>` : ''}
           <button class="btn sec mini" onclick="modalFactura(${f.id})">✎</button>
           <button class="btn rojo mini" onclick="borrarFactura(${f.id})">✕</button>
         </div>
@@ -911,6 +926,87 @@ async function cicloPresup(codigo, estado) {
   if (estado === 'Cerrada' && !confirm(`¿Cerrar el ciclo de facturación de ${codigo}? No vas a poder vincularle facturas nuevas (se puede reabrir).`)) return;
   try { await api('/api/seguimiento/presupuestos/' + encodeURIComponent(codigo) + '/facturacion', { method:'PATCH', body:{ estado } }); await cargar(); render(); }
   catch(e){ alert(e.message); }
+}
+
+/* --- Presupuestos: crear, estado, editar, adjuntos (usa los endpoints de DocTracker) --- */
+function modalNuevoPresup() {
+  abrirModal(`<h3>Nuevo presupuesto</h3>
+    <p class="muted">El número correlativo lo asigna DocTracker automáticamente. Nace en estado Borrador.</p>
+    <label>Cliente</label><input id="pCli" list="fClientesP">
+    <datalist id="fClientesP">${[...new Set((DATA.presupuestos||[]).map(p=>p.cliente_nombre).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    <label>Descripción</label><input id="pDesc" placeholder="Ej: Calificación software Niagara — Lab POE">
+    <div class="fila"><div style="flex:1"><label>Monto</label><input id="pMonto" type="number" step="0.01"></div>
+    <div><label>Moneda</label><select id="pMon"><option>USD</option><option>ARS</option></select></div></div>
+    <label>Fecha de emisión</label><input id="pFec" type="date" value="${hoyISO()}">
+    <div class="acciones"><button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn" onclick="crearPresup()">Crear</button></div>`);
+}
+async function crearPresup() {
+  const body = {
+    clienteNombre: document.getElementById('pCli').value.trim(),
+    descripcion: document.getElementById('pDesc').value.trim(),
+    monto: +document.getElementById('pMonto').value || null,
+    moneda: document.getElementById('pMon').value,
+    fecha_emision: document.getElementById('pFec').value
+  };
+  if (!body.descripcion) return alert('Falta la descripción');
+  try {
+    const r = await api('/api/presupuestos', { method:'POST', body });
+    cerrarModal(); await cargar(); render();
+    alert('Presupuesto ' + r.codigo + ' creado en Borrador. Adjuntale el PDF con 📎 y pasalo a Enviado cuando salga.');
+  } catch(e){ alert(e.message); }
+}
+async function estadoPresup(codigo, estado) {
+  try { await api('/api/presupuestos/' + encodeURIComponent(codigo) + '/estado', { method:'POST', body:{ estado } }); await cargar(); render(); }
+  catch(e){ alert(e.message); }
+}
+function modalEditarPresup(codigo) {
+  const p = (DATA.presupuestos || []).find(x => x.codigo === codigo);
+  if (!p) return;
+  abrirModal(`<h3>Editar presupuesto ${esc(codigo)}</h3>
+    <label>Cliente</label><input id="eCli" value="${esc(p.cliente_nombre || '')}">
+    <label>Descripción</label><input id="eDesc" value="${esc(p.descripcion || '')}">
+    <div class="fila"><div style="flex:1"><label>Monto</label><input id="eMonto" type="number" step="0.01" value="${esc(p.monto ?? '')}"></div>
+    <div><label>Moneda</label><select id="eMon"><option ${p.moneda === 'USD' ? 'selected' : ''}>USD</option><option ${p.moneda === 'ARS' ? 'selected' : ''}>ARS</option></select></div></div>
+    <label>Fecha de emisión</label><input id="eFec" type="date" value="${esc(p.fecha_emision || '')}">
+    <label>Motivo del cambio (queda en bitácora)</label><input id="eMotivo" placeholder="Ej: corrección de monto acordada con el cliente">
+    <div class="acciones"><button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn" onclick="guardarPresup('${esc(codigo)}')">Guardar</button></div>`);
+}
+async function guardarPresup(codigo) {
+  try {
+    await api('/api/presupuestos/' + encodeURIComponent(codigo) + '/corregir', { method:'POST', body:{
+      clienteNombre: document.getElementById('eCli').value.trim(),
+      descripcion: document.getElementById('eDesc').value.trim(),
+      monto: document.getElementById('eMonto').value,
+      moneda: document.getElementById('eMon').value,
+      fecha_emision: document.getElementById('eFec').value,
+      motivo: document.getElementById('eMotivo').value.trim()
+    }});
+    cerrarModal(); await cargar(); render();
+  } catch(e){ alert(e.message); }
+}
+// Adjuntar archivos a la carpeta Drive del presupuesto, con nota en bitácora.
+// prefijo: ej "[Factura 0003-123] " cuando se sube el PDF/comprobante de una factura.
+function modalAdjunto(codigo, prefijo) {
+  abrirModal(`<h3>Adjuntar a ${esc(codigo)}</h3>
+    <p class="muted">Los archivos van a la carpeta Drive del presupuesto y quedan asentados en la bitácora.</p>
+    <label>Archivos</label><input id="aFiles" type="file" multiple>
+    <label>Nota</label><input id="aTexto" value="${esc(prefijo)}" placeholder="Ej: comprobante de transferencia del cliente">
+    <div class="acciones"><button class="btn sec" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn" onclick="subirAdjunto('${esc(codigo)}')">Subir</button></div>`);
+}
+async function subirAdjunto(codigo) {
+  const files = document.getElementById('aFiles').files;
+  const texto = document.getElementById('aTexto').value.trim();
+  if (!files.length && !texto) return alert('Elegí al menos un archivo o escribí una nota');
+  const fd = new FormData();
+  for (const f of files) fd.append('archivos', f);
+  fd.append('texto', texto);
+  try {
+    await api('/api/presupuestos/' + encodeURIComponent(codigo) + '/notas', { method:'POST', body: fd });
+    cerrarModal(); await cargar(); render();
+  } catch(e){ alert(e.message); }
 }
 
 /* ---------- Vista TEMPLATES ---------- */
