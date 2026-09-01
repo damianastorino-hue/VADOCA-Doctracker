@@ -462,9 +462,12 @@ function vistaDetalle() {
   const codsDocs = new Set(docsProy.map(d => d.codigo));
   const itsVisibles = its.filter(i => !(i.doc_codigo && codsDocs.has(i.doc_codigo)));
 
-  // Agrupar documentos por expediente
+  // Agrupar documentos por expediente, ordenados por número de expediente
   const exps = new Map();
-  for (const d of docsProy) {
+  const docsOrdenados = docsProy.slice().sort((a, b) =>
+    String(a.expediente_id).localeCompare(String(b.expediente_id), undefined, { numeric: true }) ||
+    String(a.codigo).localeCompare(String(b.codigo)));
+  for (const d of docsOrdenados) {
     if (!exps.has(d.expediente_id)) exps.set(d.expediente_id, []);
     exps.get(d.expediente_id).push(d);
   }
@@ -565,8 +568,12 @@ function toggleExp(id){ ARBOL_EXP.has(id) ? ARBOL_EXP.delete(id) : ARBOL_EXP.add
 // (P e I se siguen por separado). Gris con "–" = ese expediente no lleva ese documento.
 function mapaProyecto(exps) {
   const claveCol = d => ((d.tipo_doc || '?') + (d.prot_inf ? ' ' + d.prot_inf : '')).trim().toUpperCase();
+  const rangoPI = s => ({ 'P': 0, 'I': 1, 'PI': 2 }[s] ?? 9);
   const cols = [...new Set([...exps.values()].flat().map(claveCol))]
-    .sort((a,b) => ordenTipo(a.split(' ')[0]) - ordenTipo(b.split(' ')[0]) || a.localeCompare(b));
+    .sort((a, b) => {
+      const [ta, pa] = a.split(' '), [tb, pb] = b.split(' ');
+      return ordenTipo(ta) - ordenTipo(tb) || rangoPI(pa) - rangoPI(pb) || a.localeCompare(b);
+    });
   let filas = '';
   // Más nuevos arriba: en batches largos, los viejos ya cerrados se van al fondo
   for (const [expId, docs] of [...exps.entries()].reverse()) {
