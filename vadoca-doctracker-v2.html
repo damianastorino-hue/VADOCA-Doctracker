@@ -71,6 +71,10 @@
   .nota .nts{font-size:11px;color:var(--g2);font-family:var(--mono)}
   .nota .ntx{margin:5px 0;white-space:pre-wrap}
   .nota .adj a{font-size:12px;margin-right:10px}
+  .adj-anulado{font-size:12px;margin-right:10px;color:#C0392B;background:#FBE9E7;border-radius:6px;padding:2px 8px;display:inline-block}
+  .anular-btn{border:none;background:transparent;cursor:pointer;font-size:11px;opacity:.45;margin-right:8px}
+  .anular-btn:hover{opacity:1}
+  .nota.tipo-anulacion{border-left:3px solid #C0392B}
   .modal-bg{position:fixed;inset:0;background:rgba(30,40,46,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
   @media(min-width:640px){.modal-bg{align-items:center}}
   .modal{background:#fff;border-radius:16px 16px 0 0;max-width:560px;width:100%;max-height:92vh;overflow-y:auto;padding:20px}
@@ -410,12 +414,45 @@ window.abrirFicha = async function(expId){
   try{ FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(expId)+'/bitacora'); pintarBitacora(); }
   catch(e){ $('#bitacora').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
 };
+// Render compartido de adjuntos con soporte de anulación GxP:
+// los archivos anulados quedan tachados y sin link; el 🚫 anula (solo admin/editor).
+function adjuntosHtml(bit, n){
+  if(!(n.adjuntos||[]).length) return '';
+  const anulados = new Set();
+  for(const m of bit) for(const a of (m.adjuntos||[])) if(a.anula) anulados.add(a.anula);
+  return `<div class="adj">${n.adjuntos.map(a=>{
+    if(a.anula) return `<span class="adj-anulado" title="Esta entrada anula un adjunto previo">↳ anula: ${esc(a.original||a.nombre)}</span>`;
+    if(anulados.has(a.drive_id)) return `<span class="adj-anulado" title="Anulado — ver entrada de anulación en esta bitácora">🚫 <s>${esc(a.nombre)}</s> ANULADO</span>`;
+    const btn = (!esLector() && n.id) ? `<button class="anular-btn" title="Anular este adjunto (tachón GxP: el archivo se renombra en Drive y el link se bloquea; la entrada original no se borra)" onclick="anularAdjunto(${n.id},'${esc(a.drive_id)}','${esc(a.nombre)}')">🚫</button>` : '';
+    return `<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener" title="Original: ${esc(a.original||a.nombre)}">📎 ${esc(a.nombre)}</a>${btn}`;
+  }).join('')}</div>`;
+}
+window.anularAdjunto = async function(entradaId, driveId, nombre){
+  const motivo = prompt(`Anular "${nombre}"\n\nMotivo (obligatorio, queda asentado en la bitácora):`);
+  if(motivo===null) return;
+  if(!motivo.trim()) return alert('El motivo es obligatorio para anular.');
+  const desvio = prompt('Nº de desvío asociado (opcional, Enter para omitir):','')||'';
+  if(!confirm(`Se anulará "${nombre}":\n· el archivo se renombra en Drive como ANULADO_...\n· el link queda bloqueado en la bitácora\n· la entrada original NO se borra (cadena de hashes intacta)\n\n¿Confirmás?`)) return;
+  try{
+    const r = await api('/api/bitacora/anular-adjunto',{method:'POST',body:{entrada_id:entradaId,drive_id:driveId,motivo,desvio}});
+    const ctx = [
+      [typeof FICHA!=='undefined'?FICHA:null, ()=>pintarBitacora()],
+      [typeof POE!=='undefined'?POE:null, ()=>pintarBitacoraPoe()],
+      [typeof PROY!=='undefined'?PROY:null, ()=>pintarBitacoraGen('bitacoraProy', PROY.bit)],
+      [typeof PRESU!=='undefined'?PRESU:null, ()=>pintarBitacoraGen('bitacoraPresu', PRESU.bit)]
+    ];
+    for(const [st,repintar] of ctx){
+      if(st && Array.isArray(st.bit) && st.bit.some(x=>x.id===entradaId)){ st.bit.unshift(r.entrada); repintar(); break; }
+    }
+    toast('Adjunto anulado y renombrado en Drive');
+  }catch(e){ alert(e.message); }
+};
 function pintarBitacora(){
   const el = $('#bitacora'); if(!el) return;
   el.innerHTML = FICHA.bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
     <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
     <div class="ntx">${esc(n.texto)}</div>
-    ${(n.adjuntos||[]).length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener" title="Original: ${esc(a.original||a.nombre)}">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
+    ${adjuntosHtml(FICHA.bit, n)}
   </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
 }
 function vistaFicha(){
@@ -742,7 +779,7 @@ function pintarBitacoraPoe(){
   el.innerHTML = POE.bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
     <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
     <div class="ntx">${esc(n.texto)}</div>
-    ${(n.adjuntos||[]).length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener" title="Original: ${esc(a.original||a.nombre)}">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
+    ${adjuntosHtml(POE.bit, n)}
   </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
 }
 function vistaPoeFicha(){
@@ -1002,7 +1039,7 @@ function pintarBitacoraGen(id, bit){
   el.innerHTML = bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
     <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
     <div class="ntx">${esc(n.texto)}</div>
-    ${(n.adjuntos||[]).length?`<div class="adj">${n.adjuntos.map(a=>`<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener" title="Original: ${esc(a.original||a.nombre)}">📎 ${esc(a.nombre)}</a>`).join('')}</div>`:''}
+    ${adjuntosHtml(bit, n)}
   </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
 }
 function vistaPresuFicha(){
