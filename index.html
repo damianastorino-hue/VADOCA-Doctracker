@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VADOCA · Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0D1C2E; --panel:#16283E; --linea:#23374d;
+  --turq:#00B4B6; --ambar:#E6B93C; --gris:#6D7985; --claro:#B9C4CE;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:var(--navy);color:#fff;font-family:'Inter',system-ui,sans-serif;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px}
+h1,h2,.sora{font-family:'Sora',sans-serif}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:10px}
+
+.marca{text-align:left;width:100%;max-width:880px;margin-bottom:34px}
+.marca h1{font-size:40px;font-weight:800;letter-spacing:.5px}
+.marca h1 span{color:var(--turq)}
+.marca p{color:var(--gris);margin-top:4px;font-size:14px}
+.quien{color:var(--gris);font-size:12px;margin-top:10px}
+.quien button{background:transparent;border:1px solid var(--linea);color:var(--claro);padding:4px 12px;font-size:12px;margin-left:10px}
+
+/* ---------- Login ---------- */
+#login{background:var(--panel);border:1px solid var(--linea);border-radius:16px;padding:34px 32px;width:100%;max-width:360px}
+#login h2{font-size:16px;margin-bottom:18px;font-weight:600}
+#login input{width:100%;margin-bottom:12px;background:#0f2136;border:1px solid var(--linea);border-radius:10px;
+  color:#fff;padding:12px;font-size:14px;font-family:inherit}
+#login input:focus{outline:2px solid var(--turq);border-color:var(--turq)}
+#login button.entrar{width:100%;background:var(--turq);color:var(--navy);font-weight:700;padding:13px;font-size:14px}
+#login .err{color:#ff8a80;font-size:12px;margin-top:10px;min-height:16px}
+#login .bk{display:block;text-align:center;margin-top:14px;color:var(--gris);font-size:11px;text-decoration:none}
+
+/* ---------- Módulos ---------- */
+#suite{display:none;width:100%;max-width:880px}
+.modulos{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}
+.mod{background:var(--panel);border:1px solid var(--linea);border-radius:16px;padding:24px 22px;
+  border-top:4px solid var(--acento);display:flex;flex-direction:column;gap:8px;min-height:190px;
+  text-decoration:none;color:#fff;transition:transform .12s ease, border-color .12s ease}
+a.mod:hover{transform:translateY(-3px);border-color:var(--acento)}
+a.mod:focus-visible{outline:3px solid var(--acento);outline-offset:2px}
+.mod h2{font-size:19px;font-weight:700}
+.mod .rol{color:var(--gris);font-size:12.5px}
+.mod .estado{margin-top:auto;padding-top:14px;border-top:1px solid var(--linea);font-size:13px;line-height:1.6;color:var(--claro)}
+.mod .estado b{color:var(--acento)}
+.mod.off{opacity:.45;border-top-style:dashed;cursor:not-allowed}
+.mod.off .prox{margin-top:auto;padding-top:14px;border-top:1px dashed var(--linea);font-size:12px;color:var(--gris)}
+.cargando{color:var(--gris);font-size:12px}
+@media (prefers-reduced-motion: reduce){ a.mod{transition:none} a.mod:hover{transform:none} }
+</style>
+</head>
+<body>
+
+<div class="marca">
+  <h1>VADOCA<span>.</span></h1>
+  <p>Suite de gestión — documentación, seguimiento y calidad</p>
+  <div class="quien" id="quien" style="display:none"></div>
+</div>
+
+<div id="login">
+  <h2>Ingresá una sola vez para toda la suite</h2>
+  <input id="lEmail" type="email" placeholder="Email" autocomplete="username">
+  <input id="lPass" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
+  <button class="entrar" onclick="login()">Entrar</button>
+  <div class="err" id="lErr"></div>
+  <a href="#" class="bk" onclick="configBackend();return false">⚙ Backend: <span id="lBk"></span></a>
+</div>
+
+<div id="suite">
+  <div class="modulos">
+    <a class="mod" style="--acento:var(--turq)" href="vadoca-doctracker-v2.html">
+      <h2>DocTracker</h2>
+      <div class="rol">Expedientes, POEs, presupuestos y proyectos con cadena de auditoría</div>
+      <div class="estado" id="estDT"><span class="cargando">Cargando estado…</span></div>
+    </a>
+    <a class="mod" style="--acento:var(--ambar)" href="faro.html">
+      <h2>FARO</h2>
+      <div class="rol">Seguimiento del día: canchas, vencimientos y facturación</div>
+      <div class="estado" id="estFARO"><span class="cargando">Cargando estado…</span></div>
+    </a>
+    <div class="mod off" style="--acento:var(--gris)" aria-disabled="true" title="Se activa cuando haya caso de uso real">
+      <h2>DesvioApp</h2>
+      <div class="rol">Gestión de desvíos de calidad para proveedores auditados</div>
+      <div class="prox">Próximamente — se suma a la suite cuando haya equipo o cliente usándola</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BACKEND_DEFAULT = 'https://vadoca-doctracker-backend-production.up.railway.app';
+let BACKEND = localStorage.getItem('faro_backend') || BACKEND_DEFAULT;
+let TOKEN = sessionStorage.getItem('vdt_token') || sessionStorage.getItem('faro_token') || '';
+
+function configBackend(){
+  const u = prompt('URL del backend (sin barra final):', BACKEND);
+  if(!u) return;
+  BACKEND = u.trim().replace(/\/+$/,'');
+  localStorage.setItem('faro_backend', BACKEND);
+  pintarBk();
+}
+function pintarBk(){ const el=document.getElementById('lBk'); if(el) el.textContent = BACKEND.replace('https://',''); }
+
+async function api(ruta, opt={}){
+  opt.headers = Object.assign({'Content-Type':'application/json'}, opt.headers||{});
+  if(TOKEN) opt.headers.Authorization = 'Bearer '+TOKEN;
+  if(opt.body && typeof opt.body!=='string') opt.body = JSON.stringify(opt.body);
+  const r = await fetch(BACKEND+ruta, opt);
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) { const e = new Error(j.error||('Error '+r.status)); e.status=r.status; throw e; }
+  return j;
+}
+
+async function login(){
+  const err = document.getElementById('lErr'); err.textContent='';
+  try{
+    const j = await api('/api/login',{method:'POST',body:{
+      email: document.getElementById('lEmail').value,
+      password: document.getElementById('lPass').value }});
+    TOKEN = j.token;
+    sembrarSesion(j.usuario);
+    entrar(j.usuario);
+  }catch(e){ err.textContent = e.message; }
+}
+// Un login, dos apps: se siembran las claves de sesión de DocTracker y de FARO
+function sembrarSesion(usuario){
+  sessionStorage.setItem('vdt_token', TOKEN);
+  sessionStorage.setItem('vdt_yo', JSON.stringify(usuario));
+  sessionStorage.setItem('faro_token', TOKEN);
+  sessionStorage.setItem('faro_usuario', JSON.stringify(usuario));
+}
+function salir(){ sessionStorage.clear(); location.reload(); }
+
+function entrar(usuario){
+  document.getElementById('login').style.display='none';
+  document.getElementById('suite').style.display='block';
+  const q = document.getElementById('quien');
+  q.style.display='block';
+  q.innerHTML = (usuario ? (usuario.nombre||usuario.email) : 'Sesión activa') +
+    ' <button onclick="salir()">Salir</button>';
+  cargarEstados();
+}
+
+/* ---------- Mini-estados de los módulos ---------- */
+const canchaDoc = e => ['Entregado','Suspendido','Cancelado'].includes(e) ? 'cerrado'
+  : e==='Enviado a cliente' ? 'cliente' : 'mia';
+const canchaItem = i => {
+  if(i.doc_codigo) return canchaDoc(i.doc_estado||'Borrador');
+  if(['aprobado','n/a'].includes(i.estado)) return 'cerrado';
+  if(['enviado a cliente','esperando respuesta'].includes(i.estado)) return 'cliente';
+  return 'mia';
+};
+
+async function cargarEstados(){
+  try{
+    const d = await api('/api/seguimiento/data');
+    // --- DocTracker: documentos en curso / en cliente ---
+    let dMia=0, dCli=0;
+    for(const doc of d.documentos||[]){
+      const c = canchaDoc(doc.estado);
+      if(c==='mia') dMia++; else if(c==='cliente') dCli++;
+    }
+    document.getElementById('estDT').innerHTML =
+      `<b>${dMia}</b> documento${dMia===1?'':'s'} en tu cancha<br><b>${dCli}</b> en manos de clientes`;
+
+    // --- FARO: proyectos en cancha, facturas por cobrar, vencimientos ---
+    const activos = (d.proyectos||[]).filter(p=>p.estado==='Activo').map(p=>p.codigo)
+      .concat((d.proyectos_faro||[]).filter(p=>p.estado==='Activo').map(p=>p.codigo));
+    let proyMia=0;
+    for(const cod of activos){
+      const docsMia = (d.documentos||[]).some(x=>x.proyecto===cod && canchaDoc(x.estado)==='mia');
+      const itemsMia = (d.items||[]).some(i=>i.proyecto===cod && canchaItem(i)==='mia');
+      if(docsMia||itemsMia) proyMia++;
+    }
+    const porCobrar = (d.facturas||[]).filter(f=>f.estado!=='Cobrada').length;
+    const lim = new Date(Date.now()+7*864e5).toISOString().slice(0,10);
+    const vencen = (d.items||[]).filter(i=>i.fecha_limite && i.fecha_limite<=lim && canchaItem(i)!=='cerrado').length;
+    document.getElementById('estFARO').innerHTML =
+      `<b>${proyMia}</b> proyecto${proyMia===1?'':'s'} en tu cancha<br>`+
+      `<b>${porCobrar}</b> factura${porCobrar===1?'':'s'} por cobrar`+
+      (vencen ? `<br><b>${vencen}</b> vencimiento${vencen===1?'':'s'} esta semana` : '');
+  }catch(e){
+    if(e.status===401){ sessionStorage.clear(); location.reload(); return; }
+    document.getElementById('estDT').innerHTML = '<span class="cargando">Sin conexión con el backend</span>';
+    document.getElementById('estFARO').innerHTML = `<span class="cargando">${e.message}</span>`;
+  }
+}
+
+pintarBk();
+if(TOKEN){
+  const yo = JSON.parse(sessionStorage.getItem('vdt_yo')||sessionStorage.getItem('faro_usuario')||'null');
+  if(!sessionStorage.getItem('vdt_token')||!sessionStorage.getItem('faro_token')) sembrarSesion(yo||{});
+  entrar(yo);
+}
+</script>
+</body>
+</html>
