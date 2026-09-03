@@ -588,12 +588,18 @@ function arbolProyecto(p, exps) {
 }
 function toggleExp(id){ ARBOL_EXP.has(id) ? ARBOL_EXP.delete(id) : ARBOL_EXP.add(id); render(); }
 
-// Matriz: filas = expedientes, columnas = tipo de documento CON su P/I/PI separado
-// (P e I se siguen por separado). Gris con "–" = ese expediente no lleva ese documento.
+// Matriz: filas = expedientes, columnas = tipo P / tipo I.
+// Los documentos legacy "PI" (protocolo+informe unificados) alimentan AMBAS columnas
+// de su tipo, así no queda una tercera columna PI llena de agujeros.
 function mapaProyecto(exps) {
-  const claveCol = d => ((d.tipo_doc || '?') + (d.prot_inf ? ' ' + d.prot_inf : '')).trim().toUpperCase();
-  const rangoPI = s => ({ 'P': 0, 'I': 1, 'PI': 2 }[s] ?? 9);
-  const cols = [...new Set([...exps.values()].flat().map(claveCol))]
+  const colsDe = d => {
+    const t = (d.tipo_doc || '?').toUpperCase().trim();
+    const pi = (d.prot_inf || '').toUpperCase().trim();
+    if (pi === 'PI') return [t + ' P', t + ' I'];
+    return [(t + (pi ? ' ' + pi : '')).trim()];
+  };
+  const rangoPI = s => ({ 'P': 0, 'I': 1 }[s] ?? 9);
+  const cols = [...new Set([...exps.values()].flat().flatMap(colsDe))]
     .sort((a, b) => {
       const [ta, pa] = a.split(' '), [tb, pb] = b.split(' ');
       return ordenTipo(ta) - ordenTipo(tb) || rangoPI(pa) - rangoPI(pb) || a.localeCompare(b);
@@ -603,12 +609,12 @@ function mapaProyecto(exps) {
   for (const [expId, docs] of [...exps.entries()].reverse()) {
     let celdas = '';
     for (const c of cols) {
-      const ds = docs.filter(d => claveCol(d) === c);
+      const ds = docs.filter(d => colsDe(d).includes(c));
       if (!ds.length) { celdas += '<td><div class="celda vacia" title="No aplica — no es entregable de este expediente">–</div></td>'; continue; }
       // Si hay varios docs del mismo tipo (P + I, versiones), manda el "peor": tu cancha > cliente > cerrado
       const canchas = ds.map(d => canchaDoc(d.estado));
       const peor = canchas.includes('mia') ? 'mia' : canchas.includes('cliente') ? 'cliente' : 'cerrado';
-      const titulo = ds.map(d => `${d.codigo} (${d.prot_inf || '—'}): ${d.estado}`).join('\n');
+      const titulo = ds.map(d => `${d.codigo} (${(d.prot_inf || '').toUpperCase() === 'PI' ? 'PI unificado' : d.prot_inf || '—'}): ${d.estado}`).join('\n');
       celdas += `<td><div class="celda" style="background:${CANCHA_COLOR[peor]}" title="${esc(titulo)}"></div></td>`;
     }
     const desc = (docs => (docs[0].descripcion || ''))(exps.get(expId));
@@ -622,7 +628,7 @@ function mapaProyecto(exps) {
       <span><span class="celda" style="background:${CANCHA_COLOR.cliente}"></span>Espera al cliente</span>
       <span><span class="celda" style="background:${CANCHA_COLOR.cerrado}"></span>Cerrado</span>
       <span><span class="celda vacia">–</span>No aplica</span>
-      <span class="muted">· P = protocolo, I = informe, cada uno con su celda; el hover muestra código y estado</span>
+      <span class="muted">· Los PI viejos (protocolo+informe unificados) llenan ambas columnas; el hover detalla cada documento</span>
     </div>`;
 }
 

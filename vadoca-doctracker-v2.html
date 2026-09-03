@@ -574,10 +574,32 @@ window.estadoTodos = async function(){
     spin(false); toast('Estados actualizados'); render(); pintarBitacora();
   }catch(e){ spin(false); toast(e.message,'err'); render(); }
 };
+// Ingesta inteligente: detecta códigos tipo XLS089 en el nombre del archivo y los cruza
+// con los adjuntos de este expediente y de los demás. Devuelve true si se puede seguir.
+async function verificarArchivos(files){
+  const codigosDe = s => [...new Set((String(s).toUpperCase().match(/XLS\s?-?\d{2,4}/g)||[]).map(x=>x.replace(/[\s-]/g,'')))];
+  const propios = new Set();
+  for(const n of FICHA.bit) for(const a of (n.adjuntos||[])) if(!a.anula) codigosDe(a.nombre).forEach(c=>propios.add(c));
+  for(const f of files){
+    for(const cod of codigosDe(f.name)){
+      if(propios.has(cod)) continue;                       // ya conocido en este expediente: OK
+      let ajenos = [];
+      try{ ajenos = (await api('/api/adjuntos/donde?q='+encodeURIComponent(cod))).filter(x=>x.expediente_id!==FICHA.id); }catch(_){}
+      const avisos = [];
+      if(propios.size) avisos.push(`Este expediente ya tiene archivos de: ${[...propios].join(', ')}.`);
+      if(ajenos.length) avisos.push(`${cod} ya aparece en: ${ajenos.map(x=>x.expediente_id).join(', ')}.`);
+      if(!avisos.length) continue;                         // código nuevo y sin conflicto: OK
+      const seguir = confirm(`⚠ Posible archivo en expediente equivocado\n\nArchivo: ${f.name}\nExpediente actual: ${FICHA.id}\n\n${avisos.join('\n')}\n\n¿Subir igual a ${FICHA.id}?`);
+      if(!seguir) return false;
+    }
+  }
+  return true;
+}
 window.guardarNota = async function(){
   const txt = $('#notaTxt').value.trim();
   const files = [...($('#notaFiles').files||[]), ...PEGADOS];
   if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
+  if(files.length && !(await verificarArchivos(files))){ toast('Subida cancelada — revisá el expediente','err'); return; }
   const fd = new FormData();
   fd.append('texto', txt); fd.append('subcarpeta', $('#notaSub').value);
   for(const f of files) fd.append('archivos', f, f.name);
