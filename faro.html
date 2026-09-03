@@ -202,7 +202,29 @@ function configBackend() {
   alert('Backend actualizado. Probá loguearte de nuevo.');
 }
 const SEG_ESTADOS = ['pendiente','en curso','enviado a cliente','esperando respuesta','observado','aprobado','n/a'];
-const DOC_ESTADOS = ['Borrador','En revisión','Validable','No validable','En ejecución','Enviado a cliente','Aprobado','Entregado','Suspendido','Cancelado'];
+const DOC_ESTADOS = ['Borrador','En revisión','En ejecución','Enviado a cliente','Entregado','Suspendido','Cancelado'];
+const DOC_LEGACY = ['Validable','No validable','Aprobado'];
+function docEstadosSel(actual){ return (actual && !DOC_ESTADOS.includes(actual)) ? [actual, ...DOC_ESTADOS] : DOC_ESTADOS; }
+// Máquina de estados de documentos (espejo del backend)
+function claseTransicionDoc(viejo, nuevo){
+  if(viejo===nuevo) return {tipo:'igual', motivo:false};
+  const RANK={'Borrador':0,'En revisión':1,'Validable':1,'No validable':1,'En ejecución':2,'Enviado a cliente':3,'Aprobado':4,'Entregado':5};
+  if(['Entregado','Cancelado'].includes(viejo)) return {tipo:'reapertura', motivo:true};
+  if(viejo==='Suspendido') return {tipo:'reanudación', motivo:true};
+  if(nuevo==='Suspendido'||nuevo==='Cancelado') return {tipo:'lateral', motivo:true};
+  const rv=RANK[viejo]??2, rn=RANK[nuevo]??2;
+  return rn>rv ? {tipo:'avance', motivo:false} : {tipo:'retroceso', motivo:true};
+}
+function pedirCambioEstado(viejo, nuevo){
+  const c = claseTransicionDoc(viejo, nuevo);
+  if(c.tipo==='igual') return null;
+  if(!c.motivo) return confirm(`Confirmar cambio de estado:\n\n${viejo}  →  ${nuevo}`) ? {motivo:''} : null;
+  const etiq = {reapertura:'REAPERTURA de un estado terminal', 'reanudación':'reanudación desde Suspendido', lateral:'pase a estado lateral', retroceso:'RETROCESO en el circuito'}[c.tipo];
+  const m = prompt(`${viejo}  →  ${nuevo}\n\nEsto es ${etiq}: el motivo es obligatorio y queda en la bitácora.\n\nMotivo:`);
+  if(m===null) return null;
+  if(!m.trim()){ alert('El motivo es obligatorio para este cambio.'); return null; }
+  return {motivo:m.trim()};
+}
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const TAREAS = '__TAREAS__'; // pseudo-proyecto para tareas sueltas sin proyecto
 
@@ -480,8 +502,8 @@ function vistaDetalle() {
       ${docs.map(d => `<div class="doc-row">
         <span><b>${esc(d.codigo)}</b> · ${esc(d.tipo_doc || '')} ${esc(d.prot_inf || '')}</span>
         <span class="fila">${chip(canchaDoc(d.estado))}
-        <select onchange="cambiarEstadoDoc('${esc(d.codigo)}', this.value)">
-          ${DOC_ESTADOS.map(s => `<option ${d.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select></span>
+        <select onchange="cambiarEstadoDoc('${esc(d.codigo)}', this.value, '${esc(d.estado)}')">
+          ${docEstadosSel(d.estado).map(s => `<option ${d.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select></span>
       </div>`).join('')}
     </details>`;
   }
@@ -515,9 +537,11 @@ function vistaDetalle() {
   </div>`;
 }
 
-async function cambiarEstadoDoc(codigo, estado) {
-  try { await api('/api/documentos/' + encodeURIComponent(codigo) + '/estado', { method:'POST', body:{ estado } }); await cargar(); render(); }
-  catch(e){ alert(e.message); }
+async function cambiarEstadoDoc(codigo, estado, viejo) {
+  const ok = pedirCambioEstado(viejo || '', estado);
+  if (!ok) { render(); return; }
+  try { await api('/api/documentos/' + encodeURIComponent(codigo) + '/estado', { method:'POST', body:{ estado, motivo: ok.motivo } }); await cargar(); render(); }
+  catch(e){ alert(e.message); render(); }
 }
 
 // Árbol: proyecto → expedientes ABIERTOS (amarillo) → documentos por color.
@@ -614,7 +638,7 @@ async function borrarProyectoFaro(cod) {
 
 function filaItem(i, docsProy) {
   const c = cancha(i), e = estadoEfectivo(i);
-  const estados = i.doc_codigo ? DOC_ESTADOS : SEG_ESTADOS;
+  const estados = i.doc_codigo ? docEstadosSel(e) : SEG_ESTADOS;
   return `<div class="item-row">
     <span class="tilde ${c === 'cerrado' ? 'done' : ''}"></span>
     <div class="nom">${esc(i.nombre)}
@@ -644,8 +668,15 @@ async function cargarBitacora() {
 
 /* ---------- Acciones sobre ítems ---------- */
 async function cambiarEstado(id, estado) {
-  try { await api('/api/seguimiento/items/' + id, { method:'PATCH', body:{ estado } }); await cargar(); render(); }
-  catch(e){ alert(e.message); }
+  const it = DATA.items.find(x => x.id === id);
+  const body = { estado };
+  if (it && it.doc_codigo) {
+    const ok = pedirCambioEstado(estadoEfectivo(it), estado);
+    if (!ok) { render(); return; }
+    body.motivo = ok.motivo;
+  }
+  try { await api('/api/seguimiento/items/' + id, { method:'PATCH', body }); await cargar(); render(); }
+  catch(e){ alert(e.message); render(); }
 }
 async function editarItem(id, body) {
   try { await api('/api/seguimiento/items/' + id, { method:'PATCH', body }); await cargar(); render(); }

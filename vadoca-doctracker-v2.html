@@ -477,10 +477,10 @@ function vistaFicha(){
         <td><span class="codigo">${esc(d.codigo)}</span></td><td>${esc(d.tipo_doc)}</td><td>${esc(d.prot_inf)}</td>
         <td class="muted" style="font-size:11px">${esc((d.autor||'').split('@')[0])}</td>
         <td>${ro?esc(d.estado):`<select onchange="cambiarEstado('${esc(d.codigo)}', this.value)">
-          ${CFG.estados.map(s=>`<option ${d.estado===s?'selected':''}>${s}</option>`).join('')}</select>`}</td></tr>`).join('')}
+          ${docEstadosSel(d.estado).map(s=>`<option ${d.estado===s?'selected':''}>${s}</option>`).join('')}</select>`}</td></tr>`).join('')}
     </tbody></table>
     ${ro?'':`<p class="muted" style="margin-top:8px">Cambiar todos →
-      <select id="estadoMasivo" style="width:auto;padding:5px 8px;font-size:13px">${CFG.estados.map(s=>`<option>${s}</option>`).join('')}</select>
+      <select id="estadoMasivo" style="width:auto;padding:5px 8px;font-size:13px">${docEstadosSel().map(s=>`<option>${s}</option>`).join('')}</select>
       <button class="ghost" onclick="estadoTodos()">Aplicar a todos</button>
       · <button class="ghost" onclick="modalNuevaVersion()">⬆ Nueva versión</button>
       · <button class="ghost" onclick="modalCorregir()">✏ Corregir datos</button>
@@ -516,23 +516,63 @@ window.asignarProyExp = async function(v){
     spin(false); toast('Proyecto actualizado'); render(); pintarBitacora();
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
+// Máquina de estados (espejo del backend). Los tres legacy no se ofrecen como destino.
+const DOC_LEGACY = ['Validable','No validable','Aprobado'];
+function docEstadosSel(actual){
+  const base = (CFG.estados||[]).filter(s=>!DOC_LEGACY.includes(s));
+  return (actual && !base.includes(actual)) ? [actual, ...base] : base;
+}
+function claseTransicionDoc(viejo, nuevo){
+  if(viejo===nuevo) return {tipo:'igual', motivo:false};
+  const RANK={'Borrador':0,'En revisión':1,'Validable':1,'No validable':1,'En ejecución':2,'Enviado a cliente':3,'Aprobado':4,'Entregado':5};
+  if(['Entregado','Cancelado'].includes(viejo)) return {tipo:'reapertura', motivo:true};
+  if(viejo==='Suspendido') return {tipo:'reanudación', motivo:true};
+  if(nuevo==='Suspendido'||nuevo==='Cancelado') return {tipo:'lateral', motivo:true};
+  const rv=RANK[viejo]??2, rn=RANK[nuevo]??2;
+  return rn>rv ? {tipo:'avance', motivo:false} : {tipo:'retroceso', motivo:true};
+}
+// Devuelve {motivo} si el usuario confirma, o null si cancela.
+function pedirCambioEstado(viejo, nuevo){
+  const c = claseTransicionDoc(viejo, nuevo);
+  if(c.tipo==='igual') return null;
+  if(!c.motivo) return confirm(`Confirmar cambio de estado:\n\n${viejo}  →  ${nuevo}`) ? {motivo:''} : null;
+  const etiq = {reapertura:'REAPERTURA de un estado terminal', 'reanudación':'reanudación desde Suspendido', lateral:'pase a estado lateral', retroceso:'RETROCESO en el circuito'}[c.tipo];
+  const m = prompt(`${viejo}  →  ${nuevo}\n\nEsto es ${etiq}: el motivo es obligatorio y queda en la bitácora.\n(A futuro acá va el nº de desvío / nota aclaratoria)\n\nMotivo:`);
+  if(m===null) return null;
+  if(!m.trim()){ alert('El motivo es obligatorio para este cambio.'); return null; }
+  return {motivo:m.trim()};
+}
 window.cambiarEstado = async function(codigo, estado){
+  const doc = REG.find(r=>r.codigo===codigo);
+  const viejo = doc ? doc.estado : '';
+  const ok = pedirCambioEstado(viejo, estado);
+  if(!ok){ render(); return; }
   spin(true,'Actualizando estado…');
   try{
-    await api('/api/documentos/'+encodeURIComponent(codigo)+'/estado',{method:'POST',body:{estado}});
+    await api('/api/documentos/'+encodeURIComponent(codigo)+'/estado',{method:'POST',body:{estado, motivo: ok.motivo}});
     await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
     spin(false); toast('Estado actualizado'); render(); pintarBitacora();
-  }catch(e){ spin(false); toast(e.message,'err'); }
+  }catch(e){ spin(false); toast(e.message,'err'); render(); }
 };
 window.estadoTodos = async function(){
   const estado = $('#estadoMasivo').value;
   const docs = REG.filter(r=>r.expediente_id===FICHA.id);
+  const cambian = docs.filter(d=>d.estado!==estado);
+  if(!cambian.length){ toast('Todos ya están en '+estado); return; }
+  const necesitaMotivo = cambian.some(d=>claseTransicionDoc(d.estado, estado).motivo);
+  let motivo='';
+  if(necesitaMotivo){
+    const m = prompt(`Vas a pasar ${cambian.length} documento(s) a "${estado}" y al menos uno implica retroceso, lateral o reapertura.\nMotivo (obligatorio, queda en la bitácora de cada uno):`);
+    if(m===null){ render(); return; }
+    if(!m.trim()){ alert('El motivo es obligatorio.'); render(); return; }
+    motivo=m.trim();
+  } else if(!confirm(`Confirmar: pasar ${cambian.length} documento(s) a "${estado}"`)){ render(); return; }
   spin(true,'Actualizando estados…');
   try{
-    for(const d of docs) await api('/api/documentos/'+encodeURIComponent(d.codigo)+'/estado',{method:'POST',body:{estado}});
+    for(const d of cambian) await api('/api/documentos/'+encodeURIComponent(d.codigo)+'/estado',{method:'POST',body:{estado, motivo}});
     await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
     spin(false); toast('Estados actualizados'); render(); pintarBitacora();
-  }catch(e){ spin(false); toast(e.message,'err'); }
+  }catch(e){ spin(false); toast(e.message,'err'); render(); }
 };
 window.guardarNota = async function(){
   const txt = $('#notaTxt').value.trim();
