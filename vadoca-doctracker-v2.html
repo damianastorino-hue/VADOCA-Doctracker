@@ -350,23 +350,26 @@ function vistaNuevo(){
 }
 window.onTTChange = function(){
   const key = $('#nTT').value, w = $('#nModoWrap');
-  if(key==='VPC'){
-    w.innerHTML = `<label>¿Qué vas a crear?</label>
-      <select id="nModo" onchange="onModoChange()">
-        <option value="paquete">Paquete completo de planilla (protocolos + informes separados)</option>
-        <option value="individual">Documento individual</option>
-      </select><div id="nDocsWrap"></div>`;
-  } else {
-    w.innerHTML = `<input type="hidden" id="nModo" value="individual"><div id="nDocsWrap"></div>`;
-  }
+  w.innerHTML = `<label>¿Qué vas a crear?</label>
+    <select id="nModo" onchange="onModoChange()">
+      <option value="paquete">Varios documentos (elegís cuáles)</option>
+      <option value="individual">Documento individual</option>
+    </select><div id="nDocsWrap"></div>`;
   onModoChange();
 };
 window.onModoChange = function(){
-  const modo = $('#nModo').value, w = $('#nDocsWrap');
+  const ttKey = $('#nTT').value, modo = $('#nModo').value, w = $('#nDocsWrap');
   if(modo==='paquete'){
+    // Checklist genérico tipoDoc × P/I. Para VPC se preseleccionan los 9 de siempre;
+    // para el resto arranca vacío y el usuario tilda lo que corresponda (ej: RU + GR-P + GR-I).
+    const preset = new Set(ttKey==='VPC' ? CFG.paqueteVPC.map(([t,p])=>t+'|'+p) : []);
     w.innerHTML = `<label>Documentos del paquete</label><div>` +
-      CFG.paqueteVPC.map(([td,pi])=>`<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 12px 4px 0;font-weight:400">
-        <input type="checkbox" class="pqDoc" value="${td}|${pi}" checked style="width:auto"> ${td}-${pi} <span class="muted">(${pi==='P'?'Protocolo':'Informe'})</span></label>`).join('') + `</div>`;
+      CFG.tiposDoc.map(td=>['P','I'].map(pi=>{
+        const val = td+'|'+pi;
+        return `<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 12px 4px 0;font-weight:400">
+          <input type="checkbox" class="pqDoc" value="${val}" ${preset.has(val)?'checked':''} style="width:auto"> ${td}-${pi} <span class="muted">(${pi==='P'?'Protocolo':'Informe'})</span></label>`;
+      }).join('')).join('') + `</div>
+      <p class="muted" style="margin-top:6px">Tildá los documentos que necesitás para este expediente — no hace falta que sean del mismo tipo (ej: RU + GR-P + GR-I).</p>`;
   } else {
     w.innerHTML = `<div class="row">
       <div><label>Tipo de documento</label><select id="nTipoDoc">${CFG.tiposDoc.map(t=>`<option>${t}</option>`).join('')}</select></div>
