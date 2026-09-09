@@ -219,7 +219,7 @@
     <div id="modSwitch" class="modswitch hidden">
       <button data-mod="dt" class="active">DocTracker</button>
       <button data-mod="ft">FlowTracker</button>
-      <button data-mod="com">Comercial</button>
+      <button data-mod="com" id="modCom">Comercial</button>
     </div>
     <span id="userChip" style="margin-left:auto"></span>
   </div>
@@ -316,6 +316,8 @@ function render(){
   const app = $('#app');
   const logueado = !!TOKEN && !YO?.debe_cambiar_clave;
   $('#modSwitch').classList.toggle('hidden', !logueado);
+  $('#modCom').classList.toggle('hidden', !esAdmin());
+  if(MODULO==='com' && !esAdmin()) MODULO='dt';
   $$('#modSwitch button').forEach(b=>b.classList.toggle('active', b.dataset.mod===MODULO));
   $('#mainNav').classList.toggle('hidden', !logueado || MODULO!=='dt');
   $('#ftNav').classList.toggle('hidden', !logueado || MODULO!=='ft');
@@ -462,6 +464,8 @@ window.migrar = async function(){
 
 /* ----- Nuevo expediente ----- */
 function vistaNuevo(){
+  // los templates (circuitos) viven en el módulo de seguimiento: carga perezosa
+  if(!DATA.cargado) ftCargar().then(()=>{ if(VIEW==='nuevo') render(); }).catch(()=>{});
   return `<div class="card">
     <h2>Nuevo expediente</h2>
     <div class="row">
@@ -478,7 +482,7 @@ function vistaNuevo(){
       <div><label>Ref. presupuesto (opcional)</label><input id="nPresu" placeholder="Ej: 0068"></div>
     </div>
     <label>Proyecto (opcional)</label>
-    <select id="nProy"><option value="">— Sin proyecto —</option>${PROYS.filter(p=>p.estado==='Activo').map(p=>`<option value="${esc(p.codigo)}">${esc(p.codigo)} · ${esc(p.nombre)}</option>`).join('')}</select>
+    <select id="nProy"><option value="">— Sin proyecto —</option>${proysDT().filter(p=>p.estado==='Activo').map(p=>`<option value="${esc(p.codigo)}">${esc(p.codigo)} · ${esc(p.nombre)}</option>`).join('')}</select>
     <p style="margin-top:18px"><button onclick="confirmarNuevo()">Revisar y crear →</button></p>
   </div>`;
 }
@@ -497,7 +501,17 @@ window.onModoChange = function(){
     // Checklist genérico tipoDoc × P/I. Para VPC se preseleccionan los 9 de siempre;
     // para el resto arranca vacío y el usuario tilda lo que corresponda (ej: RU + GR-P + GR-I).
     const preset = new Set(ttKey==='VPC' ? CFG.paqueteVPC.map(([t,p])=>t+'|'+p) : []);
-    w.innerHTML = `<label>Documentos del paquete</label><div>` +
+    const tpls = (DATA.templates||[]);
+    w.innerHTML = `<label>Circuito (opcional): completa los tildes según un template guardado</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="nCircuito" onchange="aplicarCircuito()" style="flex:1;min-width:220px">
+          <option value="">— Armado manual —</option>
+          ${tpls.map(t=>`<option value="${t.id}">${esc(t.nombre)} (${t.items.length} ítems)</option>`).join('')}
+        </select>
+        <button class="ghost" type="button" onclick="guardarCircuito()" title="Guarda la selección de tildes actual como un template nuevo, reutilizable acá y en FlowTracker">💾 Guardar selección como circuito</button>
+      </div>
+      <div class="muted" id="nCircuitoAviso" style="font-size:12px;margin-top:4px">${tpls.length? '' : (DATA.cargado ? 'No hay templates todavía: armá los tildes a mano y guardalos como circuito.' : 'Cargando templates…')}</div>
+      <label>Documentos del paquete</label><div>` +
       CFG.tiposDoc.map(td=>['P','I'].map(pi=>{
         const val = td+'|'+pi;
         return `<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 12px 4px 0;font-weight:400">
@@ -510,6 +524,59 @@ window.onModoChange = function(){
       <div><label>Protocolo / Informe</label><select id="nPI"><option value="P">P (solo protocolo)</option><option value="I">I (solo informe)</option><option value="PI">P+I (crea ambos, seguimiento separado)</option></select></div>
     </div>`;
   }
+};
+/* ---- Circuitos: template de FlowTracker → selección de documentos del wizard ----
+   Interpreta los nombres de ítems: "Protocolo DQ"→DQ-P, "Informe IV"→IV-I,
+   "Plan Maestro"→PMV-P, "RU"→RU-P, "GR P"/"GR-I"→GR-P/GR-I, "OQ PI"→ambos. */
+function matchTipoDoc(x){
+  x = String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
+  return (CFG.tiposDoc||[]).find(t=>t.toUpperCase()===x) || null;
+}
+function circuitoDeTemplate(t){
+  const pares = [], ignorados = [];
+  for(const item of (t.items||[])){
+    const sN = String(item).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();
+    let m, td;
+    if((m = sN.match(/^PROTOCOLO\s+(.+)$/)))      { td = matchTipoDoc(m[1]); if(td){ pares.push([td,'P']); continue; } }
+    else if((m = sN.match(/^INFORME\s+(.+)$/)))   { td = matchTipoDoc(m[1]); if(td){ pares.push([td,'I']); continue; } }
+    else if(/^PLAN\s+MAESTRO/.test(sN))            { td = matchTipoDoc('PMV'); if(td){ pares.push([td,'P']); continue; } }
+    else {
+      const p = sN.split(/[\s\-\/]+/);
+      td = matchTipoDoc(p[0]);
+      if(td){
+        const pi = ['P','I','PI'].includes(p[1]) ? p[1] : 'P';
+        if(pi==='PI'){ pares.push([td,'P'],[td,'I']); } else pares.push([td,pi]);
+        continue;
+      }
+    }
+    ignorados.push(item);
+  }
+  return { pares, ignorados };
+}
+window.aplicarCircuito = function(){
+  const sel = $('#nCircuito'); if(!sel) return;
+  const aviso = $('#nCircuitoAviso');
+  if(!sel.value){ if(aviso) aviso.textContent=''; return; }
+  const t = (DATA.templates||[]).find(x=>x.id===+sel.value); if(!t) return;
+  const { pares, ignorados } = circuitoDeTemplate(t);
+  const set = new Set(pares.map(([td,pi])=>td+'|'+pi));
+  $$('.pqDoc').forEach(el=>{ el.checked = set.has(el.value); });
+  if(aviso) aviso.textContent = `Circuito "${t.nombre}": ${set.size} documento(s) tildados.` +
+    (ignorados.length ? ` Ítems sin documento asociado (quedan solo como seguimiento): ${ignorados.join(', ')}.` : '');
+};
+window.guardarCircuito = async function(){
+  const pares = $$('.pqDoc:checked').map(el=>el.value.split('|'));
+  if(!pares.length){ toast('Tildá al menos un documento para guardar el circuito','err'); return; }
+  const nombre = prompt('Nombre del circuito (ej: "Validación de planillas sin cálculo"):');
+  if(!nombre || !nombre.trim()) return;
+  const items = pares.map(([td,pi])=> (pi==='I'?'Informe ':'Protocolo ')+td);
+  spin(true,'Guardando circuito…');
+  try{
+    await api('/api/seguimiento/templates',{method:'POST',body:{nombre:nombre.trim(), items}});
+    await ftCargar(); spin(false);
+    toast('Circuito "'+nombre.trim()+'" guardado: ya aparece en el selector y en FlowTracker');
+    render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
 };
 window.confirmarNuevo = function(){
   const ttKey = $('#nTT').value, cliente = $('#nCliente').value;
@@ -608,7 +675,7 @@ function vistaFicha(){
       · Proyecto: ${e.proyecto?`<span class="codigo" style="font-size:11px;cursor:pointer" onclick="abrirProy('${esc(e.proyecto)}')">${esc(e.proyecto)}</span>`:'—'}
       ${ro?'':`<select style="width:auto;padding:3px 6px;font-size:12px;margin-left:6px" onchange="asignarProyExp(this.value)">
         <option value="">cambiar…</option><option value="__ninguno">— quitar —</option>
-        ${PROYS.map(p=>`<option value="${esc(p.codigo)}">${esc(p.codigo)}</option>`).join('')}</select>`}</div>
+        ${proysDT().map(p=>`<option value="${esc(p.codigo)}">${esc(p.codigo)}</option>`).join('')}</select>`}</div>
     <table class="docs-tabla"><thead><tr><th>Código</th><th>Doc</th><th>P/I</th><th>Autor</th><th>Estado</th></tr></thead><tbody>
       ${docs.map(d=>`<tr>
         <td><span class="codigo">${esc(d.codigo)}</span></td><td>${esc(d.tipo_doc)}</td><td>${esc(d.prot_inf)}</td>
@@ -1308,10 +1375,11 @@ function vistaProyectos(){
     <div id="proyLista" style="margin-top:12px"><p class="muted">Cargando…</p></div>
   </div>`;
 }
+function proysDT(){ return PROYS.filter(p => (p.ambito||'profesional') !== 'personal'); }
 function pintarListaProys(){
   const el = $('#proyLista'); if(!el) return;
-  el.innerHTML = PROYS.length? `<table class="docs-tabla"><thead><tr><th>Código</th><th>Nombre</th><th>Cliente</th><th>Estado</th><th>Presup.</th><th>Expedientes</th></tr></thead><tbody>
-    ${PROYS.map(p=>{
+  el.innerHTML = proysDT().length? `<table class="docs-tabla"><thead><tr><th>Código</th><th>Nombre</th><th>Cliente</th><th>Estado</th><th>Presup.</th><th>Expedientes</th></tr></thead><tbody>
+    ${proysDT().map(p=>{
       const nExp = new Set(REG.filter(r=>r.proyecto===p.codigo).map(r=>r.expediente_id)).size;
       return `<tr style="cursor:pointer" onclick="abrirProy('${esc(p.codigo)}')">
       <td><span class="codigo">${esc(p.codigo)}</span></td>
@@ -1693,10 +1761,11 @@ function ordenTipo(t){ const i = ORDEN_TIPOS.indexOf((t||'').toUpperCase()); ret
 
 // Unifica proyectos de DocTracker (siempre profesionales) y propios de FlowTracker
 function todosProyectos() {
+  // Tabla única de proyectos: "ambito" separa profesionales de personales.
   const dt = DATA.proyectos.map(p => ({ codigo:p.codigo, nombre:p.nombre, cliente_nombre:p.cliente_nombre||'',
-    estado:p.estado, origen:'dt', ambito:'profesional' }));
+    estado:p.estado, origen:'dt', ambito:p.ambito||'profesional' }));
   const faro = (DATA.proyectos_faro||[]).map(p => ({ codigo:p.codigo, nombre:p.nombre, cliente_nombre:p.cliente||'',
-    estado:p.estado, origen:'faro', ambito:p.ambito }));
+    estado:p.estado, origen:'faro', ambito:p.ambito })); // compat backend viejo
   return dt.concat(faro);
 }
 function pasaFiltro(p){ return FILTRO_AMBITO === 'todos' || p.ambito === FILTRO_AMBITO; }
@@ -1705,7 +1774,6 @@ function chipsFiltro() {
     .map(([v,t]) => `<button class="${FILTRO_AMBITO===v?'on':''}" onclick="FILTRO_AMBITO='${v}';ftRender()">${t}</button>`).join('')}</div>`;
 }
 function tagDe(p) {
-  if (p.origen === 'dt') return '<span class="tag dt">DocTracker</span>';
   return p.ambito === 'personal' ? '<span class="tag per">Personal</span>' : '<span class="tag pro">Profesional</span>';
 }
 
@@ -1842,27 +1910,24 @@ async function crearTarea() {
 function ftVistaProyectos() {
   const todos = todosProyectos();
   const conSeg = todos.filter(p => unidadesDe(p.codigo).length && pasaFiltro(p));
-  const sinSegDT = todos.filter(p => p.origen === 'dt' && !unidadesDe(p.codigo).length);
-  const sinSegFaro = todos.filter(p => p.origen === 'faro' && !unidadesDe(p.codigo).length && pasaFiltro(p));
+  const sinSeg = todos.filter(p => !unidadesDe(p.codigo).length && pasaFiltro(p));
   return `<div class="fila" style="justify-content:space-between;margin-bottom:12px">
       ${chipsFiltro()}
       <button class="btn mini" onclick="modalNuevoProyecto()">+ Nuevo proyecto</button></div>
     ${conSeg.map(tarjetaProyecto).join('') || '<div class="card tarea-vacia">Ningún proyecto tiene seguimiento todavía (con este filtro).</div>'}
-    ${sinSegFaro.map(p => `<div class="card fila" style="justify-content:space-between">
-      <span>${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</span>
-      <button class="btn mini" onclick="abrirProyecto('${esc(p.codigo)}')">Abrir</button></div>`).join('')}
-    ${FILTRO_AMBITO !== 'personal' ? `<div class="card"><h3 style="font-size:14px;margin-bottom:8px">Proyectos de DocTracker sin seguimiento</h3>
-      ${sinSegDT.map(p => `<div class="fila" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--fondo)">
-        <span>${esc(p.codigo)} · ${esc(p.nombre)} <span class="muted">${esc(p.cliente_nombre || '')} · ${esc(p.estado)}</span></span>
-        <button class="btn mini" onclick="modalTemplate('${esc(p.codigo)}')">+ Aplicar template</button></div>`).join('')
-        || '<div class="muted">DocTracker no tiene proyectos cargados en su módulo Proyectos.</div>'}
-      <p class="muted" style="margin-top:10px">Diagnóstico: DocTracker tiene ${DATA.proyectos.length} proyecto(s) y ${DATA.documentos.length} documento(s).
-      FlowTracker lee el módulo <b>Proyectos</b> de DocTracker — si tu trabajo está solo como expedientes, crealo también como Proyecto allá, o creá acá un proyecto FlowTracker.</p></div>` : ''}`;
+    ${sinSeg.length ? `<div class="card"><h3 style="font-size:14px;margin-bottom:8px">Proyectos sin seguimiento</h3>
+      ${sinSeg.map(p => `<div class="fila" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--fondo)">
+        <span>${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)} <span class="muted">${esc(p.cliente_nombre || '')} · ${esc(p.estado)}</span></span>
+        <span class="fila"><button class="btn sec mini" onclick="modalTemplate('${esc(p.codigo)}')">+ Aplicar template</button>
+        <button class="btn mini" onclick="abrirProyecto('${esc(p.codigo)}')">Abrir</button></span></div>`).join('')}
+      <p class="muted" style="margin-top:10px">Los proyectos son los mismos acá y en DocTracker (tabla única, serie PRJ-).
+      Los personales solo se ven en FlowTracker.</p></div>` : ''}`;
 }
 
 function modalNuevoProyecto() {
-  ftAbrirModal(`<h3>Nuevo proyecto FlowTracker</h3>
-    <p class="muted">Para proyectos que no viven en DocTracker (personales o profesionales sueltos).</p>
+  ftAbrirModal(`<h3>Nuevo proyecto</h3>
+    <p class="muted">Se crea en la tabla única de proyectos (serie PRJ-, la misma que ve DocTracker).
+    Los de ámbito personal no aparecen en DocTracker ni en el espejo de proyectos.</p>
     <label>Nombre</label><input id="mPNom" placeholder="Ej: Pintar el portón / Habilitación farmacia">
     <label>Ámbito</label>
     <select id="mPAmb"><option value="personal">Personal</option><option value="profesional">Profesional</option></select>
@@ -1919,13 +1984,13 @@ function vistaDetalle() {
   <div class="card" style="margin-top:12px;border-left:4px solid ${p.ambito === 'personal' ? '#8E6CC8' : 'var(--turq)'}">
     <div class="fila" style="justify-content:space-between">
       <div><h2 style="font-size:17px">${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</h2>
-      <div class="muted">${esc(p.cliente_nombre || '')}${p.origen === 'dt' ? ' · ' + esc(p.estado) : ''}</div></div>
+      <div class="muted">${esc(p.cliente_nombre || '')}</div></div>
       <div class="fila">
-        ${p.origen === 'faro' ? `<select onchange="editarProyectoFaro('${esc(p.codigo)}',{estado:this.value})" style="padding:5px 7px;font-size:12px">
-          ${['Activo','Pausado','Cerrado'].map(s => `<option ${p.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select>` : ''}
+        <select onchange="editarProyectoFaro('${esc(p.codigo)}',{estado:this.value})" style="padding:5px 7px;font-size:12px">
+          ${[...new Set(['Activo','Pausado','Cerrado', p.estado])].map(s => `<option ${p.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
         <button class="btn sec mini" onclick="modalTemplate('${esc(p.codigo)}')">+ Template</button>
         <button class="btn mini" onclick="modalItem('${esc(p.codigo)}')">+ Ítem</button>
-        ${p.origen === 'faro' ? `<button class="btn rojo mini" onclick="borrarProyectoFaro('${esc(p.codigo)}')">✕</button>` : ''}
+        ${p.ambito === 'personal' ? `<button class="btn rojo mini" onclick="borrarProyectoFaro('${esc(p.codigo)}')">✕</button>` : ''}
       </div>
     </div>
     ${docsProy.length ? `<div class="fila" style="justify-content:space-between;margin-top:14px">
@@ -2518,6 +2583,7 @@ function renderCom(){
 }
 window.cambiarModulo = async function(m){
   if(!TOKEN) return;
+  if(m === 'com' && !esAdmin()) return;
   MODULO = m;
   if((m === 'ft' || m === 'com') && !DATA.cargado){
     spin(true,'Cargando seguimiento…');
