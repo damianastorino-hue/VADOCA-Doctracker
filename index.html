@@ -4,196 +4,2544 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VADOCA · Suite</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{
-  --navy:#0D1C2E; --panel:#16283E; --linea:#23374d;
-  --turq:#00B4B6; --ambar:#E6B93C; --gris:#6D7985; --claro:#B9C4CE;
+  :root{
+    --tq:#00B4B6; --tq-dark:#008C8E; --tq-soft:#E0F5F5;
+    --g1:#435561; --g2:#6D7985; --g3:#AEB8C0; --g4:#E7ECEF;
+    --bg:#F6F8F9; --card:#FFFFFF;
+    --ok:#2E9E5B; --warn:#D98E04; --bad:#C94F3D;
+    --mono:'Courier New',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--g1);font-size:15px;line-height:1.45}
+  h1,h2,h3{font-weight:600}
+  button{font:inherit;cursor:pointer;border:none;border-radius:8px;padding:9px 16px;background:var(--tq);color:#fff;font-weight:600;transition:background .15s}
+  button:hover{background:var(--tq-dark)}
+  button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--tq);outline-offset:2px}
+  button.sec{background:var(--g4);color:var(--g1)} button.sec:hover{background:var(--g3)}
+  button.ghost{background:transparent;color:var(--tq);padding:6px 10px}
+  button.rojo{background:var(--bad)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  input,select,textarea{font:inherit;border:1px solid var(--g3);border-radius:8px;padding:9px 11px;width:100%;background:#fff;color:var(--g1)}
+  textarea{resize:vertical;min-height:80px}
+  label{display:block;font-size:13px;font-weight:600;color:var(--g2);margin:12px 0 4px}
+  a{color:var(--tq-dark)}
+  header{background:var(--card);border-bottom:1px solid var(--g4);position:sticky;top:0;z-index:20}
+  .hwrap{max-width:1080px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{font-size:18px;font-weight:700;letter-spacing:.5px}
+  .logo b{color:var(--tq)}
+  nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+  nav button{background:transparent;color:var(--g2);font-weight:600;padding:8px 14px;border-radius:8px}
+  nav button.active{background:var(--tq-soft);color:var(--tq-dark)}
+  nav button:hover{background:var(--g4);color:var(--g1)}
+  #userChip{font-size:12px;color:var(--g2)}
+  main{max-width:1080px;margin:0 auto;padding:18px 16px 90px}
+  .card{background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:18px;margin-bottom:14px}
+  .muted{color:var(--g2);font-size:13px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:180px}
+  .codigo{font-family:var(--mono);font-weight:700;font-size:13px;background:var(--tq-soft);color:var(--tq-dark);border-left:3px solid var(--tq);padding:3px 8px;border-radius:0 6px 6px 0;display:inline-block;letter-spacing:.3px}
+  .hashchip{font-family:var(--mono);font-size:10px;color:var(--g3)}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .stat{flex:1;min-width:110px;background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:12px 14px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+  .stat:hover{border-color:var(--tq)}
+  .stat.activa{border-color:var(--tq);background:var(--tq-soft)}
+  .stat .n{font-size:26px;font-weight:700;color:var(--tq-dark)}
+  .stat .l{font-size:12px;color:var(--g2)}
+  .stat.alerta .n{color:var(--bad)}
+  .filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .filtros select,.filtros input{flex:1;min-width:130px;width:auto}
+  .exp{background:var(--card);border:1px solid var(--g4);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+  .exp:hover{border-color:var(--tq)}
+  .exp .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .exp .desc{font-weight:600;flex:1;min-width:180px}
+  .exp .meta{font-size:12px;color:var(--g2);margin-top:6px;display:flex;gap:14px;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+  .b-bad{background:#F9E6E2;color:var(--bad)} .b-info{background:var(--tq-soft);color:var(--tq-dark)}
+  .b-gris{background:var(--g4);color:var(--g2)} .b-ok{background:#E3F4EA;color:var(--ok)}
+  .docs-tabla{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  .docs-tabla th{text-align:left;color:var(--g2);font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:6px 8px;border-bottom:1px solid var(--g4)}
+  .docs-tabla td{padding:7px 8px;border-bottom:1px solid var(--g4);vertical-align:middle}
+  .docs-tabla select{padding:5px 8px;font-size:13px;width:auto}
+  .nota{border-left:3px solid var(--g4);padding:10px 12px;margin-bottom:10px;background:var(--bg);border-radius:0 8px 8px 0}
+  .nota.tipo-creacion{border-left-color:var(--tq)}
+  .nota.tipo-estado{border-left-color:var(--warn)}
+  .nota.tipo-version{border-left-color:var(--ok)}
+  .nota.tipo-correccion{border-left-color:var(--bad)}
+  .nota .nts{font-size:11px;color:var(--g2);font-family:var(--mono)}
+  .nota .ntx{margin:5px 0;white-space:pre-wrap}
+  .nota .adj a{font-size:12px;margin-right:10px}
+  .adj-anulado{font-size:12px;margin-right:10px;color:#C0392B;background:#FBE9E7;border-radius:6px;padding:2px 8px;display:inline-block}
+  .anular-btn{border:none;background:transparent;cursor:pointer;font-size:11px;opacity:.45;margin-right:8px}
+  .anular-btn:hover{opacity:1}
+  .nota.tipo-anulacion{border-left:3px solid #C0392B}
+  .modal-bg{position:fixed;inset:0;background:rgba(30,40,46,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+  @media(min-width:640px){.modal-bg{align-items:center}}
+  .modal{background:#fff;border-radius:16px 16px 0 0;max-width:560px;width:100%;max-height:92vh;overflow-y:auto;padding:20px}
+  @media(min-width:640px){.modal{border-radius:16px}}
+  #toasts{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:8px;width:min(92vw,420px)}
+  .toast{padding:11px 16px;border-radius:10px;color:#fff;font-weight:600;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+  .toast.ok{background:var(--ok)} .toast.err{background:var(--bad)} .toast.info{background:var(--g1)}
+  #spinner{position:fixed;inset:0;background:rgba(255,255,255,.6);z-index:90;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+  .sp{width:38px;height:38px;border:4px solid var(--g4);border-top-color:var(--tq);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #spinnerTxt{font-weight:600;color:var(--g1)}
+  .hidden{display:none!important}
+  .login-wrap{max-width:400px;margin:8vh auto}
+  .rolchip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--g4);color:var(--g2);text-transform:uppercase}
+  .u-tabla{width:100%;border-collapse:collapse;font-size:13px}
+  .u-tabla th{text-align:left;color:var(--g2);font-size:11px;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--g4)}
+  .u-tabla td{padding:8px;border-bottom:1px solid var(--g4)}
+
+  /* ---------- Conmutador de módulos (suite) ---------- */
+  .modswitch{display:flex;gap:2px;background:var(--g4);border-radius:10px;padding:3px}
+  .modswitch button{background:transparent;color:var(--g2);font-weight:700;font-size:13px;padding:7px 14px;border-radius:8px}
+  .modswitch button:hover{background:#fff;color:var(--g1)}
+  .modswitch button.active{background:var(--tq);color:#fff}
+  .subnav{padding-top:0}
+  .subnav nav{margin-left:0}
+  :root{
+    --navy:#0D1C2E; --navy2:#16283E; --turq:#00B4B6; --turq-dim:#007e80;
+    --gris:#6D7985; --gris-osc:#435561; --fondo:#F2F5F7; --peligro:#C0392B; --borde:#DDE4E9;
+  }
+/* ---------- Estilos FlowTracker (scope .ftui) ---------- */
+.ftui select,.ftui input{width:auto}
+.ftui textarea{width:100%}
+#modal select,#modal input,#modal textarea{width:100%}
+.ftui h2, .ftui h3, .ftui .brand{font-family:'Sora',sans-serif}
+.ftui select, .ftui input, .ftui textarea{font-family:inherit;font-size:13px;border:1px solid var(--borde);border-radius:8px;padding:7px 9px;background:#fff;color:var(--navy)}
+.ftui select:focus, .ftui input:focus, .ftui textarea:focus{outline:2px solid var(--turq);outline-offset:0;border-color:var(--turq)}
+.ftui .card{background:var(--card);border:1px solid var(--borde);border-radius:12px;padding:16px;margin-bottom:14px}
+.ftui .muted{color:var(--gris);font-size:12px}
+.ftui .fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ftui .btn{background:var(--turq);color:#fff;font-weight:600;padding:8px 14px}
+.ftui .btn.sec{background:#EAF0F3;color:var(--gris-osc)}
+.ftui .btn.mini{padding:4px 9px;font-size:12px}
+.ftui .btn.rojo{background:transparent;color:var(--peligro);border:1px solid #E7C4C0}
+.ftui .chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.ftui .c-mia{background:#FFF3E4;color:#9A5B12}
+.ftui .c-cliente{background:#E3F2FD;color:#1663A8}
+.ftui .c-cerrado{background:#E7F5EC;color:#1F7A44}
+.ftui .punto{width:7px;height:7px;border-radius:50%;background:currentColor}
+.ftui .hoy-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ftui .col-titulo{font-family:'Sora';font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:4px 0 10px;display:flex;align-items:center;gap:8px}
+.ftui .col-titulo.mia{color:#9A5B12}
+.ftui .col-titulo.cli{color:#1663A8}
+.ftui .pcard{cursor:pointer;transition:border-color .15s;border-left:4px solid var(--turq)}
+.ftui .pcard.personal{border-left-color:#8E6CC8}
+.ftui .tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:5px;vertical-align:middle}
+.ftui .tag.dt{background:#E6F7F7;color:var(--turq-dim)}
+.ftui .tag.pro{background:#E6F7F7;color:var(--turq-dim)}
+.ftui .tag.per{background:#F0EAFB;color:#6B4FA3}
+.ftui .filtros{display:flex;gap:6px;margin-bottom:14px}
+.ftui .filtros button{background:#fff;border:1px solid var(--borde);color:var(--gris-osc);padding:6px 13px;border-radius:20px;font-size:12px;font-weight:600}
+.ftui .filtros button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.ftui .pcard:hover{border-color:var(--turq)}
+.ftui .pcard h3{font-size:15px;margin-bottom:2px}
+.ftui .pcard .prox{margin-top:8px;padding:8px 10px;background:var(--fondo);border-radius:8px;font-size:13px}
+.ftui .pcard .prox b{color:var(--turq-dim)}
+.ftui .barra{height:5px;background:#E8EDF1;border-radius:3px;margin-top:10px;overflow:hidden}
+.ftui .barra i{display:block;height:100%;background:var(--turq)}
+.ftui .venc{display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--fondo);font-size:13px}
+.ftui .venc.tarde{color:var(--peligro);font-weight:600}
+.ftui .item-row{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;padding:9px 6px;border-bottom:1px solid var(--fondo)}
+.ftui .item-row:last-child{border-bottom:none}
+.ftui .item-row .nom{font-size:13.5px}
+.ftui .item-row .nom .doc{color:var(--turq-dim);font-size:11px;display:block}
+.ftui .item-row .ops{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.ftui .item-row select{padding:5px 7px;font-size:12px}
+.ftui .item-row input[type=date]{padding:4px 6px;font-size:12px}
+.ftui .tilde{width:18px;height:18px;border-radius:50%;border:2px solid var(--borde);display:inline-block}
+.ftui .tilde.done{background:var(--turq);border-color:var(--turq);position:relative}
+.ftui .tilde.done::after{content:'✓';color:#fff;font-size:11px;position:absolute;left:3px;top:0}
+.ftui .bita{margin-top:14px;border-top:2px solid var(--fondo);padding-top:10px;max-height:260px;overflow:auto}
+.ftui .bita .e{padding:6px 4px;border-bottom:1px solid var(--fondo);font-size:12.5px}
+.ftui .bita .e .muted{font-size:11px}
+.ftui .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.ftui .cal .dia{background:#fff;border:1px solid var(--borde);border-radius:8px;min-height:78px;padding:5px;font-size:11px}
+.ftui .cal .dia.hoy-dia{border-color:var(--turq);border-width:2px}
+.ftui .cal .dia .n{color:var(--gris);font-weight:600}
+.ftui .cal .dia .it{background:#E6F7F7;color:var(--turq-dim);border-radius:5px;padding:2px 4px;margin-top:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
+.ftui .cal .dia .it.tarde{background:#FBE9E7;color:var(--peligro)}
+.ftui .cal-cab{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:6px;text-align:center;font-size:11px;color:var(--gris);font-weight:600}
+#modal{display:none;position:fixed;inset:0;background:rgba(13,28,46,.55);z-index:50;align-items:center;justify-content:center;padding:16px}
+#modal .caja{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:440px;max-height:88vh;overflow:auto}
+#modal h3{margin-bottom:14px}
+#modal label{display:block;font-size:12px;color:var(--gris-osc);font-weight:600;margin:10px 0 4px}
+#modal select, #modal input, #modal textarea{width:100%}
+#modal .acciones{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.ftui .tarea-vacia{text-align:center;color:var(--gris);padding:30px 10px;font-size:13px}
+.ftui details.exp{border:1px solid var(--borde);border-radius:10px;margin-bottom:8px;background:#FAFCFD}
+.ftui details.exp summary{cursor:pointer;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;list-style:none;font-size:13px}
+.ftui details.exp summary::-webkit-details-marker{display:none}
+.ftui details.exp summary .cod{font-weight:600;color:var(--turq-dim)}
+.ftui details.exp[open] summary{border-bottom:1px solid var(--borde)}
+.ftui .doc-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--fondo);font-size:12.5px;flex-wrap:wrap}
+.ftui .doc-row:last-child{border-bottom:none}
+.ftui .doc-row select{padding:4px 6px;font-size:12px}
+.ftui .seccion{font-family:'Sora';font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--gris-osc);margin:16px 0 8px}
+.ftui .mapa-wrap{overflow-x:auto;margin-top:8px}
+.ftui .mapa{border-collapse:collapse;font-size:11px}
+.ftui .mapa th{padding:4px 6px;color:var(--gris-osc);font-weight:600;text-align:center;white-space:nowrap}
+.ftui .mapa td{padding:3px}
+.ftui .mapa td.exp-nom{white-space:nowrap;color:var(--gris-osc);font-weight:600;padding-right:10px;position:sticky;left:0;background:var(--card)}
+.ftui .celda{width:22px;height:22px;border-radius:5px;margin:0 auto;cursor:default}
+.ftui .celda.vacia{background:var(--fondo);display:flex;align-items:center;justify-content:center;color:#C3CDD5;font-size:12px;font-weight:700}
+.ftui .leyenda{display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:var(--gris-osc);align-items:center}
+.ftui .leyenda .celda{display:inline-block;width:14px;height:14px;vertical-align:middle;margin-right:4px}
+.ftui .modo-btns{display:flex;gap:4px}
+.ftui .modo-btns button{background:#EAF0F3;color:var(--gris-osc);padding:5px 11px;font-size:12px;font-weight:600}
+.ftui .modo-btns button.on{background:var(--navy);color:#fff}
+.ftui .arbol{margin-top:10px}
+.ftui .arbol .raiz{display:inline-block;background:var(--navy);color:#fff;border-radius:10px;padding:10px 16px;font-family:'Sora';font-weight:700;font-size:13px}
+.ftui .arbol .ramas{margin-left:14px;border-left:3px solid #E6B93C;padding-left:0}
+.ftui .arbol .exp-nodo{position:relative;margin:10px 0 10px 22px}
+.ftui .arbol .exp-nodo::before{content:'';position:absolute;left:-25px;top:18px;width:22px;height:3px;background:#E6B93C}
+.ftui .arbol .exp-caja{display:inline-flex;align-items:center;gap:10px;background:#FFF6DE;border:2px solid #E6B93C;border-radius:10px;padding:7px 12px;cursor:pointer;font-size:12.5px;color:#8A6D1D;max-width:100%}
+.ftui .arbol .exp-caja b{white-space:nowrap}
+.ftui .arbol .exp-caja .desc{color:#A98E3B;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:260px}
+.ftui .arbol .exp-caja .caret{font-size:10px}
+.ftui .arbol .resumen{display:inline-flex;gap:8px;font-size:11px;font-weight:700}
+.ftui .arbol .resumen span{display:inline-flex;align-items:center;gap:3px;color:#fff;border-radius:10px;padding:1px 7px}
+.ftui .arbol .hojas{margin-left:16px;border-left:2px solid var(--borde);padding:4px 0 2px}
+.ftui .arbol .hoja{position:relative;margin:7px 0 7px 20px}
+.ftui .arbol .hoja::before{content:'';position:absolute;left:-22px;top:12px;width:18px;height:2px;background:var(--h-color,#DDE4E9)}
+.ftui .arbol .hoja-chip{display:inline-block;color:#fff;border-radius:8px;padding:5px 11px;font-size:11.5px;font-weight:600}
+@media(max-width:760px){
+.ftui .hoy-grid{grid-template-columns:1fr}
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{min-height:100vh;background:var(--navy);color:#fff;font-family:'Inter',system-ui,sans-serif;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px}
-h1,h2,.sora{font-family:'Sora',sans-serif}
-button{font-family:inherit;cursor:pointer;border:none;border-radius:10px}
-
-.marca{text-align:left;width:100%;max-width:880px;margin-bottom:34px}
-.marca h1{font-size:40px;font-weight:800;letter-spacing:.5px}
-.marca h1 span{color:var(--turq)}
-.marca p{color:var(--gris);margin-top:4px;font-size:14px}
-.quien{color:var(--gris);font-size:12px;margin-top:10px}
-.quien button{background:transparent;border:1px solid var(--linea);color:var(--claro);padding:4px 12px;font-size:12px;margin-left:10px}
-
-/* ---------- Login ---------- */
-#login{background:var(--panel);border:1px solid var(--linea);border-radius:16px;padding:34px 32px;width:100%;max-width:360px}
-#login h2{font-size:16px;margin-bottom:18px;font-weight:600}
-#login input{width:100%;margin-bottom:12px;background:#0f2136;border:1px solid var(--linea);border-radius:10px;
-  color:#fff;padding:12px;font-size:14px;font-family:inherit}
-#login input:focus{outline:2px solid var(--turq);border-color:var(--turq)}
-#login button.entrar{width:100%;background:var(--turq);color:var(--navy);font-weight:700;padding:13px;font-size:14px}
-#login .err{color:#ff8a80;font-size:12px;margin-top:10px;min-height:16px}
-#login .bk{display:block;text-align:center;margin-top:14px;color:var(--gris);font-size:11px;text-decoration:none}
-
-/* ---------- Módulos ---------- */
-#suite{display:none;width:100%;max-width:880px}
-.modulos{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}
-.mod{background:var(--panel);border:1px solid var(--linea);border-radius:16px;padding:24px 22px;
-  border-top:4px solid var(--acento);display:flex;flex-direction:column;gap:8px;min-height:190px;
-  text-decoration:none;color:#fff;transition:transform .12s ease, border-color .12s ease}
-a.mod:hover{transform:translateY(-3px);border-color:var(--acento)}
-a.mod:focus-visible{outline:3px solid var(--acento);outline-offset:2px}
-.mod h2{font-size:19px;font-weight:700}
-.mod .rol{color:var(--gris);font-size:12.5px}
-.mod .estado{margin-top:auto;padding-top:14px;border-top:1px solid var(--linea);font-size:13px;line-height:1.6;color:var(--claro)}
-.mod .estado b{color:var(--acento)}
-.mod.off{opacity:.45;border-top-style:dashed;cursor:not-allowed}
-.mod.off .prox{margin-top:auto;padding-top:14px;border-top:1px dashed var(--linea);font-size:12px;color:var(--gris)}
-.cargando{color:var(--gris);font-size:12px}
-@media (prefers-reduced-motion: reduce){ a.mod{transition:none} a.mod:hover{transform:none} }
 </style>
 </head>
 <body>
-
-<div class="marca">
-  <h1>VADOCA<span>.</span></h1>
-  <p>Suite de gestión — documentación, seguimiento y calidad</p>
-  <div class="quien" id="quien" style="display:none"></div>
-</div>
-
-<div id="login">
-  <h2>Ingresá una sola vez para toda la suite</h2>
-  <input id="lEmail" type="email" placeholder="Email" autocomplete="username">
-  <input id="lPass" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
-  <button class="entrar" onclick="login()">Entrar</button>
-  <div class="err" id="lErr"></div>
-  <a href="#" class="bk" onclick="configBackend();return false">⚙ Backend: <span id="lBk"></span></a>
-</div>
-
-<div id="suite">
-  <div class="modulos">
-    <a class="mod" style="--acento:var(--turq)" href="vadoca-doctracker-v2.html">
-      <h2>DocTracker</h2>
-      <div class="rol">Expedientes, POEs, presupuestos y proyectos con cadena de auditoría</div>
-      <div class="estado" id="estDT"><span class="cargando">Cargando estado…</span></div>
-    </a>
-    <a class="mod" style="--acento:var(--ambar)" href="faro.html">
-      <h2>FARO</h2>
-      <div class="rol">Seguimiento del día: canchas, vencimientos y facturación</div>
-      <div class="estado" id="estFARO"><span class="cargando">Cargando estado…</span></div>
-    </a>
-    <div class="mod off" style="--acento:var(--gris)" aria-disabled="true" title="Se activa cuando haya caso de uso real">
-      <h2>DesvioApp</h2>
-      <div class="rol">Gestión de desvíos de calidad para proveedores auditados</div>
-      <div class="prox">Próximamente — se suma a la suite cuando haya equipo o cliente usándola</div>
+<header>
+  <div class="hwrap">
+    <div class="logo">VADOCA<b>.</b> <span class="muted" style="font-size:11px">suite</span></div>
+    <div id="modSwitch" class="modswitch hidden">
+      <button data-mod="dt" class="active">DocTracker</button>
+      <button data-mod="ft">FlowTracker</button>
+      <button data-mod="com">Comercial</button>
     </div>
+    <span id="userChip" style="margin-left:auto"></span>
   </div>
-</div>
+  <div class="hwrap subnav">
+    <nav id="mainNav" class="hidden">
+      <button data-view="dashboard" class="active">Tablero</button>
+      <button data-view="nuevo" id="navNuevo">+ Nuevo</button>
+      <button data-view="poes">Procedimientos</button>
+      <button data-view="proyectos">Proyectos</button>
+      <button data-view="indicadores">Indicadores</button>
+      <button data-view="auditoria" id="navAudit" class="hidden">Auditoría</button>
+      <button data-view="usuarios" id="navUsuarios" class="hidden">Usuarios</button>
+      <button data-view="config">Ajustes</button>
+    </nav>
+    <nav id="ftNav" class="hidden">
+      <button id="nHoy" class="active" onclick="ftIr('hoy')">Hoy</button>
+      <button id="nProy" onclick="ftIr('proyectos')">Proyectos</button>
+      <button id="nCal" onclick="ftIr('calendario')">Calendario</button>
+      <button id="nTpl" onclick="ftIr('templates')">Templates</button>
+    </nav>
+  </div>
+</header>
+<main id="app"></main>
+<div id="modal" class="ftui"><div class="caja" id="modalCaja"></div></div>
+<div id="toasts"></div>
+<div id="spinner" class="hidden"><div class="sp"></div><div id="spinnerTxt">Trabajando…</div></div>
 
 <script>
-const BACKEND_DEFAULT = 'https://vadoca-doctracker-backend-production.up.railway.app';
-let BACKEND = localStorage.getItem('faro_backend') || BACKEND_DEFAULT;
-let TOKEN = sessionStorage.getItem('vdt_token') || sessionStorage.getItem('faro_token') || '';
+'use strict';
+/* ============================================================
+   VADOCA DocTracker v2 — frontend contra backend Railway
+   ============================================================ */
+const LSKEY = 'vadoca_doctracker_v2_cfg';
+const DEFAULTS = {
+  backendUrl: 'https://vadoca-doctracker-backend-production.up.railway.app',
+  clientes: [ ['000','VADOCA'], ['001','Novocap SA'], ['002','LKM'], ['003','Passair / Conéctalis'] ],
+  tiposTrabajo: [
+    { key:'GR',  nombre:'Gestión de Riesgo',                    linea:'VDC' },
+    { key:'VTA', nombre:'Validación de Técnicas Analíticas',    linea:'VDC' },
+    { key:'VPC', nombre:'Validación de Planillas',              linea:'VPC' },
+    { key:'CAL', nombre:'Calificaciones',                       linea:'VDC' },
+    { key:'VSI', nombre:'Validación de Sistemas Informáticos',  linea:'VSI' },
+  ],
+  tiposDoc: ['GR','AR','VTA','RU','DQ','IQ','OQ','PQ','IOQ','IV','PMV','PV'],
+  estados: ['Borrador','En revisión','Validable','No validable','En ejecución','Enviado a cliente','Aprobado','Entregado','Suspendido','Cancelado'],
+  estadosFinales: ['Entregado','Suspendido','Cancelado'],
+  paqueteVPC: [ ['RU','P'],['DQ','P'],['IQ','P'],['IQ','I'],['OQ','P'],['OQ','I'],['PQ','P'],['PQ','I'],['IV','I'] ],
+  diasEstancado: 7,
+};
+let CFG = loadCfg();
+function loadCfg(){ try{ const s=JSON.parse(localStorage.getItem(LSKEY)||'{}'); const c=Object.assign({},DEFAULTS,s); c.paqueteVPC=DEFAULTS.paqueteVPC; return c;}catch(e){return {...DEFAULTS};} }
+function saveCfg(){ localStorage.setItem(LSKEY, JSON.stringify(CFG)); }
 
-function configBackend(){
-  const u = prompt('URL del backend (sin barra final):', BACKEND);
-  if(!u) return;
-  BACKEND = u.trim().replace(/\/+$/,'');
-  localStorage.setItem('faro_backend', BACKEND);
-  pintarBk();
-}
-function pintarBk(){ const el=document.getElementById('lBk'); if(el) el.textContent = BACKEND.replace('https://',''); }
+let TOKEN = sessionStorage.getItem('vdt_token') || null;
+let YO = JSON.parse(sessionStorage.getItem('vdt_yo') || 'null');
+let REG = [];        // documentos desde el backend (snake_case)
+let POES = [];       // procedimientos VADOCA
+let POE = null;      // procedimiento abierto (codigo_base)
+let PRESUS = [];     // presupuestos (solo admin)
+let PROYS = [];      // proyectos
+let PRESU = null;    // presupuesto abierto
+let PROY = null;     // proyecto abierto
+let VIEW = 'dashboard';
+let FICHA = null;
 
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = (n,l) => String(n).padStart(l,'0');
+function toast(msg,tipo='ok'){ const d=document.createElement('div'); d.className='toast '+tipo; d.textContent=msg; $('#toasts').appendChild(d); setTimeout(()=>d.remove(), tipo==='err'?6000:3500); }
+function spin(on,txt){ $('#spinner').classList.toggle('hidden',!on); if(txt)$('#spinnerTxt').textContent=txt; }
+function diasDesde(iso){ if(!iso) return null; return Math.floor((Date.now()-new Date(iso).getTime())/86400000); }
+function fFecha(iso){ if(!iso) return '—'; const d=new Date(iso); return isNaN(d)?esc(iso):d.toLocaleDateString('es-AR')+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
+const esLector = () => YO?.rol === 'lector';
+const esAdmin  = () => YO?.rol === 'admin';
+
+/* ---------- Llamadas al backend ---------- */
 async function api(ruta, opt={}){
-  opt.headers = Object.assign({'Content-Type':'application/json'}, opt.headers||{});
-  if(TOKEN) opt.headers.Authorization = 'Bearer '+TOKEN;
-  if(opt.body && typeof opt.body!=='string') opt.body = JSON.stringify(opt.body);
-  const r = await fetch(BACKEND+ruta, opt);
-  const j = await r.json().catch(()=>({}));
-  if(!r.ok) { const e = new Error(j.error||('Error '+r.status)); e.status=r.status; throw e; }
-  return j;
+  opt.headers = Object.assign({}, opt.headers||{}, TOKEN?{Authorization:'Bearer '+TOKEN}:{});
+  if(opt.body && !(opt.body instanceof FormData)){ opt.headers['Content-Type']='application/json'; opt.body=JSON.stringify(opt.body); }
+  const r = await fetch(CFG.backendUrl + ruta, opt);
+  let data = null; try{ data = await r.json(); }catch(e){}
+  if(r.status===401 && ruta!=='/api/login'){ cerrarSesion(); throw new Error('Sesión vencida, entrá de nuevo'); }
+  if(!r.ok) throw new Error(data?.error || ('Error '+r.status));
+  return data;
+}
+async function cargarRegistro(){ REG = await api('/api/registro'); try{ PROYS = await api('/api/proyectos'); }catch(e){} }
+function cerrarSesion(){ TOKEN=null; YO=null; sessionStorage.clear(); render(); }
+
+/* ============================================================
+   VISTAS
+   ============================================================ */
+function render(){
+  const app = $('#app');
+  const logueado = !!TOKEN && !YO?.debe_cambiar_clave;
+  $('#modSwitch').classList.toggle('hidden', !logueado);
+  $$('#modSwitch button').forEach(b=>b.classList.toggle('active', b.dataset.mod===MODULO));
+  $('#mainNav').classList.toggle('hidden', !logueado || MODULO!=='dt');
+  $('#ftNav').classList.toggle('hidden', !logueado || MODULO!=='ft');
+  $('#navUsuarios').classList.toggle('hidden', !esAdmin());
+  $('#navAudit').classList.toggle('hidden', !esAdmin());
+  $('#navNuevo').classList.toggle('hidden', esLector());
+  $('#userChip').innerHTML = YO ? `${esc(YO.email)} <span class="rolchip">${esc(YO.rol)}</span> <button class="ghost" onclick="cerrarSesion()" style="font-size:12px">Salir</button>` : '';
+  if(!TOKEN){ app.innerHTML = vistaLogin(); return; }
+  if(YO?.debe_cambiar_clave){ app.innerHTML = vistaCambiarClave(true); return; }
+  if(MODULO==='ft'){ ftRender(); return; }
+  if(MODULO==='com'){ renderCom(); return; }
+  if(VIEW==='dashboard') app.innerHTML = vistaDashboard();
+  else if(VIEW==='nuevo') app.innerHTML = vistaNuevo();
+  else if(VIEW==='poes') app.innerHTML = vistaPoes();
+  else if(VIEW==='poeFicha') app.innerHTML = vistaPoeFicha();
+  else if(VIEW==='indicadores') app.innerHTML = vistaIndicadores();
+  else if(VIEW==='auditoria') app.innerHTML = vistaAuditoria();
+  else if(VIEW==='proyectos') app.innerHTML = vistaProyectos();
+  else if(VIEW==='proyFicha') app.innerHTML = vistaProyFicha();
+  else if(VIEW==='usuarios') app.innerHTML = vistaUsuarios();
+  else if(VIEW==='config') app.innerHTML = vistaConfig();
+  else if(VIEW==='ficha') app.innerHTML = vistaFicha();
+  postRender();
 }
 
-async function login(){
-  const err = document.getElementById('lErr'); err.textContent='';
+/* ----- Login y clave ----- */
+function vistaLogin(){
+  return `<div class="login-wrap"><div class="card">
+    <h2>Ingresar</h2>
+    <label>Email</label><input id="lEmail" type="email" placeholder="usuario@vadoca.com.ar" autocomplete="username">
+    <label>Contraseña</label><input id="lPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')ingresar()">
+    <p style="margin-top:16px"><button onclick="ingresar()" style="width:100%">Entrar</button></p>
+    <p class="muted" style="margin-top:10px">¿Sin cuenta o clave olvidada? Pedile al administrador que te dé de alta o te blanquee la clave.</p>
+  </div></div>`;
+}
+window.ingresar = async function(){
+  spin(true,'Ingresando…');
   try{
-    const j = await api('/api/login',{method:'POST',body:{
-      email: document.getElementById('lEmail').value,
-      password: document.getElementById('lPass').value }});
-    TOKEN = j.token;
-    sembrarSesion(j.usuario);
-    entrar(j.usuario);
-  }catch(e){ err.textContent = e.message; }
+    const d = await api('/api/login',{method:'POST',body:{email:$('#lEmail').value,password:$('#lPass').value}});
+    TOKEN=d.token; YO=d.usuario;
+    sessionStorage.setItem('vdt_token',TOKEN); sessionStorage.setItem('vdt_yo',JSON.stringify(YO));
+    if(!YO.debe_cambiar_clave){ spin(true,'Cargando registro…'); await cargarRegistro(); }
+    spin(false); VIEW='dashboard'; render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+function vistaCambiarClave(obligatorio){
+  return `<div class="login-wrap"><div class="card">
+    <h2>${obligatorio?'Cambiá tu contraseña':'Cambiar contraseña'}</h2>
+    ${obligatorio?'<p class="muted" style="margin-top:6px">Tu clave fue asignada por el administrador: elegí una propia para continuar.</p>':''}
+    <label>Clave actual</label><input id="cAct" type="password" autocomplete="current-password">
+    <label>Clave nueva (mínimo 8 caracteres)</label><input id="cNue" type="password" autocomplete="new-password">
+    <p style="margin-top:16px"><button onclick="cambiarClave()" style="width:100%">Guardar</button></p>
+  </div></div>`;
 }
-// Un login, dos apps: se siembran las claves de sesión de DocTracker y de FARO
-function sembrarSesion(usuario){
-  sessionStorage.setItem('vdt_token', TOKEN);
-  sessionStorage.setItem('vdt_yo', JSON.stringify(usuario));
-  sessionStorage.setItem('faro_token', TOKEN);
-  sessionStorage.setItem('faro_usuario', JSON.stringify(usuario));
-}
-function salir(){ sessionStorage.clear(); location.reload(); }
-
-function entrar(usuario){
-  document.getElementById('login').style.display='none';
-  document.getElementById('suite').style.display='block';
-  const q = document.getElementById('quien');
-  q.style.display='block';
-  q.innerHTML = (usuario ? (usuario.nombre||usuario.email) : 'Sesión activa') +
-    ' <button onclick="salir()">Salir</button>';
-  cargarEstados();
-}
-
-/* ---------- Mini-estados de los módulos ---------- */
-const canchaDoc = e => ['Entregado','Suspendido','Cancelado'].includes(e) ? 'cerrado'
-  : e==='Enviado a cliente' ? 'cliente' : 'mia';
-const canchaItem = i => {
-  if(i.doc_codigo) return canchaDoc(i.doc_estado||'Borrador');
-  if(['aprobado','n/a'].includes(i.estado)) return 'cerrado';
-  if(['enviado a cliente','esperando respuesta'].includes(i.estado)) return 'cliente';
-  return 'mia';
+window.cambiarClave = async function(){
+  spin(true,'Guardando…');
+  try{
+    await api('/api/cambiar-clave',{method:'POST',body:{actual:$('#cAct').value,nueva:$('#cNue').value}});
+    YO.debe_cambiar_clave=false; sessionStorage.setItem('vdt_yo',JSON.stringify(YO));
+    await cargarRegistro(); spin(false); toast('Clave actualizada'); VIEW='dashboard'; render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
 };
 
-async function cargarEstados(){
-  try{
-    const d = await api('/api/seguimiento/data');
-    // --- DocTracker: documentos en curso / en cliente ---
-    let dMia=0, dCli=0;
-    for(const doc of d.documentos||[]){
-      const c = canchaDoc(doc.estado);
-      if(c==='mia') dMia++; else if(c==='cliente') dCli++;
-    }
-    document.getElementById('estDT').innerHTML =
-      `<b>${dMia}</b> documento${dMia===1?'':'s'} en tu cancha<br><b>${dCli}</b> en manos de clientes`;
-
-    // --- FARO: proyectos en cancha, facturas por cobrar, vencimientos ---
-    const activos = (d.proyectos||[]).filter(p=>p.estado==='Activo').map(p=>p.codigo)
-      .concat((d.proyectos_faro||[]).filter(p=>p.estado==='Activo').map(p=>p.codigo));
-    let proyMia=0;
-    for(const cod of activos){
-      const docsMia = (d.documentos||[]).some(x=>x.proyecto===cod && canchaDoc(x.estado)==='mia');
-      const itemsMia = (d.items||[]).some(i=>i.proyecto===cod && canchaItem(i)==='mia');
-      if(docsMia||itemsMia) proyMia++;
-    }
-    const porCobrar = (d.facturas||[]).filter(f=>f.estado!=='Cobrada').length;
-    const lim = new Date(Date.now()+7*864e5).toISOString().slice(0,10);
-    const vencen = (d.items||[]).filter(i=>i.fecha_limite && i.fecha_limite<=lim && canchaItem(i)!=='cerrado').length;
-    document.getElementById('estFARO').innerHTML =
-      `<b>${proyMia}</b> proyecto${proyMia===1?'':'s'} en tu cancha<br>`+
-      `<b>${porCobrar}</b> factura${porCobrar===1?'':'s'} por cobrar`+
-      (vencen ? `<br><b>${vencen}</b> vencimiento${vencen===1?'':'s'} esta semana` : '');
-  }catch(e){
-    if(e.status===401){ sessionStorage.clear(); location.reload(); return; }
-    document.getElementById('estDT').innerHTML = '<span class="cargando">Sin conexión con el backend</span>';
-    document.getElementById('estFARO').innerHTML = `<span class="cargando">${e.message}</span>`;
+/* ----- Dashboard ----- */
+let FILTRO = {cliente:'',tt:'',estado:'',txt:'',caja:''};
+window.filtrarCaja = function(c){ FILTRO.caja = (FILTRO.caja===c ? '' : c); render(); };
+function expedientes(){
+  const map = new Map();
+  for(const r of REG){
+    if(!map.has(r.expediente_id)) map.set(r.expediente_id, {id:r.expediente_id, docs:[], desc:r.descripcion, cliente:r.cliente_num, clienteN:r.cliente_nombre, tt:r.tipo_trabajo, carpeta:r.carpeta_drive_url, ult:r.ultimo_movimiento||'', interno:r.codigo_interno_cliente});
+    const e = map.get(r.expediente_id); e.docs.push(r);
+    if((r.ultimo_movimiento||'') > e.ult) e.ult = r.ultimo_movimiento;
   }
+  return [...map.values()].sort((a,b)=> String(b.ult).localeCompare(String(a.ult)));
+}
+function esActivo(e){ return e.docs.some(d=>!CFG.estadosFinales.includes(d.estado)); }
+function esEstancado(e){ return esActivo(e) && ((diasDesde(e.ult)??99) > CFG.diasEstancado); }
+function esEntregado(e){ return e.docs.length && e.docs.every(d=>d.estado==='Entregado'); }
+function estadoExp(e){
+  const activos = e.docs.filter(d=>!CFG.estadosFinales.includes(d.estado));
+  if(!activos.length) return {txt: e.docs.every(d=>d.estado==='Entregado')?'Entregado':'Cerrado', cls:'b-gris'};
+  const est = [...new Set(activos.map(d=>d.estado))];
+  return {txt: est.length===1?est[0]:'Mixto ('+activos.length+' activos)', cls:'b-info'};
+}
+function vistaDashboard(){
+  const all = expedientes();
+  const exps = all.filter(e=>{
+    if(FILTRO.cliente && e.cliente!==FILTRO.cliente) return false;
+    if(FILTRO.tt && !e.id.startsWith(FILTRO.tt+'-')) return false;
+    if(FILTRO.estado && !e.docs.some(d=>d.estado===FILTRO.estado)) return false;
+    if(FILTRO.txt){ const t=FILTRO.txt.toLowerCase(); if(!((e.id||'')+(e.desc||'')+(e.interno||'')).toLowerCase().includes(t)) return false; }
+    if(FILTRO.caja==='activos' && !esActivo(e)) return false;
+    if(FILTRO.caja==='estancados' && !esEstancado(e)) return false;
+    if(FILTRO.caja==='entregados' && !esEntregado(e)) return false;
+    return true;
+  });
+  const activos = all.filter(esActivo), estancados = all.filter(esEstancado), entregados = all.filter(esEntregado);
+  return `
+    ${REG.length===0 && esAdmin() ? `<div class="card" style="border-color:var(--warn)">
+      <b>Base vacía.</b> Si venís de la versión anterior, importá tus datos una única vez:
+      <button class="sec" onclick="migrar()" style="margin-left:8px">Migrar desde la hoja REGISTRO</button></div>`:''}
+    <div class="stats">
+      <div class="stat ${FILTRO.caja===''?'activa':''}" onclick="filtrarCaja('')"><div class="n">${all.length}</div><div class="l">Expedientes</div></div>
+      <div class="stat ${FILTRO.caja==='activos'?'activa':''}" onclick="filtrarCaja('activos')"><div class="n">${activos.length}</div><div class="l">Activos</div></div>
+      <div class="stat alerta ${FILTRO.caja==='estancados'?'activa':''}" onclick="filtrarCaja('estancados')"><div class="n">${estancados.length}</div><div class="l">Estancados +${CFG.diasEstancado}d</div></div>
+      <div class="stat ${FILTRO.caja==='entregados'?'activa':''}" onclick="filtrarCaja('entregados')"><div class="n">${entregados.length}</div><div class="l">Entregados</div></div>
+    </div>
+    <div class="filtros">
+      <select onchange="FILTRO.cliente=this.value;render()"><option value="">Todos los clientes</option>
+        ${CFG.clientes.map(c=>`<option value="${c[0]}" ${FILTRO.cliente===c[0]?'selected':''}>${c[0]} · ${esc(c[1])}</option>`).join('')}</select>
+      <select onchange="FILTRO.tt=this.value;render()"><option value="">Todos los tipos</option>
+        ${CFG.tiposTrabajo.map(t=>`<option value="${t.key}" ${FILTRO.tt===t.key?'selected':''}>${esc(t.nombre)}</option>`).join('')}</select>
+      <select onchange="FILTRO.estado=this.value;render()"><option value="">Todos los estados</option>
+        ${CFG.estados.map(s=>`<option ${FILTRO.estado===s?'selected':''}>${s}</option>`).join('')}</select>
+      <input placeholder="Buscar…" value="${esc(FILTRO.txt)}" oninput="FILTRO.txt=this.value" onchange="render()">
+    </div>
+    ${exps.length? exps.map(e=>{
+      const st = estadoExp(e), d = diasDesde(e.ult);
+      const estancado = d!==null && d>CFG.diasEstancado && st.cls==='b-info';
+      return `<div class="exp" onclick="abrirFicha('${esc(e.id)}')">
+        <div class="top">
+          <span class="codigo">${esc(e.id)}</span>
+          <span class="desc">${esc(e.desc)}</span>
+          <span class="badge ${st.cls}">${esc(st.txt)}</span>
+          ${estancado?`<span class="badge b-bad">⚠ ${d} días sin movimiento</span>`:''}
+        </div>
+        <div class="meta">
+          <span>${esc(e.clienteN)}</span><span>${esc(e.tt)}</span>
+          ${e.interno?`<span>Cód. cliente: ${esc(e.interno)}</span>`:''}
+          <span>${e.docs.length} doc${e.docs.length>1?'s':''}</span>
+          <span>Últ. mov.: ${fFecha(e.ult)}</span>
+        </div>
+      </div>`;
+    }).join('') : `<div class="card" style="text-align:center;color:var(--g2)">No hay expedientes${REG.length?' con esos filtros':''}.</div>`}`;
+}
+window.migrar = async function(){
+  if(!confirm('Se importa todo lo que está hoy en la hoja REGISTRO a la base del sistema. Se hace UNA sola vez. ¿Continuar?')) return;
+  spin(true,'Migrando desde Sheets…');
+  try{
+    const d = await api('/api/migrar',{method:'POST'});
+    await cargarRegistro(); spin(false); toast('Migrados '+d.importados+' documentos'); render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ----- Nuevo expediente ----- */
+function vistaNuevo(){
+  return `<div class="card">
+    <h2>Nuevo expediente</h2>
+    <div class="row">
+      <div><label>Tipo de trabajo</label>
+        <select id="nTT" onchange="onTTChange()">${CFG.tiposTrabajo.map(t=>`<option value="${t.key}">${esc(t.nombre)} (${t.linea})</option>`).join('')}</select></div>
+      <div><label>Cliente</label>
+        <select id="nCliente">${CFG.clientes.map(c=>`<option value="${c[0]}">${c[0]} · ${esc(c[1])}</option>`).join('')}</select></div>
+    </div>
+    <div id="nModoWrap"></div>
+    <label>Descripción corta (va al nombre de la carpeta)</label>
+    <input id="nDesc" maxlength="60" placeholder="Ej: XLS144 Valoración Absoluta por HPLC">
+    <div class="row">
+      <div><label>Código interno del cliente (opcional)</label><input id="nInterno" placeholder="Ej: XLS144-00"></div>
+      <div><label>Ref. presupuesto (opcional)</label><input id="nPresu" placeholder="Ej: 0068"></div>
+    </div>
+    <label>Proyecto (opcional)</label>
+    <select id="nProy"><option value="">— Sin proyecto —</option>${PROYS.filter(p=>p.estado==='Activo').map(p=>`<option value="${esc(p.codigo)}">${esc(p.codigo)} · ${esc(p.nombre)}</option>`).join('')}</select>
+    <p style="margin-top:18px"><button onclick="confirmarNuevo()">Revisar y crear →</button></p>
+  </div>`;
+}
+window.onTTChange = function(){
+  const key = $('#nTT').value, w = $('#nModoWrap');
+  w.innerHTML = `<label>¿Qué vas a crear?</label>
+    <select id="nModo" onchange="onModoChange()">
+      <option value="paquete">Varios documentos (elegís cuáles)</option>
+      <option value="individual">Documento individual</option>
+    </select><div id="nDocsWrap"></div>`;
+  onModoChange();
+};
+window.onModoChange = function(){
+  const ttKey = $('#nTT').value, modo = $('#nModo').value, w = $('#nDocsWrap');
+  if(modo==='paquete'){
+    // Checklist genérico tipoDoc × P/I. Para VPC se preseleccionan los 9 de siempre;
+    // para el resto arranca vacío y el usuario tilda lo que corresponda (ej: RU + GR-P + GR-I).
+    const preset = new Set(ttKey==='VPC' ? CFG.paqueteVPC.map(([t,p])=>t+'|'+p) : []);
+    w.innerHTML = `<label>Documentos del paquete</label><div>` +
+      CFG.tiposDoc.map(td=>['P','I'].map(pi=>{
+        const val = td+'|'+pi;
+        return `<label style="display:inline-flex;align-items:center;gap:6px;margin:4px 12px 4px 0;font-weight:400">
+          <input type="checkbox" class="pqDoc" value="${val}" ${preset.has(val)?'checked':''} style="width:auto"> ${td}-${pi} <span class="muted">(${pi==='P'?'Protocolo':'Informe'})</span></label>`;
+      }).join('')).join('') + `</div>
+      <p class="muted" style="margin-top:6px">Tildá los documentos que necesitás para este expediente — no hace falta que sean del mismo tipo (ej: RU + GR-P + GR-I).</p>`;
+  } else {
+    w.innerHTML = `<div class="row">
+      <div><label>Tipo de documento</label><select id="nTipoDoc">${CFG.tiposDoc.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div><label>Protocolo / Informe</label><select id="nPI"><option value="P">P (solo protocolo)</option><option value="I">I (solo informe)</option><option value="PI">P+I (crea ambos, seguimiento separado)</option></select></div>
+    </div>`;
+  }
+};
+window.confirmarNuevo = function(){
+  const ttKey = $('#nTT').value, cliente = $('#nCliente').value;
+  const desc = $('#nDesc').value.trim();
+  if(!desc){ toast('Falta la descripción','err'); return; }
+  const t = CFG.tiposTrabajo.find(x=>x.key===ttKey);
+  let docs;
+  if($('#nModo').value==='paquete'){
+    docs = $$('.pqDoc:checked').map(el=>el.value.split('|'));
+    if(!docs.length){ toast('Elegí al menos un documento','err'); return; }
+  } else docs = [[ $('#nTipoDoc').value, $('#nPI').value ]];
+  docs = docs.flatMap(([td,pi])=> pi==='PI' ? [[td,'P'],[td,'I']] : [[td,pi]]);
+  modal(`<h3>Confirmar creación</h3>
+    <p class="muted" style="margin:10px 0 4px">El número de expediente lo asigna el servidor al confirmar (correlativo, sin colisiones). Documentos:</p>
+    ${docs.map(([td,pi])=>`<div style="margin:3px 0"><span class="codigo">${t.linea}-${td}-${pi}-${cliente}-###/01</span></div>`).join('')}
+    <p style="margin-top:16px;display:flex;gap:10px">
+      <button onclick='crearExpediente(${JSON.stringify({ttKey,ttNombre:t.nombre,linea:t.linea,cliente,docs,desc}).replace(/'/g,"&#39;")})'>Crear expediente</button>
+      <button class="sec" onclick="cerrarModal()">Cancelar</button>
+    </p>`);
+};
+window.crearExpediente = async function(p){
+  cerrarModal(); spin(true,'Creando expediente…');
+  try{
+    const clienteNombre = (CFG.clientes.find(c=>c[0]===p.cliente)||[])[1]||'';
+    const d = await api('/api/expedientes',{method:'POST',body:{
+      ttKey:p.ttKey, ttNombre:p.ttNombre, linea:p.linea, cliente:p.cliente, clienteNombre,
+      docs:p.docs, desc:p.desc, interno:$('#nInterno')?.value.trim()||'', presupuesto:$('#nPresu')?.value.trim()||'',
+      proyecto:$('#nProy')?.value||''
+    }});
+    await cargarRegistro(); spin(false); toast('Expediente '+d.expediente+' creado');
+    abrirFicha(d.expediente);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ----- Ficha ----- */
+window.abrirFicha = async function(expId){
+  FICHA = { id: expId, bit:[] };
+  VIEW='ficha'; render();
+  try{ FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(expId)+'/bitacora'); pintarBitacora(); }
+  catch(e){ $('#bitacora').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+};
+// Render compartido de adjuntos con soporte de anulación GxP:
+// los archivos anulados quedan tachados y sin link; el 🚫 anula (solo admin/editor).
+function adjuntosHtml(bit, n){
+  if(!(n.adjuntos||[]).length) return '';
+  const anulados = new Set();
+  for(const m of bit) for(const a of (m.adjuntos||[])) if(a.anula) anulados.add(a.anula);
+  return `<div class="adj">${n.adjuntos.map(a=>{
+    if(a.anula) return `<span class="adj-anulado" title="Esta entrada anula un adjunto previo">↳ anula: ${esc(a.original||a.nombre)}</span>`;
+    if(anulados.has(a.drive_id)) return `<span class="adj-anulado" title="Anulado — ver entrada de anulación en esta bitácora">🚫 <s>${esc(a.nombre)}</s> ANULADO</span>`;
+    const btn = (!esLector() && n.id) ? `<button class="anular-btn" title="Anular este adjunto (tachón GxP: el archivo se renombra en Drive y el link se bloquea; la entrada original no se borra)" onclick="anularAdjunto(${n.id},'${esc(a.drive_id)}','${esc(a.nombre)}')">🚫</button>` : '';
+    return `<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener" title="Original: ${esc(a.original||a.nombre)}">📎 ${esc(a.nombre)}</a>${btn}`;
+  }).join('')}</div>`;
+}
+window.anularAdjunto = async function(entradaId, driveId, nombre){
+  const motivo = prompt(`Anular "${nombre}"\n\nMotivo (obligatorio, queda asentado en la bitácora):`);
+  if(motivo===null) return;
+  if(!motivo.trim()) return alert('El motivo es obligatorio para anular.');
+  const desvio = prompt('Nº de desvío asociado (opcional, Enter para omitir):','')||'';
+  if(!confirm(`Se anulará "${nombre}":\n· el archivo se renombra en Drive como ANULADO_...\n· el link queda bloqueado en la bitácora\n· la entrada original NO se borra (cadena de hashes intacta)\n\n¿Confirmás?`)) return;
+  try{
+    const r = await api('/api/bitacora/anular-adjunto',{method:'POST',body:{entrada_id:entradaId,drive_id:driveId,motivo,desvio}});
+    const ctx = [
+      [typeof FICHA!=='undefined'?FICHA:null, ()=>pintarBitacora()],
+      [typeof POE!=='undefined'?POE:null, ()=>pintarBitacoraPoe()],
+      [typeof PROY!=='undefined'?PROY:null, ()=>pintarBitacoraGen('bitacoraProy', PROY.bit)],
+      [typeof PRESU!=='undefined'?PRESU:null, ()=>pintarBitacoraGen('bitacoraPresu', PRESU.bit)]
+    ];
+    for(const [st,repintar] of ctx){
+      if(st && Array.isArray(st.bit) && st.bit.some(x=>x.id===entradaId)){ st.bit.unshift(r.entrada); repintar(); break; }
+    }
+    toast('Adjunto anulado y renombrado en Drive');
+  }catch(e){ alert(e.message); }
+};
+function pintarBitacora(){
+  const el = $('#bitacora'); if(!el) return;
+  el.innerHTML = FICHA.bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
+    <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
+    <div class="ntx">${esc(n.texto)}</div>
+    ${adjuntosHtml(FICHA.bit, n)}
+  </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
+}
+function vistaFicha(){
+  const docs = REG.filter(r=>r.expediente_id===FICHA.id);
+  if(!docs.length) return `<div class="card">Expediente no encontrado. <button class="ghost" onclick="VIEW='dashboard';render()">← Volver</button></div>`;
+  const e = docs[0], ro = esLector();
+  return `
+  <p><button class="ghost" onclick="VIEW='dashboard';render()">← Volver al tablero</button></p>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="codigo" style="font-size:15px">${esc(FICHA.id)}</span>
+      <h2 style="flex:1;min-width:200px;font-size:17px">${esc(e.descripcion)}</h2>
+      ${e.carpeta_drive_url?`<a href="${esc(e.carpeta_drive_url)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>`:''}
+    </div>
+    <div class="muted" style="margin-top:8px">${esc(e.cliente_nombre)} · ${esc(e.tipo_trabajo)} ${e.codigo_interno_cliente?'· Cód. cliente: '+esc(e.codigo_interno_cliente):''} ${e.ref_presupuesto?'· Presup. '+esc(e.ref_presupuesto):''}
+      · Proyecto: ${e.proyecto?`<span class="codigo" style="font-size:11px;cursor:pointer" onclick="abrirProy('${esc(e.proyecto)}')">${esc(e.proyecto)}</span>`:'—'}
+      ${ro?'':`<select style="width:auto;padding:3px 6px;font-size:12px;margin-left:6px" onchange="asignarProyExp(this.value)">
+        <option value="">cambiar…</option><option value="__ninguno">— quitar —</option>
+        ${PROYS.map(p=>`<option value="${esc(p.codigo)}">${esc(p.codigo)}</option>`).join('')}</select>`}</div>
+    <table class="docs-tabla"><thead><tr><th>Código</th><th>Doc</th><th>P/I</th><th>Autor</th><th>Estado</th></tr></thead><tbody>
+      ${docs.map(d=>`<tr>
+        <td><span class="codigo">${esc(d.codigo)}</span></td><td>${esc(d.tipo_doc)}</td><td>${esc(d.prot_inf)}</td>
+        <td class="muted" style="font-size:11px">${esc((d.autor||'').split('@')[0])}</td>
+        <td>${ro?esc(d.estado):`<select onchange="cambiarEstado('${esc(d.codigo)}', this.value)">
+          ${docEstadosSel(d.estado).map(s=>`<option ${d.estado===s?'selected':''}>${s}</option>`).join('')}</select>`}</td></tr>`).join('')}
+    </tbody></table>
+    ${ro?'':`<p class="muted" style="margin-top:8px">Cambiar todos →
+      <select id="estadoMasivo" style="width:auto;padding:5px 8px;font-size:13px">${docEstadosSel().map(s=>`<option>${s}</option>`).join('')}</select>
+      <button class="ghost" onclick="estadoTodos()">Aplicar a todos</button>
+      · <button class="ghost" onclick="modalNuevaVersion()">⬆ Nueva versión</button>
+      · <button class="ghost" onclick="modalCorregir()">✏ Corregir datos</button>
+      ${esAdmin()?`· <button class="ghost" onclick="modalReasignar()">🔁 Reasignar código</button>`:''}
+      · <button class="ghost" onclick="verificarCadena()">⛓ Verificar integridad</button>
+      · <button class="ghost" onclick="exportarAudit()">🖨 Exportar bitácora</button></p>`}
+  </div>
+  ${ro?'':`<div class="card">
+    <h3>Agregar nota a la bitácora</h3>
+    <textarea id="notaTxt" placeholder="Qué pasó: revisión, envío al cliente, respuesta, nueva versión, hallazgos…"></textarea>
+    <div class="row" style="margin-top:8px">
+      <div><label>Adjuntar archivos (opcional)</label><input type="file" id="notaFiles" multiple></div>
+      <div><label>Guardar adjuntos en</label><select id="notaSub">
+        <option value="02_evidencias">02_evidencias (capturas, mails)</option>
+        <option value="00_cliente">00_cliente (insumo original)</option>
+        <option value="01_versiones">01_versiones (versión de trabajo)</option>
+        <option value="03_entregables">03_entregables (PDF firmado)</option>
+      </select></div>
+    </div>
+    <div class="muted" style="margin-top:6px;font-size:12px">📋 También podés pegar una captura directamente acá (Ctrl+V).</div>
+    <div id="pegados"></div>
+    <p style="margin-top:12px"><button onclick="guardarNota()">Guardar en bitácora</button></p>
+  </div>`}
+  <div class="card"><h3>Bitácora</h3><div id="bitacora" style="margin-top:10px"><p class="muted">Cargando…</p></div></div>`;
+}
+let PEGADOS = [];
+window.asignarProyExp = async function(v){
+  if(!v) return;
+  spin(true,'Vinculando…');
+  try{
+    await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/proyecto',{method:'POST',body:{proyecto: v==='__ninguno'?'':v}});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    spin(false); toast('Proyecto actualizado'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+// Máquina de estados (espejo del backend). Los tres legacy no se ofrecen como destino.
+const DOC_LEGACY = ['Validable','No validable','Aprobado'];
+function docEstadosSel(actual){
+  const base = (CFG.estados||[]).filter(s=>!DOC_LEGACY.includes(s));
+  return (actual && !base.includes(actual)) ? [actual, ...base] : base;
+}
+function claseTransicionDoc(viejo, nuevo){
+  if(viejo===nuevo) return {tipo:'igual', motivo:false};
+  const RANK={'Borrador':0,'En revisión':1,'Validable':1,'No validable':1,'En ejecución':2,'Enviado a cliente':3,'Aprobado':4,'Entregado':5};
+  if(['Entregado','Cancelado'].includes(viejo)) return {tipo:'reapertura', motivo:true};
+  if(viejo==='Suspendido') return {tipo:'reanudación', motivo:true};
+  if(nuevo==='Suspendido'||nuevo==='Cancelado') return {tipo:'lateral', motivo:true};
+  const rv=RANK[viejo]??2, rn=RANK[nuevo]??2;
+  return rn>rv ? {tipo:'avance', motivo:false} : {tipo:'retroceso', motivo:true};
+}
+// Devuelve {motivo} si el usuario confirma, o null si cancela.
+function pedirCambioEstado(viejo, nuevo){
+  const c = claseTransicionDoc(viejo, nuevo);
+  if(c.tipo==='igual') return null;
+  if(!c.motivo) return confirm(`Confirmar cambio de estado:\n\n${viejo}  →  ${nuevo}`) ? {motivo:''} : null;
+  const etiq = {reapertura:'REAPERTURA de un estado terminal', 'reanudación':'reanudación desde Suspendido', lateral:'pase a estado lateral', retroceso:'RETROCESO en el circuito'}[c.tipo];
+  const m = prompt(`${viejo}  →  ${nuevo}\n\nEsto es ${etiq}: el motivo es obligatorio y queda en la bitácora.\n(A futuro acá va el nº de desvío / nota aclaratoria)\n\nMotivo:`);
+  if(m===null) return null;
+  if(!m.trim()){ alert('El motivo es obligatorio para este cambio.'); return null; }
+  return {motivo:m.trim()};
+}
+window.cambiarEstado = async function(codigo, estado){
+  const doc = REG.find(r=>r.codigo===codigo);
+  const viejo = doc ? doc.estado : '';
+  const ok = pedirCambioEstado(viejo, estado);
+  if(!ok){ render(); return; }
+  spin(true,'Actualizando estado…');
+  try{
+    await api('/api/documentos/'+encodeURIComponent(codigo)+'/estado',{method:'POST',body:{estado, motivo: ok.motivo}});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    spin(false); toast('Estado actualizado'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); render(); }
+};
+window.estadoTodos = async function(){
+  const estado = $('#estadoMasivo').value;
+  const docs = REG.filter(r=>r.expediente_id===FICHA.id);
+  const cambian = docs.filter(d=>d.estado!==estado);
+  if(!cambian.length){ toast('Todos ya están en '+estado); return; }
+  const necesitaMotivo = cambian.some(d=>claseTransicionDoc(d.estado, estado).motivo);
+  let motivo='';
+  if(necesitaMotivo){
+    const m = prompt(`Vas a pasar ${cambian.length} documento(s) a "${estado}" y al menos uno implica retroceso, lateral o reapertura.\nMotivo (obligatorio, queda en la bitácora de cada uno):`);
+    if(m===null){ render(); return; }
+    if(!m.trim()){ alert('El motivo es obligatorio.'); render(); return; }
+    motivo=m.trim();
+  } else if(!confirm(`Confirmar: pasar ${cambian.length} documento(s) a "${estado}"`)){ render(); return; }
+  spin(true,'Actualizando estados…');
+  try{
+    for(const d of cambian) await api('/api/documentos/'+encodeURIComponent(d.codigo)+'/estado',{method:'POST',body:{estado, motivo}});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    spin(false); toast('Estados actualizados'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); render(); }
+};
+// Ingesta inteligente: detecta códigos tipo XLS089 en el nombre del archivo y los cruza
+// con los adjuntos de este expediente y de los demás. Devuelve true si se puede seguir.
+async function verificarArchivos(files){
+  const codigosDe = s => [...new Set((String(s).toUpperCase().match(/XLS\s?-?\d{2,4}/g)||[]).map(x=>x.replace(/[\s-]/g,'')))];
+  const propios = new Set();
+  for(const n of FICHA.bit) for(const a of (n.adjuntos||[])) if(!a.anula) codigosDe(a.nombre).forEach(c=>propios.add(c));
+  for(const f of files){
+    for(const cod of codigosDe(f.name)){
+      if(propios.has(cod)) continue;                       // ya conocido en este expediente: OK
+      let ajenos = [];
+      try{ ajenos = (await api('/api/adjuntos/donde?q='+encodeURIComponent(cod))).filter(x=>x.expediente_id!==FICHA.id); }catch(_){}
+      const avisos = [];
+      if(propios.size) avisos.push(`Este expediente ya tiene archivos de: ${[...propios].join(', ')}.`);
+      if(ajenos.length) avisos.push(`${cod} ya aparece en: ${ajenos.map(x=>x.expediente_id).join(', ')}.`);
+      if(!avisos.length) continue;                         // código nuevo y sin conflicto: OK
+      const seguir = confirm(`⚠ Posible archivo en expediente equivocado\n\nArchivo: ${f.name}\nExpediente actual: ${FICHA.id}\n\n${avisos.join('\n')}\n\n¿Subir igual a ${FICHA.id}?`);
+      if(!seguir) return false;
+    }
+  }
+  return true;
+}
+window.guardarNota = async function(){
+  const txt = $('#notaTxt').value.trim();
+  const files = [...($('#notaFiles').files||[]), ...PEGADOS];
+  if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
+  if(files.length && !(await verificarArchivos(files))){ toast('Subida cancelada — revisá el expediente','err'); return; }
+  const fd = new FormData();
+  fd.append('texto', txt); fd.append('subcarpeta', $('#notaSub').value);
+  for(const f of files) fd.append('archivos', f, f.name);
+  spin(true,'Guardando nota…');
+  try{
+    await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/notas',{method:'POST',body:fd});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    PEGADOS=[]; spin(false); toast('Nota guardada'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.modalReasignar = function(){
+  const partes = FICHA.id.split('-');
+  modal(`<h3>🔁 Reasignar número de expediente</h3>
+    <p class="muted" style="margin:8px 0">Para expedientes con número mal asignado (típicamente conflictos del registro histórico). Cambia el código de <b>todos</b> los documentos del expediente, migra su bitácora y renombra la carpeta de Drive. Todo queda asentado con código viejo → nuevo. La cadena de integridad se preserva.</p>
+    <p>Actual: <span class="codigo">${esc(FICHA.id)}</span></p>
+    <label>Nuevo número (solo el número, ej: 013)</label>
+    <input id="rsNum" type="number" min="1" max="999" style="width:140px">
+    <label>Motivo (obligatorio)</label>
+    <textarea id="rsMotivo" placeholder="Ej: conflicto legacy — número 006 duplicado en el registro histórico; se reasigna al siguiente libre"></textarea>
+    <p style="margin-top:14px;display:flex;gap:10px">
+      <button class="rojo" onclick="reasignarExp()">Reasignar</button>
+      <button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.reasignarExp = async function(){
+  const nuevoNumero = $('#rsNum').value, motivo = $('#rsMotivo').value.trim();
+  if(!nuevoNumero){ toast('Falta el número nuevo','err'); return; }
+  if(!motivo){ toast('El motivo es obligatorio','err'); return; }
+  if(!confirm('Se reasigna el expediente '+FICHA.id+' al número '+String(nuevoNumero).padStart(3,'0')+'. ¿Confirmar?')) return;
+  cerrarModal(); spin(true,'Reasignando…');
+  try{
+    const d = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/reasignar',{method:'POST',body:{nuevoNumero,motivo}});
+    await cargarRegistro(); spin(false); toast('Reasignado a '+d.expediente);
+    abrirFicha(d.expediente);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.modalCorregir = function(){
+  const e = REG.filter(r=>r.expediente_id===FICHA.id)[0];
+  modal(`<h3>✏ Corregir datos del expediente</h3>
+    <p class="muted" style="margin:8px 0">Los cambios quedan asentados en la bitácora con el antes y el después. <b>El código VADOCA no se puede editar</b>: si el código fue mal asignado, cancelá el documento con una nota y creá el correcto.</p>
+    <label>Descripción</label><input id="cxDesc" value="${esc(e.descripcion)}" maxlength="60">
+    <label>Código interno del cliente</label><input id="cxInterno" value="${esc(e.codigo_interno_cliente||'')}">
+    <label>Ref. presupuesto</label><input id="cxPresu" value="${esc(e.ref_presupuesto||'')}">
+    <label>Observaciones</label><textarea id="cxObs">${esc(e.observaciones||'')}</textarea>
+    <label>Motivo de la corrección (obligatorio)</label><textarea id="cxMotivo" placeholder="Ej: el archivo referenciaba el código interno de otro equipo; se corrige según documento fuente"></textarea>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="corregirExp()">Aplicar corrección</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.corregirExp = async function(){
+  const motivo = $('#cxMotivo').value.trim();
+  if(!motivo){ toast('El motivo es obligatorio','err'); return; }
+  const body = { descripcion:$('#cxDesc').value.trim(), interno:$('#cxInterno').value.trim(),
+                 presupuesto:$('#cxPresu').value.trim(), observaciones:$('#cxObs').value.trim(), motivo };
+  cerrarModal(); spin(true,'Aplicando corrección…');
+  try{
+    await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/corregir',{method:'POST',body});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    spin(false); toast('Corrección registrada'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.verificarCadena = async function(){
+  spin(true,'Verificando cadena de integridad…');
+  try{
+    const d = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/verificar');
+    spin(false);
+    if(d.ok) modal(`<h3>⛓ Integridad verificada</h3><p style="margin:12px 0">Las ${d.entradas} entradas de la bitácora forman una cadena de hashes válida: nadie modificó ni eliminó registros.</p><p><button onclick="cerrarModal()">Cerrar</button></p>`);
+    else modal(`<h3 style="color:var(--bad)">⚠ Cadena rota</h3><p style="margin:12px 0">La verificación falló en la entrada #${d.rota_en}: la bitácora fue alterada por fuera del sistema. Documentar el hallazgo.</p><p><button onclick="cerrarModal()">Cerrar</button></p>`);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.exportarAudit = function(){
+  const docs = REG.filter(r=>r.expediente_id===FICHA.id);
+  const w = window.open('','_blank');
+  w.document.write(`<html><head><title>Audit trail ${esc(FICHA.id)}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;color:#222;margin:24px}h1{font-size:18px}h2{font-size:14px;margin-top:18px}
+  table{border-collapse:collapse;width:100%;margin-top:8px}td,th{border:1px solid #999;padding:5px 7px;text-align:left;font-size:11px}
+  .h{font-family:monospace;font-size:9px;color:#666}</style></head><body>
+  <h1>VADOCA DocTracker — Bitácora del expediente ${esc(FICHA.id)}</h1>
+  <p>${esc(docs[0]?.descripcion||'')} · ${esc(docs[0]?.cliente_nombre||'')} · Exportado: ${new Date().toLocaleString('es-AR')} por ${esc(YO.email)}</p>
+  <h2>Documentos</h2>
+  <table><tr><th>Código</th><th>Estado</th><th>Autor</th></tr>
+  ${docs.map(d=>`<tr><td>${esc(d.codigo)}</td><td>${esc(d.estado)}</td><td>${esc(d.autor||'')}</td></tr>`).join('')}</table>
+  <h2>Bitácora (cadena de integridad)</h2>
+  <table><tr><th>Fecha</th><th>Autor</th><th>Tipo</th><th>Detalle</th><th>Hash</th></tr>
+  ${[...FICHA.bit].reverse().map(n=>`<tr><td>${fFecha(n.ts)}</td><td>${esc(n.autor)}</td><td>${esc(n.tipo)}</td><td>${esc(n.texto)}${(n.adjuntos||[]).length?'<br>Adjuntos: '+n.adjuntos.map(a=>esc(a.nombre)).join(', '):''}</td><td class="h">${esc(n.hash)}</td></tr>`).join('')}</table>
+  <script>window.print()<\/script></body></html>`);
+  w.document.close();
+};
+
+/* ----- Nueva versión ----- */
+window.modalNuevaVersion = function(){
+  const docs = REG.filter(r=>r.expediente_id===FICHA.id);
+  const ult = new Map();
+  for(const d of docs){
+    const k = d.tipo_doc+'|'+d.prot_inf;
+    if(!ult.has(k) || parseInt(d.version,10) > parseInt(ult.get(k).version,10)) ult.set(k, d);
+  }
+  const items = [...ult.values()];
+  window._nvItems = items;
+  modal(`<h3>Nueva versión del expediente</h3>
+    <p class="muted" style="margin:8px 0 12px">Se crean con el mismo número y la versión siguiente, en Borrador. La versión anterior no se toca.</p>
+    ${items.map((d,i)=>`<label style="display:flex;align-items:center;gap:8px;margin:5px 0;font-weight:400">
+      <input type="checkbox" class="nvDoc" value="${i}" checked style="width:auto">
+      <span class="codigo">${esc(d.codigo)}</span> <span class="muted">→ v${pad(parseInt(d.version,10)+1,2)}</span></label>`).join('')}
+    <label>Motivo (va a la bitácora)</label>
+    <textarea id="nvMotivo" placeholder="Ej: revalidación por cambio de fórmula"></textarea>
+    <p style="margin-top:14px;display:flex;gap:10px">
+      <button onclick="crearNuevaVersion()">Crear nueva versión</button>
+      <button class="sec" onclick="cerrarModal()">Cancelar</button>
+    </p>`);
+};
+window.crearNuevaVersion = async function(){
+  const codigos = $$('.nvDoc:checked').map(el=>window._nvItems[parseInt(el.value,10)].codigo);
+  if(!codigos.length){ toast('Elegí al menos un documento','err'); return; }
+  const motivo = $('#nvMotivo').value.trim();
+  cerrarModal(); spin(true,'Creando nueva versión…');
+  try{
+    const d = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/nueva-version',{method:'POST',body:{codigos,motivo}});
+    await cargarRegistro(); FICHA.bit = await api('/api/expedientes/'+encodeURIComponent(FICHA.id)+'/bitacora');
+    spin(false); toast(d.nuevos.length+' documento(s) en nueva versión'); render(); pintarBitacora();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ============================================================
+   MÓDULO PROCEDIMIENTOS VADOCA
+   ============================================================ */
+const POE_ESTADOS = ['Borrador','En revisión','Aprobado','Vigente','Obsoleto'];
+let POE_RELS = [];
+async function cargarPoes(){ [POES, POE_RELS] = await Promise.all([api('/api/procedimientos'), api('/api/poe-relaciones')]); }
+function relacionadosDe(base){
+  const s = new Set();
+  for(const r of POE_RELS){ if(r.base===base) s.add(r.relacionado); if(r.relacionado===base) s.add(r.base); }
+  return [...s].sort();
+}
+function tituloDe(base){ const p = POES.find(x=>x.codigo_base===base); return p?p.titulo:''; }
+function poesBase(){
+  const map = new Map();
+  for(const p of POES){
+    if(!map.has(p.codigo_base)) map.set(p.codigo_base, {base:p.codigo_base, titulo:p.titulo, versiones:[], carpeta:p.carpeta_drive_url, ult:p.ultimo_movimiento||''});
+    const e = map.get(p.codigo_base); e.versiones.push(p);
+    if((p.ultimo_movimiento||'') > e.ult) e.ult = p.ultimo_movimiento;
+  }
+  for(const e of map.values()){
+    e.versiones.sort((a,b)=>parseInt(b.version,10)-parseInt(a.version,10));
+    e.vigente = e.versiones.find(v=>v.estado==='Vigente') || null;
+  }
+  return [...map.values()].sort((a,b)=>a.base.localeCompare(b.base));
+}
+function diasAlVenc(p){ if(!p?.fecha_vencimiento) return null; return Math.ceil((new Date(p.fecha_vencimiento+'T00:00:00').getTime()-Date.now())/86400000); }
+function vistaPoes(){
+  cargarPoes().then(()=>{ if(VIEW==='poes') render(); });
+  const bases = poesBase();
+  const alertas = bases.map(b=>({b, d: diasAlVenc(b.vigente)})).filter(x=>x.d!==null && x.d<=30).sort((x,y)=>x.d-y.d);
+  return `<div class="card" style="${alertas.length?'border-color:var(--warn)':''}">
+    <h3>⏰ Vencimientos próximos (30 días)</h3>
+    ${alertas.length? alertas.map(({b,d})=>`<div style="display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap">
+        <span class="codigo">${esc(b.vigente.codigo)}</span>
+        <span style="flex:1;min-width:160px">${esc(b.titulo)}</span>
+        <span class="badge ${d<0?'b-bad':d<=7?'b-bad':'b-info'}">${d<0?('VENCIDO hace '+(-d)+' días'):('vence en '+d+' día'+(d===1?'':'s'))}</span>
+        ${esLector()?'':`<button class="ghost" onclick="event.stopPropagation();nuevaVersionPoe('${esc(b.base)}')">Iniciar revisión</button>`}
+      </div>`).join('')
+    : '<p class="muted" style="margin-top:8px">Ningún procedimiento vence en los próximos 30 días ✔</p>'}
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 style="flex:1">Procedimientos VADOCA</h2>
+      ${esLector()?'':`<button onclick="modalNuevoPoe()">+ Nuevo procedimiento</button>`}
+    </div>
+    ${bases.length? `<table class="docs-tabla" style="margin-top:12px"><thead><tr><th>Código</th><th>Título</th><th>Versión vigente</th><th>Vence</th><th>Versiones</th></tr></thead><tbody>
+      ${bases.map(b=>{
+        const d = diasAlVenc(b.vigente);
+        return `<tr style="cursor:pointer" onclick="abrirPoe('${esc(b.base)}')">
+          <td><span class="codigo">${esc(b.base)}</span></td>
+          <td>${esc(b.titulo)}</td>
+          <td>${b.vigente?`v${esc(b.vigente.version)} <span class="badge b-ok">Vigente</span>`:'<span class="badge b-gris">Sin versión vigente</span>'}</td>
+          <td>${b.vigente?.fecha_vencimiento? esc(b.vigente.fecha_vencimiento)+(d!==null&&d<=30?` <span class="badge ${d<0||d<=7?'b-bad':'b-info'}">${d<0?'vencido':d+'d'}</span>`:'') :'—'}</td>
+          <td class="muted">${b.versiones.length}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`
+    : '<p class="muted" style="margin-top:12px">Todavía no hay procedimientos. Creá el primero.</p>'}
+  </div>`;
+}
+window.modalNuevoPoe = function(){
+  modal(`<h3>Nuevo procedimiento</h3>
+    <div class="row">
+      <div><label>Sector (texto libre)</label><input id="pSector" maxlength="6" placeholder="Ej: PGC, PRH, PTI" style="text-transform:uppercase"></div>
+      <div><label>Vigencia (meses)</label><input id="pVig" type="number" value="36"></div>
+    </div>
+    <label>Título</label><input id="pTitulo" maxlength="60" placeholder="Ej: Control de documentos y registros">
+    <p class="muted" style="margin-top:8px">Código: SECTOR-### con número correlativo global (independiente del sector). Nace en Borrador; al marcarlo Vigente se calcula el vencimiento.</p>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="crearPoe()">Crear</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.crearPoe = async function(){
+  const titulo = $('#pTitulo').value.trim(), sector = $('#pSector').value.trim();
+  if(!titulo){ toast('Falta el título','err'); return; }
+  if(!sector){ toast('Falta el sector (ej: PGC)','err'); return; }
+  const vig = $('#pVig').value; cerrarModal(); spin(true,'Creando procedimiento…');
+  try{
+    const d = await api('/api/procedimientos',{method:'POST',body:{titulo, sector, vigencia_meses:vig}});
+    await cargarPoes(); spin(false); toast(d.codigo+' creado'); abrirPoe(d.base);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+const POES_PRECARGA = `PGC|1|1|Control de Documentos y Registros|2026-03-26|36
+PGD|1|1|Redacción, Revisión y Aprobación de Documentos GMP|2026-03-26|36
+PRH|1|1|Calificación y Selección del Personal Consultor|2026-03-26|36
+PVL|1|1|Calificación de Proveedores de Información Regulatoria|2026-03-26|36
+PCP|1|1|Revisión de Requisitos del Cliente|2026-03-26|36
+PMC|1|1|Gestión de Cambios (Change Control)|2026-03-26|36
+PPR|1|1|Calificación y Evaluación de Proveedores Externos|2026-03-26|36
+PTI|1|1|Gestión de Sistemas Informáticos Usados en Servicios|2026-03-26|36`;
+window.modalImportarPoes = function(){
+  modal(`<h3>Importación masiva de POEs</h3>
+    <p class="muted" style="margin:8px 0">Una línea por POE, campos separados por | :<br>
+    <b>SECTOR | NÚMERO | VERSIÓN | TÍTULO | FECHA_VIGENCIA (AAAA-MM-DD) | VIGENCIA_MESES</b><br>
+    Con fecha de vigencia entra como Vigente (vencimiento calculado); sin fecha, como Borrador. Te dejo precargados los 8 que ya conozco — completá el resto.</p>
+    <textarea id="impPoes" style="min-height:220px;font-family:var(--mono);font-size:12px">${esc(POES_PRECARGA)}</textarea>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="importarPoes()">Importar</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.importarPoes = async function(){
+  const filas = $('#impPoes').value.trim().split('\n').filter(Boolean).map(l=>{
+    const p = l.split('|').map(s=>s.trim());
+    return {sector:p[0], numero:p[1], version:p[2], titulo:p[3], fecha_vigencia:p[4]||'', vigencia_meses:p[5]||36};
+  });
+  if(!filas.length){ toast('No hay líneas','err'); return; }
+  if(!confirm('Se van a importar '+filas.length+' POEs. Los que ya existan se saltean. ¿Continuar?')) return;
+  cerrarModal(); spin(true,'Importando POEs…');
+  try{
+    const d = await api('/api/procedimientos/importar',{method:'POST',body:{filas}});
+    await cargarPoes(); spin(false);
+    toast(d.importados+' importados'+(d.saltados?', '+d.saltados+' ya existían':''));
+    if(d.errores?.length){ toast(d.errores.length+' con error (ver consola F12)','err'); console.warn(d.errores); }
+    render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.abrirPoe = async function(base){
+  POE = { base, bit:[] }; VIEW='poeFicha'; render();
+  try{ POE.bit = await api('/api/expedientes/'+encodeURIComponent(base)+'/bitacora'); pintarBitacoraPoe(); }
+  catch(e){ $('#bitacoraPoe').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+};
+function pintarBitacoraPoe(){
+  const el = $('#bitacoraPoe'); if(!el) return;
+  el.innerHTML = POE.bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
+    <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
+    <div class="ntx">${esc(n.texto)}</div>
+    ${adjuntosHtml(POE.bit, n)}
+  </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
+}
+function vistaPoeFicha(){
+  const vs = POES.filter(p=>p.codigo_base===POE.base).sort((a,b)=>parseInt(b.version,10)-parseInt(a.version,10));
+  if(!vs.length) return `<div class="card">Procedimiento no encontrado. <button class="ghost" onclick="VIEW='poes';render()">← Volver</button></div>`;
+  const t = vs[0], ro = esLector();
+  return `
+  <p><button class="ghost" onclick="VIEW='poes';render()">← Volver a procedimientos</button></p>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="codigo" style="font-size:15px">${esc(POE.base)}</span>
+      <h2 style="flex:1;min-width:200px;font-size:17px">${esc(t.titulo)}</h2>
+      ${t.carpeta_drive_url?`<a href="${esc(t.carpeta_drive_url)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>`:''}
+    </div>
+    <table class="docs-tabla"><thead><tr><th>Código</th><th>Estado</th><th>Vigente desde</th><th>Vence</th><th>Autor</th></tr></thead><tbody>
+      ${vs.map(p=>{
+        const d = diasAlVenc(p);
+        return `<tr>
+        <td><span class="codigo">${esc(p.codigo)}</span></td>
+        <td>${ro?esc(p.estado):`<select onchange="estadoPoe('${esc(p.codigo)}', this.value)">
+          ${POE_ESTADOS.map(s=>`<option ${p.estado===s?'selected':''}>${s}</option>`).join('')}</select>`}
+          ${p.estado==='Vigente'&&d!==null&&d<=30?` <span class="badge b-bad">${d<0?'vencido':'vence en '+d+'d'}</span>`:''}</td>
+        <td>${esc(p.fecha_vigencia||'—')}</td><td>${esc(p.fecha_vencimiento||'—')}</td>
+        <td class="muted" style="font-size:11px">${esc((p.autor||'').split('@')[0])}</td></tr>`;
+      }).join('')}
+    </tbody></table>
+    <div style="margin-top:12px;font-size:13px">
+      <span class="muted" style="font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px">Documentos relacionados:</span>
+      ${relacionadosDe(POE.base).map(b=>`<span class="codigo" style="margin-left:6px;cursor:pointer" onclick="abrirPoe('${esc(b)}')" title="${esc(tituloDe(b))}">${esc(b)}</span>`).join('') || ' <span class="muted">ninguno</span>'}
+      ${ro?'':` <button class="ghost" onclick="modalRelaciones()" style="font-size:12px">Editar</button>`}
+    </div>
+    ${ro?'':`<p class="muted" style="margin-top:8px">
+      <button class="ghost" onclick="nuevaVersionPoe('${esc(POE.base)}')">⬆ Nueva versión</button>
+      · <button class="ghost" onclick="verificarCadenaPoe()">⛓ Verificar integridad</button></p>`}
+  </div>
+  ${ro?'':`<div class="card">
+    <h3>Agregar nota a la bitácora</h3>
+    <textarea id="poeNotaTxt" placeholder="Revisión, aprobación, distribución, capacitación al equipo…"></textarea>
+    <div class="row" style="margin-top:8px">
+      <div><label>Adjuntar archivos (opcional)</label><input type="file" id="poeNotaFiles" multiple></div>
+      <div><label>Guardar adjuntos en</label><select id="poeNotaSub">
+        <option value="01_versiones">01_versiones (borradores y revisiones)</option>
+        <option value="03_entregables">03_entregables (PDF firmado vigente)</option>
+        <option value="02_evidencias">02_evidencias (capacitaciones, difusión)</option>
+      </select></div>
+    </div>
+    <p style="margin-top:12px"><button onclick="guardarNotaPoe()">Guardar en bitácora</button></p>
+  </div>`}
+  <div class="card"><h3>Bitácora</h3><div id="bitacoraPoe" style="margin-top:10px"><p class="muted">Cargando…</p></div></div>`;
+}
+window.estadoPoe = async function(codigo, estado){
+  if(estado==='Vigente' && !confirm('Al marcar Vigente se fija la fecha de vigencia y vencimiento, y cualquier otra versión vigente pasa a Obsoleto. ¿Continuar?')){ render(); return; }
+  spin(true,'Actualizando…');
+  try{
+    await api('/api/procedimientos/'+encodeURIComponent(codigo)+'/estado',{method:'POST',body:{estado}});
+    await cargarPoes(); POE.bit = await api('/api/expedientes/'+encodeURIComponent(POE.base)+'/bitacora');
+    spin(false); toast('Estado actualizado'); render(); pintarBitacoraPoe();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.modalRelaciones = function(){
+  const actuales = new Set(relacionadosDe(POE.base));
+  const otros = [...new Set(POES.map(p=>p.codigo_base))].filter(b=>b!==POE.base).sort();
+  modal(`<h3>Documentos relacionados de ${esc(POE.base)}</h3>
+    <p class="muted" style="margin:8px 0 12px">Marcá los POEs vinculados (se referencian mutuamente, o uno depende del otro). Al crear una nueva versión de cualquiera, el sistema te va a recordar evaluar el impacto sobre los relacionados.</p>
+    <div style="max-height:45vh;overflow-y:auto">
+    ${otros.length? otros.map(b=>`<label style="display:flex;align-items:center;gap:8px;margin:5px 0;font-weight:400">
+      <input type="checkbox" class="relChk" value="${esc(b)}" ${actuales.has(b)?'checked':''} style="width:auto">
+      <span class="codigo">${esc(b)}</span> <span class="muted" style="font-size:12px">${esc(tituloDe(b))}</span></label>`).join('')
+    : '<p class="muted">No hay otros POEs cargados todavía.</p>'}
+    </div>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="guardarRelaciones()">Guardar</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.guardarRelaciones = async function(){
+  const rels = $$('.relChk:checked').map(el=>el.value);
+  cerrarModal(); spin(true,'Guardando relaciones…');
+  try{
+    await api('/api/poe-relaciones/'+encodeURIComponent(POE.base),{method:'POST',body:{relacionados:rels}});
+    await cargarPoes(); POE.bit = await api('/api/expedientes/'+encodeURIComponent(POE.base)+'/bitacora');
+    spin(false); toast('Relaciones actualizadas'); render(); pintarBitacoraPoe();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.nuevaVersionPoe = function(base){
+  const rels = relacionadosDe(base);
+  modal(`<h3>Nueva versión de ${esc(base)}</h3>
+    ${rels.length?`<div class="card" style="background:#FBF0DA;border-color:var(--warn);margin:10px 0;padding:12px">
+      <b style="font-size:13px">⚠ Evaluá el impacto sobre los documentos relacionados:</b>
+      ${rels.map(b=>{
+        const vs = POES.filter(p=>p.codigo_base===b); const vig = vs.find(v=>v.estado==='Vigente');
+        return `<div style="margin:6px 0;font-size:13px"><span class="codigo">${esc(b)}</span> ${esc(tituloDe(b))} <span class="muted">— ${vig?('vigente v'+vig.version+(vig.fecha_vencimiento?', vence '+vig.fecha_vencimiento:'')):'sin versión vigente'}</span></div>`;
+      }).join('')}
+      <p class="muted" style="margin-top:8px;font-size:12px">No es obligatorio modificarlos, pero verificá si esta nueva versión los afecta. El aviso queda registrado en la bitácora.</p>
+    </div>`:'<p class="muted" style="margin:10px 0">Este POE no tiene documentos relacionados cargados.</p>'}
+    <label>Motivo de la nueva versión (va a la bitácora)</label>
+    <textarea id="nvPoeMotivo" placeholder="Ej: adecuación a la nueva plantilla y actualización de referencias"></textarea>
+    <p style="margin-top:14px;display:flex;gap:10px">
+      <button onclick="crearNuevaVersionPoe('${esc(base)}')">Crear nueva versión</button>
+      <button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.crearNuevaVersionPoe = async function(base){
+  const motivo = $('#nvPoeMotivo').value.trim();
+  cerrarModal(); spin(true,'Creando nueva versión…');
+  try{
+    const d = await api('/api/procedimientos/'+encodeURIComponent(base)+'/nueva-version',{method:'POST',body:{motivo}});
+    await cargarPoes(); spin(false);
+    toast(d.codigo+' creado en Borrador'+(d.impactados?.length?' · impacto registrado sobre '+d.impactados.length+' POE(s)':''));
+    abrirPoe(base);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.guardarNotaPoe = async function(){
+  const txt = $('#poeNotaTxt').value.trim();
+  const files = [...($('#poeNotaFiles').files||[])];
+  if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
+  const fd = new FormData();
+  fd.append('texto', txt); fd.append('subcarpeta', $('#poeNotaSub').value);
+  for(const f of files) fd.append('archivos', f, f.name);
+  spin(true,'Guardando nota…');
+  try{
+    await api('/api/procedimientos/'+encodeURIComponent(POE.base)+'/notas',{method:'POST',body:fd});
+    await cargarPoes(); POE.bit = await api('/api/expedientes/'+encodeURIComponent(POE.base)+'/bitacora');
+    spin(false); toast('Nota guardada'); render(); pintarBitacoraPoe();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.verificarCadenaPoe = async function(){
+  spin(true,'Verificando cadena…');
+  try{
+    const d = await api('/api/expedientes/'+encodeURIComponent(POE.base)+'/verificar');
+    spin(false);
+    if(d.ok) modal(`<h3>⛓ Integridad verificada</h3><p style="margin:12px 0">Las ${d.entradas} entradas forman una cadena válida.</p><p><button onclick="cerrarModal()">Cerrar</button></p>`);
+    else modal(`<h3 style="color:var(--bad)">⚠ Cadena rota</h3><p style="margin:12px 0">Falla en la entrada #${d.rota_en}: la bitácora fue alterada por fuera del sistema.</p><p><button onclick="cerrarModal()">Cerrar</button></p>`);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ============================================================
+   MÓDULO PRESUPUESTOS (solo administradores)
+   ============================================================ */
+const PRESU_ESTADOS = ['Borrador','Enviado','Aceptado','Rechazado','Vencido'];
+async function cargarPresus(){ if(esAdmin()) PRESUS = await api('/api/presupuestos'); try{ await ftCargar(); }catch(e){} }
+const PRESUS_PRECARGA = `0005|001|2022-04-21|Validación Técnica Analítica HPLC|65960|ARS|Aceptado
+0006|001|2022-05-27|AR almacenamiento cápsulas|44000|ARS|Aceptado
+0008|001|2022-06-06|DQ Área Productiva Lecho Fluido (no realizado)|126350|ARS|Rechazado
+0017|001|2022-08-10|AR equivalencia equipos productivos de misma clase|35000|ARS|Aceptado
+0019|001|2022-08-18|Técnica HPLC|90000|ARS|Aceptado
+0021|001|2022-11-06|AR prioridad estabilidades MP, microgránulos y excipientes (2 etapas)|145000|ARS|Aceptado
+0032|001|2023-07-04|Validación de planillas de cálculo|199500|ARS|Aceptado
+0035|001|2023-07-04|Validación de planillas de cálculo|238500|ARS|Aceptado
+0036|001|2024-07-24|AR actividad de agua en reemplazo de controles microbiológicos|1020000|ARS|Aceptado
+0037|001|2023-08-31|AR equivalencia equipos móviles y fijos|460000|ARS|Aceptado
+0040|001|2023-09-12|AR equivalencia equipos fijos|125000|ARS|Aceptado
+0043|001|2024-09-24|AR frecuencia monitoreo de limpieza|630000|ARS|Aceptado
+0052|001|2024-12-20|AR criticidad extracciones localizadas Avellaneda|943500|ARS|Aceptado
+0055|001|2025-01-29|Actualización AR Validación de Limpieza|170000|ARS|Aceptado
+0058|001|2025-02-03|AR equivalencia encapsuladoras Avellaneda|1125000|ARS|Aceptado
+0060|001|2025-02-20|Actualización alcance AR equivalencia Lecho Fluido|637500|ARS|Aceptado
+0065|001|2025-05-07|Calificaciones Aire Comprimido + Tamizadora + LF05|2916800|ARS|Aceptado
+0066|001|2025-05-15|AR lotes envases secundarios|595000|ARS|Aceptado
+0067|001|2025-06-11|Humidificadores DQ + IQ/OQ|4020000|ARS|Aceptado
+0068|002|2025-08-25|Validación 96 planillas (etapas 2025-2026)|28800|USD|Aceptado
+0069|001|2025-07-17|AR ciclos de autoclave|930000|ARS|Aceptado
+0070|001|2025-07-25|AR frecuencia de recalificación|930000|ARS|Aceptado
+0071|001|2025-08-06|Actualización DQ Agua Purificada + DQ Área Mezclado (sin OC)|1835872|ARS|Vencido
+0074|002|2025-08-25|Validación 8 planillas|2400|USD|Aceptado
+0075|003|2025-11-01|Diagnóstico Virtual de Gestión y Documentación|750|USD|Vencido
+0076|002|2026-01-19|Desarrollo planilla + RU + IQ/OQ/PQ (actualizado al 0083)|1900|USD|Vencido
+0077|001|2026-01-26|Validación analítica método por titulación y ensayo de disolución|600|USD|Vencido
+0078|001|2026-04-23|Extensión AR equivalencia LF 1-3 hacia LF 4-5|450|USD|Vencido
+0079|001|2026-04-23|AR Equivalencia LF Avellaneda/Ezeiza|900|USD|Aceptado
+0080|002|2026-04-28|Validación 60 planillas Desarrollo Analítico LKM|29750|USD|Enviado
+0081|001|2026-05-06|Actualización AR LF + Estabilidad MP|250|USD|Aceptado
+0082|002|2026-01-26|Validación 42 planillas (2 normales + 40 estadísticas)|26600|USD|Enviado
+0083|002|2026-05-28|Desarrollo planilla + RU + IQ/OQ/PQ + impresión|2500|USD|Aceptado`;
+window.modalImportarPresus = function(){
+  modal(`<h3>Importación masiva de presupuestos</h3>
+    <p class="muted" style="margin:8px 0">Una línea por presupuesto: <b>CÓDIGO | CLIENTE | FECHA (AAAA-MM-DD) | DESCRIPCIÓN | MONTO | MONEDA | ESTADO</b><br>
+    Estados: Borrador, Enviado, Aceptado, Rechazado, Vencido. Te dejo precargada la serie completa de tu planilla histórica (incluidos rechazados y sin respuesta) — revisá y ajustá lo que haga falta antes de importar. Los ya reconstruidos se completan con estos datos; los cargados a mano no se tocan.</p>
+    <textarea id="impPresus" style="min-height:240px;font-family:var(--mono);font-size:11px">${esc(PRESUS_PRECARGA)}</textarea>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="importarPresus()">Importar</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.importarPresus = async function(){
+  const filas = $('#impPresus').value.trim().split('\n').filter(Boolean).map(l=>{
+    const p = l.split('|').map(s=>s.trim());
+    const cliente = p[1]||'';
+    return {codigo:p[0], cliente, clienteNombre:(CFG.clientes.find(c=>c[0]===cliente)||[])[1]||'',
+            fecha:p[2]||'', descripcion:p[3]||'', monto:p[4]||null, moneda:p[5]||'ARS', estado:p[6]||'Aceptado'};
+  });
+  if(!filas.length){ toast('No hay líneas','err'); return; }
+  if(!confirm('Se importan/completan '+filas.length+' presupuestos. ¿Continuar?')) return;
+  cerrarModal(); spin(true,'Importando presupuestos…');
+  try{
+    const d = await api('/api/presupuestos/importar',{method:'POST',body:{filas}});
+    await cargarPresus(); spin(false);
+    toast(d.creados+' creados, '+d.actualizados+' completados'+(d.saltados?', '+d.saltados+' sin cambios':''));
+    if(d.errores?.length){ toast(d.errores.length+' con error (ver consola F12)','err'); console.warn(d.errores); }
+    if(MODULO==='com') render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.reconstruirPresus = async function(){
+  if(!confirm('Se crean los presupuestos históricos a partir de las referencias que ya existen en el registro de expedientes (estado: Aceptado). Los ya existentes se saltean. ¿Continuar?')) return;
+  spin(true,'Reconstruyendo presupuestos…');
+  try{
+    const d = await api('/api/presupuestos/importar-desde-registro',{method:'POST'});
+    await cargarPresus(); spin(false);
+    toast(d.creados+' presupuesto(s) reconstruidos'+(d.saltados?', '+d.saltados+' ya existían':''));
+    if(MODULO==='com') render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.modalNuevoPresu = function(){
+  modal(`<h3>Nuevo presupuesto</h3>
+    <label>Cliente</label><select id="prCliente">${CFG.clientes.map(c=>`<option value="${c[0]}">${c[0]} · ${esc(c[1])}</option>`).join('')}</select>
+    <label>Descripción</label><input id="prDesc" maxlength="100" placeholder="Ej: Validación de 10 planillas de cálculo - Fase 2">
+    <div class="row">
+      <div><label>Monto (opcional)</label><input id="prMonto" type="number" step="0.01"></div>
+      <div><label>Moneda</label><select id="prMoneda"><option>ARS</option><option>USD</option></select></div>
+    </div>
+    <p class="muted" style="margin-top:8px">El código se asigna solo, continuando la serie histórica.</p>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="crearPresu()">Crear</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.crearPresu = async function(){
+  const descripcion = $('#prDesc').value.trim();
+  if(!descripcion){ toast('Falta la descripción','err'); return; }
+  const cliente = $('#prCliente').value;
+  const body = { cliente, clienteNombre:(CFG.clientes.find(c=>c[0]===cliente)||[])[1]||'',
+    descripcion, monto:$('#prMonto').value||null, moneda:$('#prMoneda').value };
+  cerrarModal(); spin(true,'Creando presupuesto…');
+  try{
+    const d = await api('/api/presupuestos',{method:'POST',body});
+    await cargarPresus(); spin(false); toast('Presupuesto '+d.codigo+' creado'); abrirPresu(d.codigo);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.abrirPresu = async function(codigo){
+  PRESU = { codigo, bit:[] }; MODULO='com'; COM_VIEW='ficha'; render();
+  try{ PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+codigo)+'/bitacora'); pintarBitacoraGen('bitacoraPresu', PRESU.bit); }
+  catch(e){ $('#bitacoraPresu').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+};
+function pintarBitacoraGen(id, bit){
+  const el = $('#'+id); if(!el) return;
+  el.innerHTML = bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
+    <div class="nts">${fFecha(n.ts)} · ${esc(n.autor)} · ${esc(n.tipo)} <span class="hashchip">⛓ ${esc((n.hash||'').slice(0,10))}</span></div>
+    <div class="ntx">${esc(n.texto)}</div>
+    ${adjuntosHtml(bit, n)}
+  </div>`).join('') || '<p class="muted">Sin entradas todavía.</p>';
+}
+function vistaPresuFicha(){
+  const p = PRESUS.find(x=>x.codigo===PRESU.codigo);
+  if(!p) return `<div class="card">Presupuesto no encontrado. <button class="ghost" onclick="COM_VIEW='lista';render()">← Volver</button></div>`;
+  return `
+  <p><button class="ghost" onclick="COM_VIEW='lista';render()">← Volver a presupuestos</button></p>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="codigo" style="font-size:15px">${esc(p.codigo)}</span>
+      <h2 style="flex:1;min-width:200px;font-size:17px">${esc(p.descripcion)}</h2>
+      ${p.carpeta_drive_url?`<a href="${esc(p.carpeta_drive_url)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>`:''}
+    </div>
+    <div class="muted" style="margin-top:8px">${esc(p.cliente_nombre||'')} ${p.monto?'· '+esc(p.moneda||'ARS')+' '+Number(p.monto).toLocaleString('es-AR'):''} · Emitido: ${esc(p.fecha_emision||'—')}</div>
+    <p style="margin-top:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">Estado:
+      <select style="width:auto" onchange="estadoPresu('${esc(p.codigo)}', this.value)">
+        ${PRESU_ESTADOS.map(s=>`<option ${p.estado===s?'selected':''}>${s}</option>`).join('')}</select>
+      <button class="ghost" onclick="modalEditarPresu()">✏ Editar datos</button>
+    </p>
+  </div>
+  <div class="card">
+    <h3>Agregar nota a la bitácora</h3>
+    <textarea id="prNotaTxt" placeholder="Envío al cliente, respuesta, negociación, aceptación…"></textarea>
+    <label>Adjuntar archivos (PDF del presupuesto, mail de aceptación…)</label><input type="file" id="prNotaFiles" multiple>
+    <p style="margin-top:12px"><button onclick="guardarNotaPresu()">Guardar en bitácora</button></p>
+  </div>
+  <div class="card"><h3>Bitácora</h3><div id="bitacoraPresu" style="margin-top:10px"><p class="muted">Cargando…</p></div></div>`;
+}
+window.modalEditarPresu = function(){
+  const p = PRESUS.find(x=>x.codigo===PRESU.codigo);
+  modal(`<h3>✏ Editar presupuesto ${esc(p.codigo)}</h3>
+    <p class="muted" style="margin:8px 0">Los cambios quedan en la bitácora con el antes y el después. El código no se edita.</p>
+    <label>Cliente</label><select id="epCliente">${CFG.clientes.map(c=>`<option value="${c[0]}" ${p.cliente_num===c[0]?'selected':''}>${c[0]} · ${esc(c[1])}</option>`).join('')}</select>
+    <label>Descripción</label><input id="epDesc" value="${esc(p.descripcion)}" maxlength="100">
+    <div class="row">
+      <div><label>Monto</label><input id="epMonto" type="number" step="0.01" value="${p.monto??''}"></div>
+      <div><label>Moneda</label><select id="epMoneda"><option ${p.moneda==='ARS'?'selected':''}>ARS</option><option ${p.moneda==='USD'?'selected':''}>USD</option></select></div>
+    </div>
+    <label>Fecha de emisión</label><input id="epFecha" type="date" value="${esc(p.fecha_emision||'')}">
+    <label>Motivo (opcional)</label><input id="epMotivo" placeholder="Ej: se completa fecha faltante del histórico">
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="editarPresu()">Guardar cambios</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.editarPresu = async function(){
+  const cliente = $('#epCliente').value;
+  const body = { cliente, clienteNombre:(CFG.clientes.find(c=>c[0]===cliente)||[])[1]||'',
+    descripcion:$('#epDesc').value.trim(), monto:$('#epMonto').value, moneda:$('#epMoneda').value,
+    fecha_emision:$('#epFecha').value, motivo:$('#epMotivo').value.trim() };
+  cerrarModal(); spin(true,'Guardando…');
+  try{
+    await api('/api/presupuestos/'+encodeURIComponent(PRESU.codigo)+'/corregir',{method:'POST',body});
+    await cargarPresus(); PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+PRESU.codigo)+'/bitacora');
+    spin(false); toast('Presupuesto actualizado'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.estadoPresu = async function(codigo, estado){
+  spin(true,'Actualizando…');
+  try{
+    await api('/api/presupuestos/'+encodeURIComponent(codigo)+'/estado',{method:'POST',body:{estado}});
+    await cargarPresus(); PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+codigo)+'/bitacora');
+    spin(false); toast('Estado actualizado'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.guardarNotaPresu = async function(){
+  const txt = $('#prNotaTxt').value.trim();
+  const files = [...($('#prNotaFiles').files||[])];
+  if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
+  const fd = new FormData(); fd.append('texto',txt); fd.append('subcarpeta','02_evidencias');
+  for(const f of files) fd.append('archivos', f, f.name);
+  spin(true,'Guardando…');
+  try{
+    await api('/api/presupuestos/'+encodeURIComponent(PRESU.codigo)+'/notas',{method:'POST',body:fd});
+    await cargarPresus(); PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+PRESU.codigo)+'/bitacora');
+    spin(false); toast('Nota guardada'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ============================================================
+   MÓDULO PROYECTOS
+   ============================================================ */
+async function cargarProys(){ PROYS = await api('/api/proyectos'); }
+function vistaProyectos(){
+  Promise.all([cargarProys(), cargarPresus()]).then(()=>{ if(VIEW==='proyectos') pintarListaProys(); });
+  return `<div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 style="flex:1">Proyectos</h2>
+      ${esLector()?'':`<button onclick="modalNuevoProy()">+ Nuevo proyecto</button>`}
+    </div>
+    <div id="proyLista" style="margin-top:12px"><p class="muted">Cargando…</p></div>
+  </div>`;
+}
+function pintarListaProys(){
+  const el = $('#proyLista'); if(!el) return;
+  el.innerHTML = PROYS.length? `<table class="docs-tabla"><thead><tr><th>Código</th><th>Nombre</th><th>Cliente</th><th>Estado</th><th>Presup.</th><th>Expedientes</th></tr></thead><tbody>
+    ${PROYS.map(p=>{
+      const nExp = new Set(REG.filter(r=>r.proyecto===p.codigo).map(r=>r.expediente_id)).size;
+      return `<tr style="cursor:pointer" onclick="abrirProy('${esc(p.codigo)}')">
+      <td><span class="codigo">${esc(p.codigo)}</span></td>
+      <td>${esc(p.nombre)}</td><td>${esc(p.cliente_nombre||'')}</td>
+      <td><span class="badge ${p.estado==='Activo'?'b-info':p.estado==='Cerrado'?'b-gris':'b-bad'}">${esc(p.estado)}</span></td>
+      <td class="muted">${(p.presupuestos||[]).join(', ')||'—'}</td>
+      <td class="muted">${nExp}</td></tr>`;
+    }).join('')}</tbody></table>`
+  : '<p class="muted">Sin proyectos todavía.</p>';
+}
+window.modalNuevoProy = function(){
+  modal(`<h3>Nuevo proyecto</h3>
+    <label>Nombre</label><input id="pjNombre" maxlength="80" placeholder="Ej: LKM Fase 2 - Validación Control de Calidad">
+    <label>Cliente</label><select id="pjCliente">${CFG.clientes.map(c=>`<option value="${c[0]}">${c[0]} · ${esc(c[1])}</option>`).join('')}</select>
+    <label>Alcance y cronología (informativo)</label><textarea id="pjAlcance" placeholder="Resumen del alcance, hitos previstos, condiciones particulares…"></textarea>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="crearProy()">Crear</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.crearProy = async function(){
+  const nombre = $('#pjNombre').value.trim();
+  if(!nombre){ toast('Falta el nombre','err'); return; }
+  const cliente = $('#pjCliente').value;
+  const body = { nombre, cliente, clienteNombre:(CFG.clientes.find(c=>c[0]===cliente)||[])[1]||'', alcance:$('#pjAlcance').value.trim() };
+  cerrarModal(); spin(true,'Creando proyecto…');
+  try{
+    const d = await api('/api/proyectos',{method:'POST',body});
+    await cargarProys(); spin(false); toast(d.codigo+' creado'); abrirProy(d.codigo);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.abrirProy = async function(codigo){
+  PROY = { codigo, bit:[] }; VIEW='proyFicha'; render();
+  try{ PROY.bit = await api('/api/expedientes/'+encodeURIComponent(codigo)+'/bitacora'); pintarBitacoraGen('bitacoraProy', PROY.bit); }
+  catch(e){ $('#bitacoraProy').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+};
+function vistaProyFicha(){
+  const p = PROYS.find(x=>x.codigo===PROY.codigo);
+  if(!p) return `<div class="card">Proyecto no encontrado. <button class="ghost" onclick="VIEW='proyectos';render()">← Volver</button></div>`;
+  const exps = [...new Set(REG.filter(r=>r.proyecto===p.codigo).map(r=>r.expediente_id))];
+  const ro = esLector();
+  return `
+  <p><button class="ghost" onclick="VIEW='proyectos';render()">← Volver a proyectos</button></p>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="codigo" style="font-size:15px">${esc(p.codigo)}</span>
+      <h2 style="flex:1;min-width:200px;font-size:17px">${esc(p.nombre)}</h2>
+      ${p.carpeta_drive_url?`<a href="${esc(p.carpeta_drive_url)}" target="_blank" rel="noopener"><button class="sec">Abrir en Drive</button></a>`:''}
+    </div>
+    <div class="muted" style="margin-top:8px">${esc(p.cliente_nombre||'')}
+      · Presupuestos: ${(p.presupuestos||[]).map(x=>`<span class="codigo" style="font-size:11px">${esc(x)}</span>`).join(' ')||'—'}
+      ${esAdmin()?` <button class="ghost" style="font-size:12px" onclick="modalPresusProy()">Editar</button>`:''}
+    </div>
+    ${ro?'':`<p style="margin-top:10px">Estado:
+      <select style="width:auto" onchange="actualizarProy({estado:this.value})">
+        ${['Activo','Pausado','Cerrado'].map(s=>`<option ${p.estado===s?'selected':''}>${s}</option>`).join('')}</select></p>`}
+    <label>Alcance y cronología (informativo)</label>
+    <textarea id="pjAlcanceEdit" ${ro?'disabled':''}>${esc(p.alcance||'')}</textarea>
+    ${ro?'':`<p style="margin-top:8px"><button class="sec" onclick="actualizarProy({alcance:$('#pjAlcanceEdit').value})">Guardar alcance</button></p>`}
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h3 style="flex:1">Expedientes del proyecto (${exps.length})</h3>
+      ${!ro && (p.presupuestos||[]).length?`<button class="sec" onclick="autovincular()">Autovincular por presupuesto</button>`:''}
+    </div>
+    ${exps.length? exps.map(id=>{
+      const docs = REG.filter(r=>r.expediente_id===id);
+      const activos = docs.filter(d=>!CFG.estadosFinales.includes(d.estado)).length;
+      return `<div class="exp" onclick="abrirFicha('${esc(id)}')" style="margin-top:8px">
+        <div class="top"><span class="codigo">${esc(id)}</span><span class="desc">${esc(docs[0].descripcion)}</span>
+        <span class="badge ${activos?'b-info':'b-gris'}">${activos?activos+' activos':'cerrado'}</span></div></div>`;
+    }).join('') : '<p class="muted" style="margin-top:8px">Sin expedientes vinculados. Vinculalos al crearlos, desde su ficha, o con la autovinculación por presupuesto.</p>'}
+  </div>
+  ${ro?'':`<div class="card">
+    <h3>Agregar nota a la bitácora</h3>
+    <textarea id="pjNotaTxt" placeholder="Hitos, reuniones, acuerdos con el cliente…"></textarea>
+    <label>Adjuntar archivos (opcional)</label><input type="file" id="pjNotaFiles" multiple>
+    <p style="margin-top:12px"><button onclick="guardarNotaProy()">Guardar en bitácora</button></p>
+  </div>`}
+  <div class="card"><h3>Bitácora</h3><div id="bitacoraProy" style="margin-top:10px"><p class="muted">Cargando…</p></div></div>`;
+}
+window.actualizarProy = async function(body){
+  spin(true,'Guardando…');
+  try{
+    await api('/api/proyectos/'+encodeURIComponent(PROY.codigo)+'/actualizar',{method:'POST',body});
+    await cargarProys(); PROY.bit = await api('/api/expedientes/'+encodeURIComponent(PROY.codigo)+'/bitacora');
+    spin(false); toast('Proyecto actualizado'); render(); pintarBitacoraGen('bitacoraProy', PROY.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.modalPresusProy = function(){
+  const p = PROYS.find(x=>x.codigo===PROY.codigo);
+  const actuales = new Set(p.presupuestos||[]);
+  modal(`<h3>Presupuestos del proyecto</h3>
+    <div style="max-height:45vh;overflow-y:auto;margin-top:10px">
+    ${PRESUS.length? PRESUS.map(pr=>`<label style="display:flex;align-items:center;gap:8px;margin:5px 0;font-weight:400">
+      <input type="checkbox" class="ppChk" value="${esc(pr.codigo)}" ${actuales.has(pr.codigo)?'checked':''} style="width:auto">
+      <span class="codigo">${esc(pr.codigo)}</span> <span class="muted" style="font-size:12px">${esc(pr.descripcion)} — ${esc(pr.estado)}</span></label>`).join('')
+    : '<p class="muted">No hay presupuestos cargados.</p>'}
+    </div>
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="guardarPresusProy()">Guardar</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+window.guardarPresusProy = async function(){
+  const lista = $$('.ppChk:checked').map(el=>el.value);
+  cerrarModal(); spin(true,'Vinculando…');
+  try{
+    await api('/api/proyectos/'+encodeURIComponent(PROY.codigo)+'/presupuestos',{method:'POST',body:{presupuestos:lista}});
+    await cargarProys(); PROY.bit = await api('/api/expedientes/'+encodeURIComponent(PROY.codigo)+'/bitacora');
+    spin(false); toast('Presupuestos vinculados'); render(); pintarBitacoraGen('bitacoraProy', PROY.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.autovincular = async function(){
+  spin(true,'Autovinculando expedientes…');
+  try{
+    const d = await api('/api/proyectos/'+encodeURIComponent(PROY.codigo)+'/autovincular',{method:'POST'});
+    await cargarRegistro(); await cargarProys();
+    spin(false); toast(d.expedientes+' expediente(s) vinculados'); render(); 
+    PROY.bit = await api('/api/expedientes/'+encodeURIComponent(PROY.codigo)+'/bitacora'); pintarBitacoraGen('bitacoraProy', PROY.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.guardarNotaProy = async function(){
+  const txt = $('#pjNotaTxt').value.trim();
+  const files = [...($('#pjNotaFiles').files||[])];
+  if(!txt && !files.length){ toast('Escribí algo o adjuntá un archivo','err'); return; }
+  const fd = new FormData(); fd.append('texto',txt); fd.append('subcarpeta','02_evidencias');
+  for(const f of files) fd.append('archivos', f, f.name);
+  spin(true,'Guardando…');
+  try{
+    await api('/api/proyectos/'+encodeURIComponent(PROY.codigo)+'/notas',{method:'POST',body:fd});
+    await cargarProys(); PROY.bit = await api('/api/expedientes/'+encodeURIComponent(PROY.codigo)+'/bitacora');
+    spin(false); toast('Nota guardada'); render(); pintarBitacoraGen('bitacoraProy', PROY.bit);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ============================================================
+   INDICADORES (PGC-003: cada indicador debe conducir a una decisión)
+   ============================================================ */
+function vistaIndicadores(){
+  api('/api/indicadores').then(d=>{ if(VIEW==='indicadores') pintarIndicadores(d); }).catch(e=>{ $('#indBody') && ($('#indBody').innerHTML='<p class="muted">'+esc(e.message)+'</p>'); });
+  return `<div class="card"><h2>Indicadores del SGC</h2>
+    <p class="muted" style="margin-top:4px">Calculados en vivo sobre el registro. Referencia: PGC-003 — Seguimiento y Evaluación del SGC.</p>
+    <div id="indBody" style="margin-top:12px"><p class="muted">Calculando…</p></div></div>`;
+}
+function barra(pct, color){ return `<div style="background:#E4E9ED;border-radius:4px;height:14px;overflow:hidden"><div style="width:${Math.min(100,pct)}%;height:100%;background:${color||'var(--acc)'}"></div></div>`; }
+function pintarIndicadores(d){
+  const el = $('#indBody'); if(!el) return;
+  const kpi = (v,lab,det)=>`<div class="kpi" style="cursor:default"><div class="num">${v}</div><div class="lab">${lab}</div>${det?`<div class="muted" style="font-size:11px;margin-top:2px">${det}</div>`:''}</div>`;
+  const totTipo = d.docs.porTipo.reduce((a,x)=>a+ +x.n,0)||1;
+  const maxSerie = Math.max(...d.docs.serie12.map(x=>+x.n),1);
+  el.innerHTML = `
+  <div class="kpis" style="margin-bottom:14px">
+    ${kpi(d.docs.mes,'Docs este mes')}
+    ${kpi(d.docs.anio,'Docs este año')}
+    ${kpi(d.expedientes.activos,'Expedientes activos', d.expedientes.estancados>0?('⚠ '+d.expedientes.estancados+' estancados'):'sin estancados')}
+    ${kpi(d.docs.cicloPromedioDias??'—','Días alta→entrega','promedio de '+d.docs.cicloMuestra+' docs')}
+    ${kpi(d.poes.vigentes,'POEs vigentes', (+d.poes.vencidos?('⚠ '+d.poes.vencidos+' vencidos'):(+d.poes.por_vencer?(d.poes.por_vencer+' por vencer'):'al día')))}
+    ${kpi(d.proyectos.activos,'Proyectos activos', d.proyectos.cerrados+' cerrados · '+(d.proyectos.promDocsPorProyecto??'—')+' docs/proyecto prom.')}
+  </div>
+  <div class="row">
+    <div class="card" style="margin:0">
+      <h3>Documentos por tipo (${new Date().getFullYear()})</h3>
+      ${d.docs.porTipo.length? d.docs.porTipo.map(x=>`<div style="display:grid;grid-template-columns:60px 1fr 70px;gap:8px;align-items:center;margin:6px 0;font-size:13px">
+        <span class="codigo" style="font-size:11px">${esc(x.t)}</span>${barra(100*x.n/ +d.docs.porTipo[0].n)}<span class="muted">${x.n} (${Math.round(100*x.n/totTipo)}%)</span></div>`).join('')
+      : '<p class="muted">Sin documentos este año.</p>'}
+    </div>
+    <div class="card" style="margin:0">
+      <h3>Altas por mes (últimos 12)</h3>
+      ${d.docs.serie12.map(x=>`<div style="display:grid;grid-template-columns:60px 1fr 40px;gap:8px;align-items:center;margin:6px 0;font-size:13px">
+        <span class="muted">${esc(x.m)}</span>${barra(100*x.n/maxSerie,'var(--ok)')}<span class="muted">${x.n}</span></div>`).join('') || '<p class="muted">Sin datos.</p>'}
+    </div>
+  </div>
+  ${d.comercial?`<div class="card" style="margin-top:14px">
+    <h3>Comercial (solo administradores)</h3>
+    <div class="kpis" style="margin-top:10px">
+      ${kpi(d.comercial.emitidos,'Presupuestos emitidos')}
+      ${kpi(d.comercial.aceptados,'Aceptados','tasa: '+(d.comercial.emitidos>0?Math.round(100*d.comercial.aceptados/d.comercial.emitidos):0)+'%')}
+      ${kpi(d.comercial.pipeline,'En espera (Enviado)', d.comercial.pipeline>0?'¡a perseguir!':'')}
+      ${kpi(d.comercial.rechazados+ +d.comercial.vencidos,'Rechazados + vencidos')}
+      ${d.comercial.montosAceptadosAnio.map(m=>kpi((+m.t).toLocaleString('es-AR'),'Aceptado '+esc(m.moneda)+' '+new Date().getFullYear())).join('')}
+    </div>
+  </div>`:''}`;
 }
 
-pintarBk();
-if(TOKEN){
-  const yo = JSON.parse(sessionStorage.getItem('vdt_yo')||sessionStorage.getItem('faro_usuario')||'null');
-  if(!sessionStorage.getItem('vdt_token')||!sessionStorage.getItem('faro_token')) sembrarSesion(yo||{});
-  entrar(yo);
+/* ============================================================
+   AUDITORÍA GLOBAL (solo admin)
+   ============================================================ */
+let AUD = [];
+function vistaAuditoria(){
+  setTimeout(cargarAuditoria, 50);
+  return `<div class="card">
+    <h2>Auditoría global del sistema</h2>
+    <p class="muted" style="margin-top:4px">Eventos de todos los módulos, la administración y los accesos, en orden cronológico. Máximo 500 resultados por consulta.</p>
+    <div class="row" style="margin-top:12px">
+      <div><label>Módulo</label><select id="auModulo" onchange="cargarAuditoria()">
+        <option value="">Todos</option><option>Expedientes</option><option>Procedimientos</option><option>Presupuestos</option><option>Proyectos</option><option>Administración</option><option>Accesos</option></select></div>
+      <div><label>Usuario</label><input id="auAutor" placeholder="parte del email" onchange="cargarAuditoria()"></div>
+    </div>
+    <div class="row">
+      <div><label>Buscar en texto/código</label><input id="auQ" placeholder="Ej: PGC-001, corrección, 0080…" onchange="cargarAuditoria()"></div>
+      <div class="row" style="gap:8px"><div><label>Desde</label><input type="date" id="auDesde" onchange="cargarAuditoria()"></div>
+      <div><label>Hasta</label><input type="date" id="auHasta" onchange="cargarAuditoria()"></div></div>
+    </div>
+    <p style="margin-top:10px"><button class="sec" onclick="exportarAuditoria()">🖨 Exportar / imprimir</button></p>
+    <div id="audLista" style="margin-top:12px"><p class="muted">Cargando…</p></div>
+  </div>`;
 }
+window.cargarAuditoria = async function(){
+  const p = new URLSearchParams();
+  if($('#auModulo').value) p.set('modulo',$('#auModulo').value);
+  if($('#auAutor').value.trim()) p.set('autor',$('#auAutor').value.trim());
+  if($('#auQ').value.trim()) p.set('q',$('#auQ').value.trim());
+  if($('#auDesde').value) p.set('desde',$('#auDesde').value);
+  if($('#auHasta').value) p.set('hasta',$('#auHasta').value);
+  try{
+    AUD = await api('/api/auditoria?'+p.toString());
+    const el = $('#audLista'); if(!el) return;
+    el.innerHTML = AUD.length? `<table class="docs-tabla"><thead><tr><th>Fecha/hora</th><th>Módulo</th><th>Clave</th><th>Usuario</th><th>Tipo</th><th>Detalle</th></tr></thead><tbody>
+      ${AUD.map(a=>`<tr>
+        <td style="white-space:nowrap">${fFecha(a.ts)}</td>
+        <td><span class="badge ${a.modulo==='Accesos'?'b-gris':a.modulo==='Administración'?'b-bad':'b-info'}" style="font-size:10px">${esc(a.modulo)}</span></td>
+        <td>${a.clave!=='ADMINISTRACIÓN'&&a.clave!=='ACCESOS'?`<span class="codigo" style="font-size:11px">${esc(a.clave)}</span>`:''}</td>
+        <td class="muted" style="font-size:11px">${esc((a.autor||'').split('@')[0])}</td>
+        <td class="muted" style="font-size:11px">${esc(a.tipo)}</td>
+        <td style="font-size:12px">${esc(a.texto)}</td></tr>`).join('')}</tbody></table>
+      <p class="muted" style="margin-top:8px">${AUD.length} evento(s)${AUD.length===500?' — hay más: acotá los filtros':''}</p>`
+    : '<p class="muted">Sin eventos con esos filtros.</p>';
+  }catch(e){ $('#audLista').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+};
+window.exportarAuditoria = function(){
+  if(!AUD.length){ toast('No hay eventos para exportar','err'); return; }
+  const w = window.open('','_blank');
+  w.document.write(`<html><head><title>Auditoría VADOCA DocTracker</title><style>
+    body{font-family:Arial,sans-serif;font-size:11px;margin:24px}h1{font-size:16px}
+    table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}
+    th{background:#eee}@media print{button{display:none}}</style></head><body>
+    <h1>VADOCA DocTracker — Auditoría global del sistema</h1>
+    <p>Generado: ${new Date().toLocaleString('es-AR')} · Usuario: ${esc(YO.email)} · ${AUD.length} evento(s)</p>
+    <button onclick="window.print()">Imprimir / Guardar PDF</button>
+    <table><thead><tr><th>Fecha/hora</th><th>Módulo</th><th>Clave</th><th>Usuario</th><th>Tipo</th><th>Detalle</th></tr></thead><tbody>
+    ${AUD.map(a=>`<tr><td>${fFecha(a.ts)}</td><td>${esc(a.modulo)}</td><td>${esc(a.clave)}</td><td>${esc(a.autor)}</td><td>${esc(a.tipo)}</td><td>${esc(a.texto)}</td></tr>`).join('')}
+    </tbody></table></body></html>`);
+  w.document.close();
+};
+
+/* ----- Usuarios (solo admin) ----- */
+function vistaUsuarios(){
+  cargarUsuarios();
+  return `<div class="card">
+    <h2>Usuarios</h2>
+    <div id="uLista" style="margin-top:10px"><p class="muted">Cargando…</p></div>
+  </div>
+  <div class="card">
+    <h3>Nuevo usuario</h3>
+    <div class="row">
+      <div><label>Email</label><input id="uEmail" placeholder="nombre@vadoca.com.ar"></div>
+      <div><label>Nombre</label><input id="uNombre"></div>
+    </div>
+    <div class="row">
+      <div><label>Rol</label><select id="uRol"><option value="editor">Editor (opera documentos)</option><option value="lector">Lector (solo consulta)</option><option value="admin">Admin (todo + usuarios)</option></select></div>
+      <div><label>Clave inicial (la cambia al entrar)</label><input id="uPass" type="text"></div>
+    </div>
+    <p style="margin-top:14px"><button onclick="crearUsuario()">Crear usuario</button></p>
+  </div>
+  <div class="card">
+    <h3>Bitácora del administrador</h3>
+    <div id="uLog" style="margin-top:10px"><p class="muted">Cargando…</p></div>
+  </div>`;
+}
+async function cargarUsuarios(){
+  try{
+    const us = await api('/api/usuarios');
+    $('#uLista').innerHTML = `<table class="u-tabla"><tr><th>Email</th><th>Nombre</th><th>Rol</th><th>Estado</th><th></th></tr>
+      ${us.map(u=>`<tr><td>${esc(u.email)}</td><td>${esc(u.nombre)}</td><td><span class="rolchip">${esc(u.rol)}</span></td>
+        <td>${u.activo?'<span class="badge b-ok">Activo</span>':'<span class="badge b-gris">Inactivo</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="ghost" onclick="blanquear(${u.id},'${esc(u.email)}')">Blanquear clave</button>
+          <button class="ghost" onclick="toggleUsuario(${u.id},${!u.activo})">${u.activo?'Desactivar':'Activar'}</button>
+        </td></tr>`).join('')}</table>`;
+    const log = await api('/api/admin/bitacora');
+    $('#uLog').innerHTML = log.length? log.map(l=>`<div class="nota"><div class="nts">${fFecha(l.ts)} · ${esc(l.autor)} <span class="hashchip">⛓ ${esc((l.hash||'').slice(0,10))}</span></div><div class="ntx">${esc(l.accion)}${l.detalle?': '+esc(l.detalle):''}</div></div>`).join('') : '<p class="muted">Sin acciones registradas.</p>';
+  }catch(e){ toast(e.message,'err'); }
+}
+window.crearUsuario = async function(){
+  spin(true,'Creando usuario…');
+  try{
+    await api('/api/usuarios',{method:'POST',body:{email:$('#uEmail').value,nombre:$('#uNombre').value,rol:$('#uRol').value,password:$('#uPass').value}});
+    spin(false); toast('Usuario creado'); render();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.blanquear = async function(id,email){
+  const p = prompt('Clave temporal nueva para '+email+' (se la pasás por un canal seguro; la cambia al entrar):');
+  if(!p) return;
+  spin(true,'Blanqueando…');
+  try{ await api('/api/usuarios/'+id+'/blanquear',{method:'POST',body:{password:p}}); spin(false); toast('Clave blanqueada'); render(); }
+  catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.toggleUsuario = async function(id,activo){
+  spin(true,'Actualizando…');
+  try{ await api('/api/usuarios/'+id+'/estado',{method:'POST',body:{activo}}); spin(false); render(); }
+  catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ----- Ajustes ----- */
+function vistaConfig(){
+  return `<div class="card">
+    <h2>Ajustes</h2>
+    <label>URL del backend</label><input id="cUrl" value="${esc(CFG.backendUrl)}">
+    <label>Clientes (número|nombre, uno por línea)</label>
+    <textarea id="cClientes">${esc(CFG.clientes.map(c=>c.join('|')).join('\n'))}</textarea>
+    <label>Días para marcar "estancado"</label><input id="cDias" type="number" value="${CFG.diasEstancado}" style="width:100px">
+    <p style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="guardarConfig()">Guardar</button>
+      <button class="sec" onclick="VIEW='dashboard';render()">Volver</button>
+      <button class="sec" onclick="render(); VIEW='config';">​</button>
+    </p>
+  </div>
+  <div class="card">
+    <h3>Mi cuenta</h3>
+    <p class="muted" style="margin:6px 0 12px">${esc(YO.email)} — rol ${esc(YO.rol)}</p>
+    <button class="sec" onclick="modalMiClave()">Cambiar mi contraseña</button>
+  </div>`;
+}
+window.guardarConfig = function(){
+  CFG.backendUrl = $('#cUrl').value.trim().replace(/\/+$/,'');
+  CFG.clientes = $('#cClientes').value.trim().split('\n').filter(Boolean).map(l=>l.split('|').map(s=>s.trim()));
+  CFG.diasEstancado = parseInt($('#cDias').value,10)||7;
+  saveCfg(); toast('Ajustes guardados'); VIEW='dashboard'; render();
+};
+window.importarHistoriales = async function(){
+  spin(true,'Leyendo historiales de Drive…');
+  try{
+    const d = await api('/api/importar-historiales',{method:'POST'});
+    await cargarRegistro(); spin(false);
+    toast('Recuperadas '+d.entradas+' entradas de '+(d.expedientes-d.saltados)+' expedientes');
+    if(d.errores?.length) console.warn('Historiales con error:', d.errores);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+window.modalMiClave = function(){
+  modal(`<h3>Cambiar contraseña</h3>
+    <label>Clave actual</label><input id="cAct" type="password">
+    <label>Clave nueva (mín. 8)</label><input id="cNue" type="password">
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="cambiarClave();cerrarModal()">Guardar</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+};
+
+/* ----- Utilidades UI ----- */
+function modal(html){ const bg=document.createElement('div'); bg.className='modal-bg'; bg.id='modalBg';
+  bg.innerHTML=`<div class="modal">${html}</div>`;
+  bg.addEventListener('click',e=>{ if(e.target===bg) cerrarModal(); });
+  document.body.appendChild(bg); }
+window.cerrarModal = ()=> $('#modalBg')?.remove();
+function postRender(){
+  $$('#mainNav button').forEach(b=>b.classList.toggle('active', b.dataset.view===VIEW || (VIEW==='ficha'&&b.dataset.view==='dashboard')));
+  if(VIEW==='nuevo') onTTChange();
+  if(VIEW==='ficha') document.addEventListener('paste', onPaste);
+  else document.removeEventListener('paste', onPaste);
+}
+function onPaste(ev){
+  const items = [...(ev.clipboardData?.items||[])].filter(i=>i.type.startsWith('image/'));
+  if(!items.length) return;
+  for(const it of items){
+    const f = it.getAsFile();
+    const nombre = 'captura_'+new Date().toISOString().replace(/[:.]/g,'-')+'.png';
+    PEGADOS.push(new File([f], nombre, {type:f.type}));
+  }
+  $('#pegados').innerHTML = PEGADOS.map(f=>`<span class="muted" style="margin-right:10px">🖼 ${esc(f.name)}</span>`).join('');
+  toast(items.length+' captura(s) lista(s) para adjuntar','info');
+}
+$$('#mainNav button').forEach(b=>b.addEventListener('click',()=>{ VIEW=b.dataset.view; render(); }));
+
+/* ===================== FLOWTRACKER (ex FARO) ===================== */
+
+const SEG_ESTADOS = ['pendiente','en curso','enviado a cliente','esperando respuesta','observado','aprobado','n/a'];
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const TAREAS = '__TAREAS__'; // pseudo-proyecto para tareas sueltas sin proyecto
+
+let DATA = { proyectos:[], proyectos_faro:[], items:[], templates:[], documentos:[] };
+let VISTA = 'hoy', PROY_SEL = null, CAL_MES = null, FILTRO_AMBITO = 'todos', MODO_DETALLE = 'lista';
+const ARBOL_EXP = new Set(); // expedientes expandidos en la vista árbol
+const CANCHA_COLOR = { mia:'#D9822B', cliente:'#1663A8', cerrado:'#2E9E5B' };
+const ARBOL_COLOR = { mia:'#C0392B', cliente:'#1663A8', cerrado:'#2E9E5B' }; // semáforo pedido para el árbol
+const ORDEN_TIPOS = ['PM','PMV','VMP','RU','DQ','IQ','OQ','PQ','IV','IF','INF'];
+function ordenTipo(t){ const i = ORDEN_TIPOS.indexOf((t||'').toUpperCase()); return i === -1 ? 99 : i; }
+
+// Unifica proyectos de DocTracker (siempre profesionales) y propios de FlowTracker
+function todosProyectos() {
+  const dt = DATA.proyectos.map(p => ({ codigo:p.codigo, nombre:p.nombre, cliente_nombre:p.cliente_nombre||'',
+    estado:p.estado, origen:'dt', ambito:'profesional' }));
+  const faro = (DATA.proyectos_faro||[]).map(p => ({ codigo:p.codigo, nombre:p.nombre, cliente_nombre:p.cliente||'',
+    estado:p.estado, origen:'faro', ambito:p.ambito }));
+  return dt.concat(faro);
+}
+function pasaFiltro(p){ return FILTRO_AMBITO === 'todos' || p.ambito === FILTRO_AMBITO; }
+function chipsFiltro() {
+  return `<div class="filtros">${[['todos','Todos'],['profesional','Profesional'],['personal','Personal']]
+    .map(([v,t]) => `<button class="${FILTRO_AMBITO===v?'on':''}" onclick="FILTRO_AMBITO='${v}';ftRender()">${t}</button>`).join('')}</div>`;
+}
+function tagDe(p) {
+  if (p.origen === 'dt') return '<span class="tag dt">DocTracker</span>';
+  return p.ambito === 'personal' ? '<span class="tag per">Personal</span>' : '<span class="tag pro">Profesional</span>';
+}
+
+const hoyISO = () => new Date().toISOString().slice(0,10);
+
+
+/* ---------- Lógica de cancha ---------- */
+function estadoEfectivo(it){ return it.doc_codigo ? (it.doc_estado || 'Borrador') : it.estado; }
+function canchaDoc(e) {
+  if (['Entregado','Suspendido','Cancelado'].includes(e)) return 'cerrado';
+  if (e === 'Enviado a cliente') return 'cliente';
+  return 'mia';
+}
+function cancha(it) {
+  const e = estadoEfectivo(it);
+  if (it.doc_codigo) return canchaDoc(e);
+  if (['aprobado','n/a'].includes(e)) return 'cerrado';
+  if (['enviado a cliente','esperando respuesta'].includes(e)) return 'cliente';
+  return 'mia';
+}
+const CHIP = { mia:['c-mia','En tu cancha'], cliente:['c-cliente','Espera al cliente'], cerrado:['c-cerrado','Cerrado'] };
+function chip(c){ return `<span class="chip ${CHIP[c][0]}"><span class="punto"></span>${CHIP[c][1]}</span>`; }
+function itemsDe(cod){ return DATA.items.filter(i => i.proyecto === cod); }
+function docsDe(cod){ return DATA.documentos.filter(d => d.proyecto === cod); }
+
+// Unidades de trabajo de un proyecto: documentos reales de DocTracker + ítems de seguimiento.
+// Los ítems vinculados a un documento del mismo proyecto se omiten (ya cuentan como documento).
+function unidadesDe(cod) {
+  const docs = docsDe(cod);
+  const codsDocs = new Set(docs.map(d => d.codigo));
+  const uDocs = docs.map(d => ({ clase:'doc', nombre:(d.codigo + ' · ' + (d.tipo_doc||'') + ' ' + (d.prot_inf||'')).trim(),
+    estado:d.estado, cancha:canchaDoc(d.estado), fecha_limite:null }));
+  const uItems = itemsDe(cod).filter(i => !(i.doc_codigo && codsDocs.has(i.doc_codigo)))
+    .map(i => ({ clase:'seg', nombre:i.nombre, estado:estadoEfectivo(i), cancha:cancha(i), fecha_limite:i.fecha_limite }));
+  return uDocs.concat(uItems);
+}
+
+/* ---------- Navegación ---------- */
+function ftIr(v){ VISTA = v; if(v!=='proyectos') PROY_SEL = null; ftRender(); }
+function ftRender() {
+  if (typeof MODULO !== 'undefined' && MODULO === 'com') { renderCom(); return; }
+  for (const [id,v] of [['nHoy','hoy'],['nProy','proyectos'],['nCal','calendario'],['nTpl','templates']])
+    document.getElementById(id).classList.toggle('active', VISTA === v);
+  const shell = document.getElementById('app');
+  shell.innerHTML = '<div id="ftScope" class="ftui"></div>';
+  const m = document.getElementById('ftScope');
+  if (VISTA === 'hoy') m.innerHTML = vistaHoy();
+  else if (VISTA === 'proyectos') m.innerHTML = PROY_SEL ? vistaDetalle() : ftVistaProyectos();
+  else if (VISTA === 'calendario') m.innerHTML = vistaCalendario();
+  else m.innerHTML = vistaTemplates();
+  if (VISTA === 'proyectos' && PROY_SEL) cargarBitacora();
+}
+
+/* ---------- Vista HOY ---------- */
+function tarjetaProyecto(p) {
+  const us = unidadesDe(p.codigo);
+  const cerrados = us.filter(u => u.cancha === 'cerrado').length;
+  const enMia = us.filter(u => u.cancha === 'mia').length;
+  const enCli = us.filter(u => u.cancha === 'cliente').length;
+  const prox = us.find(u => u.cancha === 'mia') || us.find(u => u.cancha === 'cliente');
+  const pct = us.length ? Math.round(cerrados / us.length * 100) : 0;
+  return `<div class="card pcard ${p.ambito === 'personal' ? 'personal' : ''}" onclick="abrirProyecto('${esc(p.codigo)}')">
+    <div class="fila" style="justify-content:space-between">
+      <h3>${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</h3>${prox ? chip(prox.cancha) : chip('cerrado')}
+    </div>
+    <div class="muted">${esc(p.cliente_nombre || '')} · ${cerrados}/${us.length} cerrados${enMia ? ` · ${enMia} en tu cancha` : ''}${enCli ? ` · ${enCli} del cliente` : ''}</div>
+    ${prox ? `<div class="prox">Próxima acción: <b>${esc(prox.nombre)}</b> — ${esc(prox.estado)}${prox.fecha_limite ? ' · vence ' + esc(prox.fecha_limite) : ''}</div>` : ''}
+    <div class="barra"><i style="width:${pct}%"></i></div>
+  </div>`;
+}
+function vistaHoy() {
+  const activos = todosProyectos().filter(p => p.estado === 'Activo' && pasaFiltro(p) && unidadesDe(p.codigo).length);
+  const mios = activos.filter(p => unidadesDe(p.codigo).some(u => u.cancha === 'mia'));
+  // Del lado del cliente: documentos e ítems individuales, no proyectos enteros
+  const esperando = [];
+  for (const p of activos)
+    for (const u of unidadesDe(p.codigo)) if (u.cancha === 'cliente') esperando.push({ ...u, proyecto: p.codigo });
+  for (const i of itemsDe(TAREAS)) if (cancha(i) === 'cliente')
+    esperando.push({ clase:'seg', nombre:i.nombre, estado:estadoEfectivo(i), fecha_limite:i.fecha_limite, proyecto: TAREAS });
+  const h = hoyISO();
+  const lim = new Date(Date.now() + 7*864e5).toISOString().slice(0,10);
+  const codsVisibles = new Set(activos.map(p => p.codigo));
+  codsVisibles.add(TAREAS);
+  const vencen = DATA.items
+    .filter(i => i.fecha_limite && cancha(i) !== 'cerrado' && i.fecha_limite <= lim && codsVisibles.has(i.proyecto))
+    .sort((a,b) => a.fecha_limite < b.fecha_limite ? -1 : 1);
+  const tareas = itemsDe(TAREAS);
+  const tareasActivas = tareas.filter(i => cancha(i) !== 'cerrado');
+  const tareasCerradas = tareas.length - tareasActivas.length;
+  return chipsFiltro() + `
+    <div class="card">
+      <div class="fila" style="justify-content:space-between">
+        <h2 style="font-size:15px">✓ Tareas sueltas</h2>
+        ${tareasCerradas ? `<span class="muted">${tareasCerradas} cerrada${tareasCerradas > 1 ? 's' : ''}</span>` : ''}
+      </div>
+      <div style="margin-top:6px">${tareasActivas.map(i => filaItem(i, [])).join('') ||
+        '<div class="muted" style="padding:6px 4px">Sin tareas pendientes.</div>'}</div>
+      <div class="fila" style="margin-top:10px">
+        <input id="tareaNueva" placeholder="Ej: Emitir factura abril LKM" style="flex:1" onkeydown="if(event.key==='Enter')crearTarea()">
+        <input id="tareaFecha" type="date" title="Fecha límite (opcional)">
+        <button class="btn mini" onclick="crearTarea()">+ Agregar</button>
+      </div>
+    </div>
+    ${vencen.length ? `<div class="card"><h2 style="font-size:15px;margin-bottom:8px">⏰ Vencimientos próximos</h2>
+      ${vencen.map(i => `<div class="venc ${i.fecha_limite < h ? 'tarde' : ''}">
+        <span>${esc(i.nombre)} <span class="muted">· ${esc(i.proyecto)}</span></span>
+        <span>${i.fecha_limite < h ? 'VENCIDO · ' : ''}${esc(i.fecha_limite)}</span></div>`).join('')}</div>` : ''}
+    <div class="hoy-grid">
+      <div><div class="col-titulo mia"><span class="punto" style="background:#D9822B"></span>En tu cancha (${mios.length})</div>
+        ${mios.map(tarjetaProyecto).join('') || '<div class="tarea-vacia">Nada pendiente de tu lado 🎉</div>'}</div>
+      <div><div class="col-titulo cli"><span class="punto" style="background:#1663A8"></span>Esperando al cliente (${esperando.length})</div>
+        ${esperando.map(u => `<div class="card pcard" style="border-left-color:#1663A8;padding:11px 14px" onclick="abrirProyecto('${esc(u.proyecto)}')">
+          <div class="fila" style="justify-content:space-between;gap:8px">
+            <b style="font-size:13px">${esc(u.nombre)}</b>
+            <span class="muted" style="white-space:nowrap">${u.proyecto === TAREAS ? 'Tarea suelta' : esc(u.proyecto)}</span></div>
+          <div class="muted" style="margin-top:3px">${esc(u.estado)}${u.fecha_limite ? ' · vence ' + esc(u.fecha_limite) : ''}</div>
+        </div>`).join('') || '<div class="tarea-vacia">Nada esperando respuesta</div>'}</div>
+    </div>
+    ${!activos.length && !tareas.length ? `<div class="card tarea-vacia">Todavía no hay proyectos con seguimiento.<br><br>
+      <button class="btn" onclick="ftIr('proyectos')">Ir a Proyectos para arrancar</button></div>` : ''}`;
+}
+
+async function crearTarea() {
+  const nombre = document.getElementById('tareaNueva').value.trim();
+  if (!nombre) return;
+  const fecha = document.getElementById('tareaFecha').value || null;
+  try {
+    await api('/api/seguimiento/items', { method:'POST', body:{ proyecto: TAREAS, nombre, fecha_limite: fecha } });
+    await ftCargar(); ftRender();
+  } catch(e){ alert(e.message); }
+}
+
+/* ---------- Vista PROYECTOS ---------- */
+function ftVistaProyectos() {
+  const todos = todosProyectos();
+  const conSeg = todos.filter(p => unidadesDe(p.codigo).length && pasaFiltro(p));
+  const sinSegDT = todos.filter(p => p.origen === 'dt' && !unidadesDe(p.codigo).length);
+  const sinSegFaro = todos.filter(p => p.origen === 'faro' && !unidadesDe(p.codigo).length && pasaFiltro(p));
+  return `<div class="fila" style="justify-content:space-between;margin-bottom:12px">
+      ${chipsFiltro()}
+      <button class="btn mini" onclick="modalNuevoProyecto()">+ Nuevo proyecto</button></div>
+    ${conSeg.map(tarjetaProyecto).join('') || '<div class="card tarea-vacia">Ningún proyecto tiene seguimiento todavía (con este filtro).</div>'}
+    ${sinSegFaro.map(p => `<div class="card fila" style="justify-content:space-between">
+      <span>${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</span>
+      <button class="btn mini" onclick="abrirProyecto('${esc(p.codigo)}')">Abrir</button></div>`).join('')}
+    ${FILTRO_AMBITO !== 'personal' ? `<div class="card"><h3 style="font-size:14px;margin-bottom:8px">Proyectos de DocTracker sin seguimiento</h3>
+      ${sinSegDT.map(p => `<div class="fila" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--fondo)">
+        <span>${esc(p.codigo)} · ${esc(p.nombre)} <span class="muted">${esc(p.cliente_nombre || '')} · ${esc(p.estado)}</span></span>
+        <button class="btn mini" onclick="modalTemplate('${esc(p.codigo)}')">+ Aplicar template</button></div>`).join('')
+        || '<div class="muted">DocTracker no tiene proyectos cargados en su módulo Proyectos.</div>'}
+      <p class="muted" style="margin-top:10px">Diagnóstico: DocTracker tiene ${DATA.proyectos.length} proyecto(s) y ${DATA.documentos.length} documento(s).
+      FlowTracker lee el módulo <b>Proyectos</b> de DocTracker — si tu trabajo está solo como expedientes, crealo también como Proyecto allá, o creá acá un proyecto FlowTracker.</p></div>` : ''}`;
+}
+
+function modalNuevoProyecto() {
+  ftAbrirModal(`<h3>Nuevo proyecto FlowTracker</h3>
+    <p class="muted">Para proyectos que no viven en DocTracker (personales o profesionales sueltos).</p>
+    <label>Nombre</label><input id="mPNom" placeholder="Ej: Pintar el portón / Habilitación farmacia">
+    <label>Ámbito</label>
+    <select id="mPAmb"><option value="personal">Personal</option><option value="profesional">Profesional</option></select>
+    <label>Cliente / referencia (opcional)</label><input id="mPCli">
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button>
+    <button class="btn" onclick="crearProyecto()">Crear</button></div>`);
+}
+async function crearProyecto() {
+  const nombre = document.getElementById('mPNom').value.trim();
+  if (!nombre) return alert('Falta el nombre');
+  try {
+    const p = await api('/api/seguimiento/proyectos', { method:'POST', body:{
+      nombre, ambito: document.getElementById('mPAmb').value,
+      cliente: document.getElementById('mPCli').value.trim() } });
+    ftCerrarModal(); await ftCargar(); abrirProyecto(p.codigo);
+  } catch(e){ alert(e.message); }
+}
+
+function abrirProyecto(cod){ if (cod === TAREAS) { ftIr('hoy'); return; } VISTA = 'proyectos'; PROY_SEL = cod; ftRender(); }
+
+function vistaDetalle() {
+  const p = todosProyectos().find(x => x.codigo === PROY_SEL);
+  if (!p) { PROY_SEL = null; return ftVistaProyectos(); }
+  const its = itemsDe(p.codigo);
+  const docsProy = docsDe(p.codigo);
+  const codsDocs = new Set(docsProy.map(d => d.codigo));
+  const itsVisibles = its.filter(i => !(i.doc_codigo && codsDocs.has(i.doc_codigo)));
+
+  // Agrupar documentos por expediente, ordenados por número de expediente
+  const exps = new Map();
+  const docsOrdenados = docsProy.slice().sort((a, b) =>
+    String(a.expediente_id).localeCompare(String(b.expediente_id), undefined, { numeric: true }) ||
+    String(a.codigo).localeCompare(String(b.codigo)));
+  for (const d of docsOrdenados) {
+    if (!exps.has(d.expediente_id)) exps.set(d.expediente_id, []);
+    exps.get(d.expediente_id).push(d);
+  }
+  let htmlExps = '';
+  for (const [expId, docs] of exps) {
+    const activosN = docs.filter(d => canchaDoc(d.estado) !== 'cerrado').length;
+    const resumen = activosN ? `<span class="chip c-mia"><span class="punto"></span>${activosN} activo${activosN > 1 ? 's' : ''}</span>` : chip('cerrado');
+    htmlExps += `<details class="exp">
+      <summary><span><span class="cod">${esc(expId)}</span> <span class="muted">${esc((docs[0].descripcion || '').slice(0,60))}</span></span>${resumen}</summary>
+      ${docs.map(d => `<div class="doc-row">
+        <span><b>${esc(d.codigo)}</b> · ${esc(d.tipo_doc || '')} ${esc(d.prot_inf || '')}</span>
+        <span class="fila">${chip(canchaDoc(d.estado))}
+        <select onchange="cambiarEstadoDoc('${esc(d.codigo)}', this.value, '${esc(d.estado)}')">
+          ${docEstadosSel(d.estado).map(s => `<option ${d.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select></span>
+      </div>`).join('')}
+    </details>`;
+  }
+
+  return `<button class="btn sec mini" onclick="PROY_SEL=null;ftRender()">← Volver</button>
+  <div class="card" style="margin-top:12px;border-left:4px solid ${p.ambito === 'personal' ? '#8E6CC8' : 'var(--turq)'}">
+    <div class="fila" style="justify-content:space-between">
+      <div><h2 style="font-size:17px">${esc(p.codigo)} · ${esc(p.nombre)} ${tagDe(p)}</h2>
+      <div class="muted">${esc(p.cliente_nombre || '')}${p.origen === 'dt' ? ' · ' + esc(p.estado) : ''}</div></div>
+      <div class="fila">
+        ${p.origen === 'faro' ? `<select onchange="editarProyectoFaro('${esc(p.codigo)}',{estado:this.value})" style="padding:5px 7px;font-size:12px">
+          ${['Activo','Pausado','Cerrado'].map(s => `<option ${p.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select>` : ''}
+        <button class="btn sec mini" onclick="modalTemplate('${esc(p.codigo)}')">+ Template</button>
+        <button class="btn mini" onclick="modalItem('${esc(p.codigo)}')">+ Ítem</button>
+        ${p.origen === 'faro' ? `<button class="btn rojo mini" onclick="borrarProyectoFaro('${esc(p.codigo)}')">✕</button>` : ''}
+      </div>
+    </div>
+    ${docsProy.length ? `<div class="fila" style="justify-content:space-between;margin-top:14px">
+      <div class="seccion" style="margin:0">Expedientes y documentos · DocTracker (${exps.size} exp / ${docsProy.length} docs)</div>
+      <div class="modo-btns">
+        <button class="${MODO_DETALLE === 'lista' ? 'on' : ''}" onclick="MODO_DETALLE='lista';ftRender()">☰ Lista</button>
+        <button class="${MODO_DETALLE === 'mapa' ? 'on' : ''}" onclick="MODO_DETALLE='mapa';ftRender()">▦ Mapa</button>
+        <button class="${MODO_DETALLE === 'arbol' ? 'on' : ''}" onclick="MODO_DETALLE='arbol';ftRender()">🌳 Árbol</button>
+      </div></div>
+      ${MODO_DETALLE === 'mapa' ? mapaProyecto(exps) : MODO_DETALLE === 'arbol' ? arbolProyecto(p, exps) : htmlExps}` : ''}
+    ${(docsProy.length || itsVisibles.length) ? `<div class="seccion">Ítems de seguimiento (extra: comercial, esperas, tareas sin documento)</div>` : ''}
+    <div>
+      ${itsVisibles.map(i => filaItem(i, docsProy)).join('') || (docsProy.length ? '<div class="muted" style="padding:4px 6px">Sin ítems extra. Usá "+ Ítem" para el ping-pong comercial (ej: esperando OC).</div>' : '<div class="tarea-vacia">Sin ítems. Aplicá un template o agregá ítems sueltos.</div>')}
+    </div>
+    <div class="bita" id="bitacora"><div class="muted">Cargando bitácora…</div></div>
+  </div>`;
+}
+
+async function cambiarEstadoDoc(codigo, estado, viejo) {
+  const ok = pedirCambioEstado(viejo || '', estado);
+  if (!ok) { ftRender(); return; }
+  try { await api('/api/documentos/' + encodeURIComponent(codigo) + '/estado', { method:'POST', body:{ estado, motivo: ok.motivo } }); await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); ftRender(); }
+}
+
+// Árbol: proyecto → expedientes ABIERTOS (amarillo) → documentos por color.
+// Los expedientes 100% cerrados no aparecen. Clic en un expediente lo expande/colapsa.
+function arbolProyecto(p, exps) {
+  const abiertos = [...exps.entries()].filter(([, docs]) => docs.some(d => canchaDoc(d.estado) !== 'cerrado'));
+  if (!abiertos.length) return '<div class="tarea-vacia">🎉 Todos los expedientes están cerrados — no queda nada abierto en este proyecto.</div>';
+  const cerradosOcultos = exps.size - abiertos.length;
+
+  let ramas = '';
+  for (const [expId, docs] of abiertos) {
+    const n = { mia:0, cliente:0, cerrado:0 };
+    for (const d of docs) n[canchaDoc(d.estado)]++;
+    const abierto = ARBOL_EXP.has(expId);
+    const resumen = ['mia','cliente','cerrado'].filter(c => n[c])
+      .map(c => `<span style="background:${ARBOL_COLOR[c]}">${n[c]}</span>`).join('');
+    const hojas = !abierto ? '' : `<div class="hojas">${docs
+      .slice().sort((a,b) => ordenTipo(a.tipo_doc) - ordenTipo(b.tipo_doc))
+      .map(d => { const c = ARBOL_COLOR[canchaDoc(d.estado)];
+        return `<div class="hoja" style="--h-color:${c}">
+          <span class="hoja-chip" style="background:${c}" title="${esc(d.codigo)}">${esc(d.tipo_doc || '')} ${esc(d.prot_inf || '')} · ${esc(d.estado)}${d.estado === 'Entregado' ? ' ✓' : ''}</span>
+        </div>`; }).join('')}</div>`;
+    ramas += `<div class="exp-nodo">
+      <div class="exp-caja" onclick="toggleExp('${esc(expId)}')">
+        <span class="caret">${abierto ? '▾' : '▸'}</span>
+        <b>${esc(expId)}</b>
+        <span class="desc">${esc(docs[0].descripcion || '')}</span>
+        <span class="resumen">${resumen}</span>
+      </div>
+      ${hojas}
+    </div>`;
+  }
+
+  return `<div class="arbol">
+      <div class="raiz">${esc(p.codigo)} · ${esc(p.nombre)}</div>
+      <div class="ramas">${ramas}</div>
+    </div>
+    <div class="leyenda">
+      <span><span class="celda" style="background:${ARBOL_COLOR.mia}"></span>Tenés que entregarlo</span>
+      <span><span class="celda" style="background:${ARBOL_COLOR.cliente}"></span>Lo tiene el cliente</span>
+      <span><span class="celda" style="background:${ARBOL_COLOR.cerrado}"></span>Entregado</span>
+      ${cerradosOcultos ? `<span class="muted">· ${cerradosOcultos} expediente(s) cerrados ocultos</span>` : ''}
+    </div>`;
+}
+function toggleExp(id){ ARBOL_EXP.has(id) ? ARBOL_EXP.delete(id) : ARBOL_EXP.add(id); ftRender(); }
+
+// Matriz: filas = expedientes, columnas = tipo P / tipo I.
+// Los documentos legacy "PI" (protocolo+informe unificados) alimentan AMBAS columnas
+// de su tipo, así no queda una tercera columna PI llena de agujeros.
+function mapaProyecto(exps) {
+  const colsDe = d => {
+    const t = (d.tipo_doc || '?').toUpperCase().trim();
+    const pi = (d.prot_inf || '').toUpperCase().trim();
+    if (pi === 'PI') return [t + ' P', t + ' I'];
+    return [(t + (pi ? ' ' + pi : '')).trim()];
+  };
+  const rangoPI = s => ({ 'P': 0, 'I': 1 }[s] ?? 9);
+  const cols = [...new Set([...exps.values()].flat().flatMap(colsDe))]
+    .sort((a, b) => {
+      const [ta, pa] = a.split(' '), [tb, pb] = b.split(' ');
+      return ordenTipo(ta) - ordenTipo(tb) || rangoPI(pa) - rangoPI(pb) || a.localeCompare(b);
+    });
+  let filas = '';
+  // Más nuevos arriba: en batches largos, los viejos ya cerrados se van al fondo
+  for (const [expId, docs] of [...exps.entries()].reverse()) {
+    let celdas = '';
+    for (const c of cols) {
+      const ds = docs.filter(d => colsDe(d).includes(c));
+      if (!ds.length) { celdas += '<td><div class="celda vacia" title="No aplica — no es entregable de este expediente">–</div></td>'; continue; }
+      // Si hay varios docs del mismo tipo (P + I, versiones), manda el "peor": tu cancha > cliente > cerrado
+      const canchas = ds.map(d => canchaDoc(d.estado));
+      const peor = canchas.includes('mia') ? 'mia' : canchas.includes('cliente') ? 'cliente' : 'cerrado';
+      const titulo = ds.map(d => `${d.codigo} (${(d.prot_inf || '').toUpperCase() === 'PI' ? 'PI unificado' : d.prot_inf || '—'}): ${d.estado}`).join('\n');
+      celdas += `<td><div class="celda" style="background:${CANCHA_COLOR[peor]}" title="${esc(titulo)}"></div></td>`;
+    }
+    const desc = (docs => (docs[0].descripcion || ''))(exps.get(expId));
+    filas += `<tr><td class="exp-nom" title="${esc(desc)}">${esc(expId)}</td>${celdas}</tr>`;
+  }
+  return `<div class="mapa-wrap"><table class="mapa">
+      <tr><th style="text-align:left">Expediente</th>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>
+      ${filas}</table></div>
+    <div class="leyenda">
+      <span><span class="celda" style="background:${CANCHA_COLOR.mia}"></span>En tu cancha</span>
+      <span><span class="celda" style="background:${CANCHA_COLOR.cliente}"></span>Espera al cliente</span>
+      <span><span class="celda" style="background:${CANCHA_COLOR.cerrado}"></span>Cerrado</span>
+      <span><span class="celda vacia">–</span>No aplica</span>
+      <span class="muted">· Los PI viejos (protocolo+informe unificados) llenan ambas columnas; el hover detalla cada documento</span>
+    </div>`;
+}
+
+async function editarProyectoFaro(cod, body) {
+  try { await api('/api/seguimiento/proyectos/' + encodeURIComponent(cod), { method:'PATCH', body }); await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); }
+}
+async function borrarProyectoFaro(cod) {
+  if (!confirm('¿Eliminar este proyecto FlowTracker y todos sus ítems de seguimiento?')) return;
+  try { await api('/api/seguimiento/proyectos/' + encodeURIComponent(cod), { method:'DELETE' }); PROY_SEL = null; await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); }
+}
+
+function filaItem(i, docsProy) {
+  const c = cancha(i), e = estadoEfectivo(i);
+  const estados = i.doc_codigo ? docEstadosSel(e) : SEG_ESTADOS;
+  return `<div class="item-row">
+    <span class="tilde ${c === 'cerrado' ? 'done' : ''}"></span>
+    <div class="nom">${esc(i.nombre)}
+      ${i.doc_codigo ? `<span class="doc">📄 ${esc(i.doc_codigo)} — el estado lo manda el documento</span>` : ''}
+    </div>
+    <div class="ops">
+      ${chip(c)}
+      <select onchange="ftItemEstado(${i.id}, this.value)">
+        ${estados.map(s => `<option ${e === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      <input type="date" value="${esc(i.fecha_limite || '')}" onchange="editarItem(${i.id},{fecha_limite:this.value})" title="Fecha límite">
+      <button class="btn sec mini" onclick="notaItem(${i.id})" title="Agregar nota a la bitácora">✎</button>
+      <button class="btn sec mini" onclick="modalVincular(${i.id})" title="Vincular documento de DocTracker">🔗</button>
+      <button class="btn rojo mini" onclick="borrarItem(${i.id})">✕</button>
+    </div>
+  </div>`;
+}
+
+async function cargarBitacora() {
+  const el = document.getElementById('bitacora'); if (!el || !PROY_SEL) return;
+  try {
+    const ent = await api('/api/seguimiento/proyectos/' + encodeURIComponent(PROY_SEL) + '/bitacora');
+    el.innerHTML = '<h3 style="font-size:13px;margin-bottom:6px">Bitácora del proyecto</h3>' +
+      (ent.map(n => `<div class="e"><span class="muted">${new Date(n.ts).toLocaleString('es-AR')} · ${esc(n.autor)} · ${esc(n.tipo)}</span><br>${esc(n.texto)}</div>`).join('')
+       || '<div class="muted">Sin entradas todavía.</div>');
+  } catch(e){ el.innerHTML = '<div class="muted">No se pudo cargar la bitácora.</div>'; }
+}
+
+/* ---------- Acciones sobre ítems ---------- */
+async function ftItemEstado(id, estado) {
+  const it = DATA.items.find(x => x.id === id);
+  const body = { estado };
+  if (it && it.doc_codigo) {
+    const ok = pedirCambioEstado(estadoEfectivo(it), estado);
+    if (!ok) { ftRender(); return; }
+    body.motivo = ok.motivo;
+  }
+  try { await api('/api/seguimiento/items/' + id, { method:'PATCH', body }); await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); ftRender(); }
+}
+async function editarItem(id, body) {
+  try { await api('/api/seguimiento/items/' + id, { method:'PATCH', body }); await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); }
+}
+async function borrarItem(id) {
+  if (!confirm('¿Eliminar este ítem del seguimiento? (no toca documentos de DocTracker)')) return;
+  try { await api('/api/seguimiento/items/' + id, { method:'DELETE' }); await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); }
+}
+async function notaItem(id) {
+  const t = prompt('Nota para la bitácora (ej: "cliente respondió con observaciones"):');
+  if (!t) return;
+  try { await api('/api/seguimiento/items/' + id + '/nota', { method:'POST', body:{ texto: t } }); ftRender(); }
+  catch(e){ alert(e.message); }
+}
+
+/* ---------- Modales ---------- */
+function ftAbrirModal(html){ document.getElementById('modalCaja').innerHTML = html; document.getElementById('modal').style.display = 'flex'; }
+function ftCerrarModal(){ document.getElementById('modal').style.display = 'none'; }
+
+function modalTemplate(cod) {
+  ftAbrirModal(`<h3>Aplicar template</h3>
+    <label>Proyecto</label><input value="${esc(cod)}" disabled>
+    <label>Template</label>
+    <select id="mTpl">${DATA.templates.map(t => `<option value="${t.id}">${esc(t.nombre)} (${t.items.length} ítems)</option>`).join('')}</select>
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button>
+    <button class="btn" onclick="aplicarTemplate('${esc(cod)}')">Aplicar</button></div>`);
+}
+async function aplicarTemplate(cod) {
+  try {
+    await api('/api/seguimiento/aplicar-template', { method:'POST',
+      body:{ proyecto: cod, template_id: +document.getElementById('mTpl').value } });
+    ftCerrarModal(); await ftCargar(); abrirProyecto(cod);
+  } catch(e){ alert(e.message); }
+}
+
+function modalItem(cod) {
+  ftAbrirModal(`<h3>Nuevo ítem</h3>
+    <label>Nombre</label><input id="mNom" placeholder="Ej: Esperando OC del cliente">
+    <label>Fecha límite (opcional)</label><input id="mFec" type="date">
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button>
+    <button class="btn" onclick="crearItem('${esc(cod)}')">Crear</button></div>`);
+}
+async function crearItem(cod) {
+  const nombre = document.getElementById('mNom').value.trim();
+  if (!nombre) return alert('Falta el nombre');
+  try {
+    await api('/api/seguimiento/items', { method:'POST',
+      body:{ proyecto: cod, nombre, fecha_limite: document.getElementById('mFec').value || null } });
+    ftCerrarModal(); await ftCargar(); ftRender();
+  } catch(e){ alert(e.message); }
+}
+
+function modalVincular(id) {
+  const it = DATA.items.find(x => x.id === id);
+  const docs = DATA.documentos.filter(d => d.proyecto === it.proyecto);
+  const otros = DATA.documentos.filter(d => d.proyecto !== it.proyecto);
+  ftAbrirModal(`<h3>Vincular documento</h3>
+    <p class="muted">Al vincular, el estado del ítem pasa a leerse del documento en DocTracker (fuente única). Cambiarlo desde acá lo cambia allá, con su bitácora.</p>
+    <label>Documento</label>
+    <select id="mDoc">
+      <option value="">— Sin vínculo (estado manual) —</option>
+      ${docs.length ? `<optgroup label="Del proyecto ${esc(it.proyecto)}">${docs.map(d =>
+        `<option value="${esc(d.codigo)}" ${it.doc_codigo === d.codigo ? 'selected' : ''}>${esc(d.codigo)} · ${esc(d.tipo_doc)} ${esc(d.prot_inf)} · ${esc(d.estado)}</option>`).join('')}</optgroup>` : ''}
+      <optgroup label="Otros documentos">${otros.map(d =>
+        `<option value="${esc(d.codigo)}" ${it.doc_codigo === d.codigo ? 'selected' : ''}>${esc(d.codigo)} · ${esc(d.descripcion || '').slice(0,40)}</option>`).join('')}</optgroup>
+    </select>
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button>
+    <button class="btn" onclick="vincular(${id})">Guardar</button></div>`);
+}
+async function vincular(id) {
+  try {
+    await api('/api/seguimiento/items/' + id, { method:'PATCH',
+      body:{ doc_codigo: document.getElementById('mDoc').value || '' } });
+    ftCerrarModal(); await ftCargar(); ftRender();
+  } catch(e){ alert(e.message); }
+}
+
+/* ---------- Vista CALENDARIO ---------- */
+function vistaCalendario() {
+  if (!CAL_MES) { const d = new Date(); CAL_MES = [d.getFullYear(), d.getMonth()]; }
+  const [anio, mes] = CAL_MES;
+  const primero = new Date(anio, mes, 1);
+  const inicio = (primero.getDay() + 6) % 7; // lunes = 0
+  const dias = new Date(anio, mes + 1, 0).getDate();
+  const h = hoyISO();
+  const porFecha = {};
+  for (const i of DATA.items) if (i.fecha_limite && cancha(i) !== 'cerrado')
+    (porFecha[i.fecha_limite] = porFecha[i.fecha_limite] || []).push(i);
+  let celdas = '';
+  for (let x = 0; x < inicio; x++) celdas += '<div></div>';
+  for (let d = 1; d <= dias; d++) {
+    const f = `${anio}-${String(mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    celdas += `<div class="dia ${f === h ? 'hoy-dia' : ''}"><div class="n">${d}</div>
+      ${(porFecha[f] || []).map(i => `<div class="it ${f < h ? 'tarde' : ''}" onclick="abrirProyecto('${esc(i.proyecto)}')" title="${esc(i.proyecto)}">${esc(i.nombre)}</div>`).join('')}</div>`;
+  }
+  return `<div class="card">
+    <div class="fila" style="justify-content:space-between;margin-bottom:12px">
+      <button class="btn sec mini" onclick="CAL_MES=[${mes===0?anio-1:anio},${mes===0?11:mes-1}];ftRender()">←</button>
+      <h2 style="font-size:16px">${MESES[mes]} ${anio}</h2>
+      <button class="btn sec mini" onclick="CAL_MES=[${mes===11?anio+1:anio},${mes===11?0:mes+1}];ftRender()">→</button>
+    </div>
+    <div class="cal-cab"><div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div><div>Do</div></div>
+    <div class="cal">${celdas}</div>
+  </div>`;
+}
+
+/* ---------- Vista FACTURACIÓN ---------- */
+let FACT_F = { cliente:'', estado:'todas', desde:'', hasta:'' };
+const fmtMonto = (n, m) => (m === 'USD' ? 'USD ' : '$ ') + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+
+function factRango(desde, hasta) { FACT_F.desde = desde; FACT_F.hasta = hasta; ftRender(); }
+function enRango(f) { return (!FACT_F.desde || (f || '') >= FACT_F.desde) && (!FACT_F.hasta || (f || '') <= FACT_F.hasta); }
+
+function vistaComercial() {
+  const todas = DATA.facturas || [];
+  const clientes = [...new Set(todas.map(f => f.cliente).filter(Boolean))].sort();
+
+  // Totales del período, separados por moneda:
+  // Facturado y Pendiente por fecha de emisión; Cobrado por fecha de cobro.
+  const tot = { fact:{}, cob:{}, pend:{} };
+  for (const f of todas) {
+    if ((FACT_F.cliente && f.cliente !== FACT_F.cliente)) continue;
+    if (enRango(f.fecha_emision)) {
+      tot.fact[f.moneda] = (tot.fact[f.moneda] || 0) + +f.monto;
+      if (f.estado !== 'Cobrada') tot.pend[f.moneda] = (tot.pend[f.moneda] || 0) + +f.monto;
+    }
+    if (f.estado === 'Cobrada' && enRango(f.fecha_cobro))
+      tot.cob[f.moneda] = (tot.cob[f.moneda] || 0) + +f.monto;
+  }
+  const rTot = o => Object.keys(o).sort().map(m => `<div style="font-size:16px;font-weight:700">${fmtMonto(o[m], m)}</div>`).join('') || '<div class="muted">—</div>';
+
+  const lista = todas.filter(f =>
+    (!FACT_F.cliente || f.cliente === FACT_F.cliente) &&
+    (FACT_F.estado === 'todas' || f.estado === FACT_F.estado) &&
+    enRango(f.fecha_emision));
+
+  const hoy = new Date(); const y = hoy.getFullYear();
+  const hace3m = new Date(hoy - 90*864e5).toISOString().slice(0,10);
+
+  // Presupuestos: gestión completa. El correlativo lo asigna DocTracker.
+  const PRES_ESTADOS = ['Borrador','Enviado','Aceptado','Rechazado','Vencido'];
+  const presRelevantes = (DATA.presupuestos || []).filter(p =>
+    (!FACT_F.cliente || p.cliente_nombre === FACT_F.cliente));
+  const htmlPres = presRelevantes.map(p => {
+    const fs = todas.filter(f => f.presupuesto === p.codigo);
+    const sumas = {};
+    for (const f of fs) sumas[f.moneda] = (sumas[f.moneda] || 0) + +f.monto;
+    const cobradas = fs.filter(f => f.estado === 'Cobrada').length;
+    const pct = (p.moneda && sumas[p.moneda] && +p.monto) ? Math.round(sumas[p.moneda] / +p.monto * 100) : null;
+    const cerrada = p.facturacion === 'Cerrada';
+    const aceptado = p.estado === 'Aceptado';
+    const sumasTxt = Object.keys(sumas).sort().map(m => fmtMonto(sumas[m], m)).join(' + ');
+    const borde = cerrada ? '#2E9E5B' : aceptado ? '#E6B93C' : 'var(--borde)';
+    return `<div class="card" style="border-left:4px solid ${borde}">
+      <div class="fila" style="justify-content:space-between">
+        <div style="min-width:0"><b>${esc(p.codigo)}</b> · ${esc(p.cliente_nombre || '')} <span class="muted">· ${esc((p.descripcion || '').slice(0,50))}</span>
+          <div class="muted" style="margin-top:3px">Presupuesto: ${fmtMonto(p.monto || 0, p.moneda || 'ARS')}${p.fecha_emision ? ' · ' + esc(p.fecha_emision) : ''}${fs.length ? ` · ${fs.length} factura${fs.length === 1 ? '' : 's'} (${cobradas} cobrada${cobradas === 1 ? '' : 's'}) · Facturado: ${sumasTxt}${pct !== null ? ` · ${pct}%` : ''}` : ''}</div>
+        </div>
+        <div class="ops">
+          ${esAdmin() ? `<select onchange="estadoPresup('${esc(p.codigo)}', this.value)" title="Estado del presupuesto">
+            ${PRES_ESTADOS.map(s => `<option ${p.estado === s ? 'selected' : ''}>${s}</option>`).join('')}</select>`
+            : `<span class="chip ${p.estado === 'Aceptado' ? 'c-cerrado' : 'c-mia'}"><span class="punto"></span>${esc(p.estado)}</span>`}
+          ${aceptado ? `<span class="chip ${cerrada ? 'c-cerrado' : 'c-mia'}"><span class="punto"></span>Fact. ${cerrada ? 'cerrada' : 'abierta'}</span>
+            ${esLector() ? '' : cerrada
+              ? `<button class="btn sec mini" onclick="cicloPresup('${esc(p.codigo)}','Abierta')">Reabrir</button>`
+              : `<button class="btn mini" onclick="cicloPresup('${esc(p.codigo)}','Cerrada')">Cerrar ciclo</button>`}` : ''}
+          ${esAdmin() ? `<button class="btn sec mini" title="Ficha y bitácora del presupuesto" onclick="abrirPresu('${esc(p.codigo)}')">🗒</button>
+          <button class="btn sec mini" title="Editar datos" onclick="modalEditarPresup('${esc(p.codigo)}')">✎</button>
+          <button class="btn sec mini" title="Adjuntar archivo (presupuesto, comprobantes) a la carpeta Drive con bitácora" onclick="modalAdjunto('${esc(p.codigo)}','')">📎</button>` : ''}
+          ${p.carpeta_drive_url ? `<a href="${esc(p.carpeta_drive_url)}" target="_blank" class="btn sec mini" style="text-decoration:none" title="Abrir carpeta en Drive">🗂</a>` : ''}
+        </div>
+      </div></div>`;
+  }).join('');
+
+  return `<div class="fila" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="font-size:17px">Comercial · presupuestos y facturación</h2>
+      <div class="fila">
+        ${esAdmin() ? `<button class="btn sec mini" onclick="modalImportarPresus()">⇪ Importar histórico</button>
+        <button class="btn sec mini" onclick="reconstruirPresus()">↺ Reconstruir del registro</button>
+        <button class="btn sec mini" onclick="modalNuevoPresup()">+ Presupuesto</button>` : ''}
+        ${esLector() ? '' : `<button class="btn mini" onclick="modalFactura(null)">+ Nueva factura</button>`}
+      </div></div>
+
+    <div class="card"><div class="fila">
+      <select onchange="FACT_F.cliente=this.value;ftRender()">
+        <option value="">Todos los clientes</option>
+        ${clientes.map(c => `<option ${FACT_F.cliente === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+      <select onchange="FACT_F.estado=this.value;ftRender()">
+        <option value="todas" ${FACT_F.estado === 'todas' ? 'selected' : ''}>Todas</option>
+        <option value="Emitida" ${FACT_F.estado === 'Emitida' ? 'selected' : ''}>Emitidas (sin cobrar)</option>
+        <option value="Cobrada" ${FACT_F.estado === 'Cobrada' ? 'selected' : ''}>Cobradas</option></select>
+      <input type="date" value="${esc(FACT_F.desde)}" onchange="FACT_F.desde=this.value;ftRender()" title="Desde">
+      <input type="date" value="${esc(FACT_F.hasta)}" onchange="FACT_F.hasta=this.value;ftRender()" title="Hasta">
+      <div class="modo-btns">
+        <button onclick="factRango('${hace3m}','')">3 meses</button>
+        <button onclick="factRango('${y}-01-01','')">Este año</button>
+        <button onclick="factRango('','')">Todo</button></div>
+    </div></div>
+
+    <div class="hoy-grid" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="card"><div class="muted" style="font-weight:600">FACTURADO</div>${rTot(tot.fact)}</div>
+      <div class="card"><div class="muted" style="font-weight:600;color:#1F7A44">COBRADO</div>${rTot(tot.cob)}</div>
+      <div class="card"><div class="muted" style="font-weight:600;color:#9A5B12">PENDIENTE DE COBRO</div>${rTot(tot.pend)}</div>
+    </div>
+
+    ${htmlPres ? `<div class="seccion">Por presupuesto</div>${htmlPres}` : ''}
+    <div class="seccion">Facturas</div>
+    <div class="card">
+    ${lista.map(f => {
+      const pres = (DATA.presupuestos || []).find(p => p.codigo === f.presupuesto);
+      return `<div class="item-row" style="grid-template-columns:1fr auto">
+        <div class="nom"><b>${esc(f.numero)}</b> · ${esc(f.cliente)} <span class="muted">· ${esc(f.fecha_emision)}</span>
+          ${f.presupuesto ? `<span class="doc">Presup. ${esc(f.presupuesto)}${pres ? ` (${fmtMonto(pres.monto || 0, pres.moneda || 'ARS')})` : ''}</span>` : ''}
+          ${f.estado === 'Cobrada' && f.fecha_cobro ? `<span class="doc" style="color:#1F7A44">Cobrada el ${esc(f.fecha_cobro)}</span>` : ''}
+        </div>
+        <div class="ops">
+          <b style="font-size:13px">${fmtMonto(f.monto, f.moneda)}</b>
+          <span class="chip ${f.estado === 'Cobrada' ? 'c-cerrado' : 'c-mia'}"><span class="punto"></span>${esc(f.estado)}</span>
+          ${!esLector() && f.estado !== 'Cobrada' ? `<button class="btn mini" onclick="cobrarFactura(${f.id})">Cobrar</button>` : ''}
+          ${esAdmin() && f.presupuesto ? `<button class="btn sec mini" title="Adjuntar PDF de la factura o comprobante de pago" onclick="modalAdjunto('${esc(f.presupuesto)}','[Factura ${esc(f.numero)}] ')">📎</button>` : ''}
+          ${esLector() ? '' : `<button class="btn sec mini" onclick="modalFactura(${f.id})">✎</button>
+          <button class="btn rojo mini" onclick="borrarFactura(${f.id})">✕</button>`}
+        </div>
+      </div>`; }).join('') || '<div class="tarea-vacia">No hay facturas en este filtro.</div>'}
+    </div>`;
+}
+
+function modalFactura(id) {
+  const f = id ? DATA.facturas.find(x => x.id === id) : { numero:'', cliente:'', presupuesto:'', fecha_emision: hoyISO(), monto:'', moneda:'ARS', notas:'' };
+  // Solo presupuestos Aceptados con ciclo de facturación abierto (más el ya vinculado, si se edita)
+  const pres = (DATA.presupuestos || []).filter(p =>
+    (p.estado === 'Aceptado' && p.facturacion !== 'Cerrada') || p.codigo === f.presupuesto);
+  ftAbrirModal(`<h3>${id ? 'Editar' : 'Nueva'} factura</h3>
+    <label>Número</label><input id="fNum" value="${esc(f.numero)}" placeholder="Ej: 0003-00000123">
+    <label>Presupuesto vinculado (opcional)</label>
+    <select id="fPres" onchange="presupSeleccionado()">
+      <option value="">— Sin presupuesto —</option>
+      ${pres.map(p => `<option value="${esc(p.codigo)}" data-cliente="${esc(p.cliente_nombre || '')}" ${f.presupuesto === p.codigo ? 'selected' : ''}>
+        ${esc(p.codigo)} · ${esc(p.cliente_nombre || '')} · ${fmtMonto(p.monto || 0, p.moneda || 'ARS')} · ${esc(p.estado)}</option>`).join('')}</select>
+    <div class="muted" id="fPresRef" style="margin-top:4px"></div>
+    <label>Cliente</label><input id="fCli" value="${esc(f.cliente)}" list="fClientes">
+    <datalist id="fClientes">${[...new Set([...(DATA.facturas||[]).map(x=>x.cliente), ...pres.map(p=>p.cliente_nombre)].filter(Boolean))].map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+    <label>Fecha de emisión</label><input id="fFec" type="date" value="${esc(f.fecha_emision)}">
+    <div class="fila"><div style="flex:1"><label>Monto de la factura</label><input id="fMonto" type="number" step="0.01" value="${esc(f.monto)}"></div>
+    <div><label>Moneda</label><select id="fMon"><option ${f.moneda === 'ARS' ? 'selected' : ''}>ARS</option><option ${f.moneda === 'USD' ? 'selected' : ''}>USD</option></select></div></div>
+    <label>Notas</label><input id="fNotas" value="${esc(f.notas)}">
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button>
+    <button class="btn" onclick="guardarFactura(${id ?? 'null'})">Guardar</button></div>`);
+  presupSeleccionado(true);
+}
+function presupSeleccionado(soloRef) {
+  const sel = document.getElementById('fPres');
+  const op = sel.options[sel.selectedIndex];
+  const p = (DATA.presupuestos || []).find(x => x.codigo === sel.value);
+  document.getElementById('fPresRef').textContent = p ? `Referencia del presupuesto: ${fmtMonto(p.monto || 0, p.moneda || 'ARS')} — la factura lleva su propio monto y moneda` : '';
+  if (!soloRef && op && op.dataset.cliente) document.getElementById('fCli').value = op.dataset.cliente;
+}
+async function guardarFactura(id) {
+  const body = {
+    numero: document.getElementById('fNum').value.trim(),
+    presupuesto: document.getElementById('fPres').value,
+    cliente: document.getElementById('fCli').value.trim(),
+    fecha_emision: document.getElementById('fFec').value,
+    monto: +document.getElementById('fMonto').value || 0,
+    moneda: document.getElementById('fMon').value,
+    notas: document.getElementById('fNotas').value.trim()
+  };
+  if (!body.numero || !body.fecha_emision) return alert('Faltan número o fecha');
+  try {
+    if (id) await api('/api/seguimiento/facturas/' + id, { method:'PATCH', body });
+    else await api('/api/seguimiento/facturas', { method:'POST', body });
+    ftCerrarModal(); await ftCargar(); ftRender();
+  } catch(e){ alert(e.message); }
+}
+async function cobrarFactura(id) {
+  const fecha = prompt('Fecha de cobro:', hoyISO());
+  if (!fecha) return;
+  try { await api('/api/seguimiento/facturas/' + id, { method:'PATCH', body:{ estado:'Cobrada', fecha_cobro: fecha } }); await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); }
+}
+async function borrarFactura(id) {
+  if (!confirm('¿Eliminar esta factura del registro?')) return;
+  try { await api('/api/seguimiento/facturas/' + id, { method:'DELETE' }); await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); }
+}
+async function cicloPresup(codigo, estado) {
+  if (estado === 'Cerrada' && !confirm(`¿Cerrar el ciclo de facturación de ${codigo}? No vas a poder vincularle facturas nuevas (se puede reabrir).`)) return;
+  try { await api('/api/seguimiento/presupuestos/' + encodeURIComponent(codigo) + '/facturacion', { method:'PATCH', body:{ estado } }); await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); }
+}
+
+/* --- Presupuestos: crear, estado, editar, adjuntos (usa los endpoints de DocTracker) --- */
+function modalNuevoPresup() {
+  ftAbrirModal(`<h3>Nuevo presupuesto</h3>
+    <p class="muted">El número correlativo lo asigna el sistema automáticamente. Nace en estado Borrador.</p>
+    <label>Cliente</label><select id="pCli">${CFG.clientes.map(c => `<option value="${c[0]}">${c[0]} · ${esc(c[1])}</option>`).join('')}</select>
+    <label>Descripción</label><input id="pDesc" placeholder="Ej: Calificación software Niagara — Lab POE">
+    <div class="fila"><div style="flex:1"><label>Monto</label><input id="pMonto" type="number" step="0.01"></div>
+    <div><label>Moneda</label><select id="pMon"><option>USD</option><option>ARS</option></select></div></div>
+    <label>Fecha de emisión</label><input id="pFec" type="date" value="${hoyISO()}">
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button>
+    <button class="btn" onclick="crearPresup()">Crear</button></div>`);
+}
+async function crearPresup() {
+  const cliNum = document.getElementById('pCli').value;
+  const body = {
+    cliente: cliNum,
+    clienteNombre: (CFG.clientes.find(c => c[0] === cliNum) || [])[1] || '',
+    descripcion: document.getElementById('pDesc').value.trim(),
+    monto: +document.getElementById('pMonto').value || null,
+    moneda: document.getElementById('pMon').value,
+    fecha_emision: document.getElementById('pFec').value
+  };
+  if (!body.descripcion) return alert('Falta la descripción');
+  try {
+    const r = await api('/api/presupuestos', { method:'POST', body });
+    ftCerrarModal(); await ftCargar(); ftRender();
+    alert('Presupuesto ' + r.codigo + ' creado en Borrador. Adjuntale el PDF con 📎 y pasalo a Enviado cuando salga.');
+  } catch(e){ alert(e.message); }
+}
+async function estadoPresup(codigo, estado) {
+  try { await api('/api/presupuestos/' + encodeURIComponent(codigo) + '/estado', { method:'POST', body:{ estado } }); await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); }
+}
+function modalEditarPresup(codigo) {
+  const p = (DATA.presupuestos || []).find(x => x.codigo === codigo);
+  if (!p) return;
+  ftAbrirModal(`<h3>Editar presupuesto ${esc(codigo)}</h3>
+    <label>Cliente</label><input id="eCli" value="${esc(p.cliente_nombre || '')}">
+    <label>Descripción</label><input id="eDesc" value="${esc(p.descripcion || '')}">
+    <div class="fila"><div style="flex:1"><label>Monto</label><input id="eMonto" type="number" step="0.01" value="${esc(p.monto ?? '')}"></div>
+    <div><label>Moneda</label><select id="eMon"><option ${p.moneda === 'USD' ? 'selected' : ''}>USD</option><option ${p.moneda === 'ARS' ? 'selected' : ''}>ARS</option></select></div></div>
+    <label>Fecha de emisión</label><input id="eFec" type="date" value="${esc(p.fecha_emision || '')}">
+    <label>Motivo del cambio (queda en bitácora)</label><input id="eMotivo" placeholder="Ej: corrección de monto acordada con el cliente">
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button>
+    <button class="btn" onclick="guardarPresup('${esc(codigo)}')">Guardar</button></div>`);
+}
+async function guardarPresup(codigo) {
+  try {
+    await api('/api/presupuestos/' + encodeURIComponent(codigo) + '/corregir', { method:'POST', body:{
+      clienteNombre: document.getElementById('eCli').value.trim(),
+      descripcion: document.getElementById('eDesc').value.trim(),
+      monto: document.getElementById('eMonto').value,
+      moneda: document.getElementById('eMon').value,
+      fecha_emision: document.getElementById('eFec').value,
+      motivo: document.getElementById('eMotivo').value.trim()
+    }});
+    ftCerrarModal(); await ftCargar(); ftRender();
+  } catch(e){ alert(e.message); }
+}
+// Adjuntar archivos a la carpeta Drive del presupuesto, con nota en bitácora.
+// prefijo: ej "[Factura 0003-123] " cuando se sube el PDF/comprobante de una factura.
+function modalAdjunto(codigo, prefijo) {
+  ftAbrirModal(`<h3>Adjuntar a ${esc(codigo)}</h3>
+    <p class="muted">Los archivos van a la carpeta Drive del presupuesto y quedan asentados en la bitácora.</p>
+    <label>Archivos</label><input id="aFiles" type="file" multiple>
+    <label>Nota</label><input id="aTexto" value="${esc(prefijo)}" placeholder="Ej: comprobante de transferencia del cliente">
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button>
+    <button class="btn" onclick="subirAdjunto('${esc(codigo)}')">Subir</button></div>`);
+}
+async function subirAdjunto(codigo) {
+  const files = document.getElementById('aFiles').files;
+  const texto = document.getElementById('aTexto').value.trim();
+  if (!files.length && !texto) return alert('Elegí al menos un archivo o escribí una nota');
+  const fd = new FormData();
+  for (const f of files) fd.append('archivos', f);
+  fd.append('texto', texto);
+  try {
+    await api('/api/presupuestos/' + encodeURIComponent(codigo) + '/notas', { method:'POST', body: fd });
+    ftCerrarModal(); await ftCargar(); ftRender();
+  } catch(e){ alert(e.message); }
+}
+
+/* ---------- Vista TEMPLATES ---------- */
+function vistaTemplates() {
+  return `<div class="fila" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="font-size:17px">Templates de entregables</h2>
+      <button class="btn mini" onclick="modalNuevoTemplate()">+ Nuevo</button></div>
+    ${DATA.templates.map(t => `<div class="card">
+      <div class="fila" style="justify-content:space-between">
+        <h3 style="font-size:14px">${esc(t.nombre)} <span class="muted">· ${t.items.length} ítems</span></h3>
+        <div class="fila">
+          <button class="btn sec mini" onclick="modalEditarTemplate(${t.id})">Editar</button>
+          <button class="btn rojo mini" onclick="borrarTemplate(${t.id})">✕</button></div>
+      </div>
+      <div class="muted" style="margin-top:6px">${t.items.map(esc).join(' → ') || 'Sin ítems (proyecto libre)'}</div>
+    </div>`).join('')}`;
+}
+function modalNuevoTemplate(){ modalTpl({ id:null, nombre:'', items:[] }); }
+function modalEditarTemplate(id){ modalTpl(DATA.templates.find(t => t.id === id)); }
+function modalTpl(t) {
+  ftAbrirModal(`<h3>${t.id ? 'Editar' : 'Nuevo'} template</h3>
+    <label>Nombre</label><input id="tNom" value="${esc(t.nombre)}">
+    <label>Ítems (uno por línea, en orden)</label>
+    <textarea id="tIts" rows="10">${esc(t.items.join('\n'))}</textarea>
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button>
+    <button class="btn" onclick="guardarTemplate(${t.id ?? 'null'})">Guardar</button></div>`);
+}
+async function guardarTemplate(id) {
+  const nombre = document.getElementById('tNom').value.trim();
+  const items = document.getElementById('tIts').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!nombre) return alert('Falta el nombre');
+  try {
+    if (id) await api('/api/seguimiento/templates/' + id, { method:'PATCH', body:{ nombre, items } });
+    else await api('/api/seguimiento/templates', { method:'POST', body:{ nombre, items } });
+    ftCerrarModal(); await ftCargar(); ftRender();
+  } catch(e){ alert(e.message); }
+}
+async function borrarTemplate(id) {
+  if (!confirm('¿Eliminar template? Los ítems ya aplicados a proyectos no se tocan.')) return;
+  try { await api('/api/seguimiento/templates/' + id, { method:'DELETE' }); await ftCargar(); ftRender(); }
+  catch(e){ alert(e.message); }
+}
+
+
+
+/* ===================== PUENTE SUITE (módulos) ===================== */
+let MODULO = 'dt';           // 'dt' DocTracker · 'ft' FlowTracker · 'com' Comercial
+let COM_VIEW = 'lista';      // vista interna del módulo Comercial
+async function ftCargar(){ DATA = await api('/api/seguimiento/data'); DATA.cargado = true; }
+function renderCom(){
+  const shell = $('#app');
+  shell.innerHTML = '<div id="ftScope" class="ftui">' + (COM_VIEW === 'ficha' ? vistaPresuFicha() : vistaComercial()) + '</div>';
+}
+window.cambiarModulo = async function(m){
+  if(!TOKEN) return;
+  MODULO = m;
+  if((m === 'ft' || m === 'com') && !DATA.cargado){
+    spin(true,'Cargando seguimiento…');
+    try{ await ftCargar(); }catch(e){ toast(e.message,'err'); }
+    spin(false);
+  }
+  if(m === 'com'){
+    COM_VIEW = 'lista';
+    if(esAdmin() && !PRESUS.length){ try{ await cargarPresus(); }catch(e){} }
+  }
+  render();
+};
+document.getElementById('modal').addEventListener('click', e => { if (e.target.id === 'modal') ftCerrarModal(); });
+$$('#modSwitch button').forEach(b => b.addEventListener('click', () => cambiarModulo(b.dataset.mod)));
+
+/* ----- Arranque ----- */
+(async function(){
+  render();
+  if(TOKEN){
+    spin(true,'Cargando registro…');
+    try{ await cargarRegistro(); }catch(e){ /* sesión vencida ya manejada */ }
+    spin(false); render();
+  }
+})();
 </script>
 </body>
 </html>
