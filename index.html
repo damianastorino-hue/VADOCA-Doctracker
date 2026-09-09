@@ -99,6 +99,8 @@
   .modswitch button:hover{background:#fff;color:var(--g1)}
   .modswitch button.active{background:var(--tq);color:#fff}
   .subnav{padding-top:0}
+  #dvWrap{height:calc(100vh - 64px)}
+  #dvWrap iframe{width:100%;height:100%;border:0;display:block;background:#0D1C2E}
   .subnav nav{margin-left:0}
   :root{
     --navy:#0D1C2E; --navy2:#16283E; --turq:#00B4B6; --turq-dim:#007e80;
@@ -220,6 +222,7 @@
       <button data-mod="dt" class="active">DocTracker</button>
       <button data-mod="ft">FlowTracker</button>
       <button data-mod="com" id="modCom">Comercial</button>
+      <button data-mod="dv" id="modDv">DesvioApp</button>
     </div>
     <span id="userChip" style="margin-left:auto"></span>
   </div>
@@ -243,6 +246,9 @@
   </div>
 </header>
 <main id="app"></main>
+<!-- DesvioApp: app propia embebida (mismo origen github.io). El iframe queda montado
+     al cambiar de módulo para no perder su sesión (DesvioApp no persiste login). -->
+<div id="dvWrap" class="hidden"><iframe id="dvFrame" title="DesvioApp"></iframe></div>
 <div id="modal" class="ftui"><div class="caja" id="modalCaja"></div></div>
 <div id="toasts"></div>
 <div id="spinner" class="hidden"><div class="sp"></div><div id="spinnerTxt">Trabajando…</div></div>
@@ -268,6 +274,7 @@ const DEFAULTS = {
   estadosFinales: ['Entregado','Suspendido','Cancelado'],
   paqueteVPC: [ ['RU','P'],['DQ','P'],['IQ','P'],['IQ','I'],['OQ','P'],['OQ','I'],['PQ','P'],['PQ','I'],['IV','I'] ],
   diasEstancado: 7,
+  desvioAppUrl: 'https://damianastorino-hue.github.io/',
 };
 let CFG = loadCfg();
 function loadCfg(){ try{ const s=JSON.parse(localStorage.getItem(LSKEY)||'{}'); const c=Object.assign({},DEFAULTS,s); c.paqueteVPC=DEFAULTS.paqueteVPC; return c;}catch(e){return {...DEFAULTS};} }
@@ -307,7 +314,12 @@ async function api(ruta, opt={}){
   return data;
 }
 async function cargarRegistro(){ REG = await api('/api/registro'); try{ PROYS = await api('/api/proyectos'); }catch(e){} }
-function cerrarSesion(){ TOKEN=null; YO=null; sessionStorage.clear(); render(); }
+function cerrarSesion(){
+  TOKEN=null; YO=null; sessionStorage.clear();
+  const f = $('#dvFrame'); if(f) f.src = 'about:blank'; // suelta la sesión de DesvioApp
+  MODULO = 'dt';
+  render();
+}
 
 /* ============================================================
    VISTAS
@@ -321,12 +333,23 @@ function render(){
   $$('#modSwitch button').forEach(b=>b.classList.toggle('active', b.dataset.mod===MODULO));
   $('#mainNav').classList.toggle('hidden', !logueado || MODULO!=='dt');
   $('#ftNav').classList.toggle('hidden', !logueado || MODULO!=='ft');
+  const enDv = logueado && MODULO==='dv';
+  $('#dvWrap').classList.toggle('hidden', !enDv);
+  app.style.display = enDv ? 'none' : '';
   $('#navUsuarios').classList.toggle('hidden', !esAdmin());
   $('#navAudit').classList.toggle('hidden', !esAdmin());
   $('#navNuevo').classList.toggle('hidden', esLector());
   $('#userChip').innerHTML = YO ? `${esc(YO.email)} <span class="rolchip">${esc(YO.rol)}</span> <button class="ghost" onclick="cerrarSesion()" style="font-size:12px">Salir</button>` : '';
   if(!TOKEN){ app.innerHTML = vistaLogin(); return; }
   if(YO?.debe_cambiar_clave){ app.innerHTML = vistaCambiarClave(true); return; }
+  if(MODULO==='dv'){
+    const f = $('#dvFrame');
+    if(!f.src || f.src === 'about:blank'){
+      const base = (CFG.desvioAppUrl||'').replace(/\/+$/,'') + '/';
+      f.src = base + '?email=' + encodeURIComponent(YO?.email||'');
+    }
+    return;
+  }
   if(MODULO==='ft'){ ftRender(); return; }
   if(MODULO==='com'){ renderCom(); return; }
   if(VIEW==='dashboard') app.innerHTML = vistaDashboard();
@@ -1686,6 +1709,7 @@ function vistaConfig(){
     <label>Clientes (número|nombre, uno por línea)</label>
     <textarea id="cClientes">${esc(CFG.clientes.map(c=>c.join('|')).join('\n'))}</textarea>
     <label>Días para marcar "estancado"</label><input id="cDias" type="number" value="${CFG.diasEstancado}" style="width:100px">
+    <label>URL de DesvioApp (módulo embebido)</label><input id="cDvUrl" value="${esc(CFG.desvioAppUrl||'')}">
     <p style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
       <button onclick="guardarConfig()">Guardar</button>
       <button class="sec" onclick="VIEW='dashboard';render()">Volver</button>
@@ -1702,6 +1726,7 @@ window.guardarConfig = function(){
   CFG.backendUrl = $('#cUrl').value.trim().replace(/\/+$/,'');
   CFG.clientes = $('#cClientes').value.trim().split('\n').filter(Boolean).map(l=>l.split('|').map(s=>s.trim()));
   CFG.diasEstancado = parseInt($('#cDias').value,10)||7;
+  CFG.desvioAppUrl = $('#cDvUrl').value.trim();
   saveCfg(); toast('Ajustes guardados'); VIEW='dashboard'; render();
 };
 window.importarHistoriales = async function(){
