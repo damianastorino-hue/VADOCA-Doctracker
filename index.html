@@ -2212,7 +2212,7 @@ function vistaComercial() {
 
   // Totales del período, separados por moneda:
   // Facturado y Pendiente por fecha de emisión; Cobrado por fecha de cobro.
-  const tot = { fact:{}, cob:{}, pend:{} };
+  const tot = { fact:{}, cob:{}, pend:{}, sinFacturar:{} };
   for (const f of todas) {
     if ((FACT_F.cliente && f.cliente !== FACT_F.cliente)) continue;
     if (enRango(f.fecha_emision)) {
@@ -2221,6 +2221,16 @@ function vistaComercial() {
     }
     if (f.estado === 'Cobrada' && enRango(f.fecha_cobro))
       tot.cob[f.moneda] = (tot.cob[f.moneda] || 0) + +f.monto;
+  }
+  // Por facturar: presupuestos Aceptados sin NINGUNA factura cargada todavía, en su propia
+  // moneda. No se resta lo ya facturado en otra moneda (presupuesto USD / factura ARS,
+  // tu caso típico) porque restar entre monedas distintas inventaría un tipo de cambio
+  // que nadie pidió — así que esto es "trabajo aceptado, cero facturado", no un saldo neto.
+  for (const p of (DATA.presupuestos || [])) {
+    if (FACT_F.cliente && p.cliente_nombre !== FACT_F.cliente) continue;
+    if (p.estado !== 'Aceptado') continue;
+    const tieneFactura = todas.some(f => f.presupuesto === p.codigo);
+    if (!tieneFactura && p.monto) tot.sinFacturar[p.moneda || 'ARS'] = (tot.sinFacturar[p.moneda || 'ARS'] || 0) + +p.monto;
   }
   const rTot = o => Object.keys(o).sort().map(m => `<div style="font-size:16px;font-weight:700">${fmtMonto(o[m], m)}</div>`).join('') || '<div class="muted">—</div>';
 
@@ -2297,10 +2307,12 @@ function vistaComercial() {
         <button onclick="factRango('','')">Todo</button></div>
     </div></div>
 
-    <div class="hoy-grid" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="hoy-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
       <div class="card"><div class="muted" style="font-weight:600">FACTURADO</div>${rTot(tot.fact)}</div>
       <div class="card"><div class="muted" style="font-weight:600;color:#1F7A44">COBRADO</div>${rTot(tot.cob)}</div>
       <div class="card"><div class="muted" style="font-weight:600;color:#9A5B12">PENDIENTE DE COBRO</div>${rTot(tot.pend)}</div>
+      <div class="card" title="Presupuestos Aceptados sin ninguna factura cargada todavía, en su propia moneda">
+        <div class="muted" style="font-weight:600;color:#6D4FA3">POR FACTURAR</div>${rTot(tot.sinFacturar)}</div>
     </div>
 
     ${htmlPres ? `<div class="seccion">Por presupuesto</div>${htmlPres}` : ''}
