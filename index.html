@@ -281,6 +281,7 @@ let POE = null;      // procedimiento abierto (codigo_base)
 let PRESUS = [];     // presupuestos (solo admin)
 let PROYS = [];      // proyectos
 let PRESU = null;    // presupuesto abierto
+let PRESU_VERSIONES = []; // versiones del presupuesto abierto (más reciente primero)
 let PROY = null;     // proyecto abierto
 let VIEW = 'dashboard';
 let FICHA = null;
@@ -1207,10 +1208,15 @@ window.crearPresu = async function(){
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
 window.abrirPresu = async function(codigo){
-  PRESU = { codigo, bit:[] }; MODULO='com'; COM_VIEW='ficha'; render();
+  PRESU = { codigo, bit:[] }; PRESU_VERSIONES = []; MODULO='com'; COM_VIEW='ficha'; render();
   try{ PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+codigo)+'/bitacora'); pintarBitacoraGen('bitacoraPresu', PRESU.bit); }
   catch(e){ $('#bitacoraPresu').innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+  await cargarVersionesPresu(codigo); pintarVersionesPresu();
 };
+async function cargarVersionesPresu(codigo){
+  try{ PRESU_VERSIONES = (await api('/api/presupuestos/'+encodeURIComponent(codigo)+'/versiones')).versiones || []; }
+  catch(e){ PRESU_VERSIONES = []; }
+}
 function pintarBitacoraGen(id, bit){
   const el = $('#'+id); if(!el) return;
   el.innerHTML = bit.map(n=>`<div class="nota tipo-${esc(n.tipo)}">
@@ -1236,6 +1242,13 @@ function vistaPresuFicha(){
         ${PRESU_ESTADOS.map(s=>`<option ${p.estado===s?'selected':''}>${s}</option>`).join('')}</select>
       <button class="ghost" onclick="modalEditarPresu()">✏ Editar datos</button>
     </p>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h3 style="flex:1">Versiones (alcance, ítems y plantilla de impresión)</h3>
+      <button class="sec" onclick="modalNuevaVersionPresu()">+ Nueva versión</button>
+    </div>
+    <div id="versionesPresu" style="margin-top:10px"><p class="muted">Cargando…</p></div>
   </div>
   <div class="card">
     <h3>Agregar nota a la bitácora</h3>
@@ -1268,7 +1281,7 @@ window.editarPresu = async function(){
   try{
     await api('/api/presupuestos/'+encodeURIComponent(PRESU.codigo)+'/corregir',{method:'POST',body});
     await cargarPresus(); PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+PRESU.codigo)+'/bitacora');
-    spin(false); toast('Presupuesto actualizado'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit);
+    spin(false); toast('Presupuesto actualizado'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit); pintarVersionesPresu();
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
 window.estadoPresu = async function(codigo, estado){
@@ -1276,7 +1289,7 @@ window.estadoPresu = async function(codigo, estado){
   try{
     await api('/api/presupuestos/'+encodeURIComponent(codigo)+'/estado',{method:'POST',body:{estado}});
     await cargarPresus(); PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+codigo)+'/bitacora');
-    spin(false); toast('Estado actualizado'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit);
+    spin(false); toast('Estado actualizado'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit); pintarVersionesPresu();
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
 window.guardarNotaPresu = async function(){
@@ -1289,7 +1302,146 @@ window.guardarNotaPresu = async function(){
   try{
     await api('/api/presupuestos/'+encodeURIComponent(PRESU.codigo)+'/notas',{method:'POST',body:fd});
     await cargarPresus(); PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+PRESU.codigo)+'/bitacora');
-    spin(false); toast('Nota guardada'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit);
+    spin(false); toast('Nota guardada'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit); pintarVersionesPresu();
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+
+/* ---- Versionado de presupuestos (ítems, alcance, condiciones, impresión) ---- */
+function pintarVersionesPresu(){
+  const el = $('#versionesPresu'); if(!el) return;
+  if(!PRESU_VERSIONES.length){
+    el.innerHTML = '<p class="muted">Todavía no tiene ninguna versión cargada (se sigue manejando con el Word subido a mano en la bitácora). Creá la primera versión para empezar a usar ítems/condiciones estructurados y la plantilla de impresión.</p>';
+    return;
+  }
+  const max = Math.max(...PRESU_VERSIONES.map(v=>v.numero));
+  el.innerHTML = `<table class="docs-tabla"><thead><tr><th>Versión</th><th>Moneda</th><th>Total</th><th>Estado</th><th>Autor</th><th>Fecha</th><th></th></tr></thead><tbody>
+    ${PRESU_VERSIONES.map(v=>`<tr>
+      <td>${v.numero}${v.numero===max?' <span class="badge b-info">vigente</span>':''}</td>
+      <td>${esc(v.moneda)}</td>
+      <td>${Number(v.total).toLocaleString('es-AR',{minimumFractionDigits:2})}</td>
+      <td>${v.bloqueada?'<span class="badge b-gris">Bloqueada (emitida)</span>':'<span class="badge b-info">Editable (Borrador)</span>'}</td>
+      <td class="muted">${esc(v.autor)}</td>
+      <td class="muted">${fFecha(v.creado)}</td>
+      <td><button class="ghost" onclick="imprimirPresu('${esc(PRESU.codigo)}', ${v.numero})">🖨 Imprimir</button></td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+window.imprimirPresu = async function(codigo, numero){
+  spin(true,'Generando impresión…');
+  try{
+    const r = await fetch(CFG.backendUrl+'/api/presupuestos/'+encodeURIComponent(codigo)+'/imprimir'+(numero?('?version='+numero):''),
+      { headers: TOKEN?{Authorization:'Bearer '+TOKEN}:{} });
+    if(!r.ok){ let d=null; try{ d=await r.json(); }catch(e){} throw new Error(d?.error || ('Error '+r.status)); }
+    const html = await r.text();
+    const blob = new Blob([html], {type:'text/html'});
+    window.open(URL.createObjectURL(blob), '_blank');
+    spin(false);
+  }catch(e){ spin(false); toast(e.message,'err'); }
+};
+function leerItemsVersion(){
+  return $$('.pvItemRow').map(row=>{
+    const descripcion = row.querySelector('.pvDesc').value.trim();
+    const cantStr = row.querySelector('.pvCant').value;
+    const precioStr = row.querySelector('.pvPrecio').value;
+    const item = { descripcion };
+    if(cantStr!=='') item.cantidad = Number(cantStr);
+    if(precioStr!=='') item.precio_unitario = Number(precioStr);
+    if(item.cantidad!==undefined && item.precio_unitario!==undefined) item.importe = Math.round(item.cantidad*item.precio_unitario*100)/100;
+    return item;
+  }).filter(it=>it.descripcion);
+}
+window.agregarItemVersion = function(it){
+  it = it || {};
+  const row = document.createElement('div');
+  row.className = 'pvItemRow';
+  row.style.cssText = 'border:1px solid var(--g4);border-radius:8px;padding:10px;margin-top:8px';
+  row.innerHTML = `
+    <input class="pvDesc" placeholder="Descripción del ítem" value="${esc(it.descripcion||'')}">
+    <div class="row" style="margin-top:6px">
+      <div><input class="pvCant" type="number" step="0.01" placeholder="Cantidad (opcional)" value="${it.cantidad??''}"></div>
+      <div><input class="pvPrecio" type="number" step="0.01" placeholder="Precio unitario (opcional)" value="${it.precio_unitario??''}"></div>
+    </div>
+    <p style="margin-top:6px"><button type="button" class="ghost" style="font-size:12px;padding:4px 8px" onclick="this.closest('.pvItemRow').remove()">✕ Quitar ítem</button></p>`;
+  $('#pvItems').appendChild(row);
+};
+window.recalcularVersionPresu = function(){
+  const items = leerItemsVersion();
+  const subtotal = items.reduce((a,it)=>a+(it.importe||0),0);
+  $('#pvSubtotal').value = subtotal.toFixed(2);
+  const descPct = Number($('#pvDescPct').value)||0;
+  let descMonto = Number($('#pvDescMonto').value)||0;
+  if(descPct && !descMonto){ descMonto = Math.round(subtotal*descPct/100*100)/100; $('#pvDescMonto').value = descMonto.toFixed(2); }
+  const iva = $('#pvIvaDisc').checked ? (Number($('#pvIvaMonto').value)||0) : 0;
+  $('#pvTotal').value = (subtotal - descMonto + iva).toFixed(2);
+  toast('Montos recalculados desde los ítems — revisalos antes de guardar');
+};
+window.modalNuevaVersionPresu = async function(){
+  const codigo = PRESU.codigo;
+  const p = PRESUS.find(x=>x.codigo===codigo);
+  let prev = null;
+  if(PRESU_VERSIONES.length){
+    try{
+      prev = await api('/api/presupuestos/'+encodeURIComponent(codigo)+'/versiones/'+PRESU_VERSIONES[0].numero);
+      if(typeof prev.items === 'string'){ try{ prev.items = JSON.parse(prev.items); }catch(e){ prev.items = []; } }
+    }catch(e){ prev = null; }
+  }
+  const mon = (prev && prev.moneda) || (p && p.moneda) || 'ARS';
+  modal(`<h3>Nueva versión — ${esc(codigo)}</h3>
+    <p class="muted" style="margin:8px 0">Crear una versión nueva reabre el presupuesto a Borrador. La versión anterior, si ya estaba emitida, queda intacta como historial — no se borra ni se pisa.</p>
+    <label>Moneda</label><select id="pvMoneda"><option ${mon==='ARS'?'selected':''}>ARS</option><option ${mon==='USD'?'selected':''}>USD</option></select>
+
+    <label style="margin-top:14px;display:block">Ítems</label>
+    <div id="pvItems"></div>
+    <p style="margin-top:8px"><button type="button" class="ghost" onclick="agregarItemVersion()">+ Agregar ítem</button></p>
+
+    <div class="row">
+      <div><label>Subtotal</label><input id="pvSubtotal" type="number" step="0.01" value="${prev?.subtotal??''}"></div>
+      <div><label>Descuento %</label><input id="pvDescPct" type="number" step="0.01" value="${prev?.descuento_pct??''}"></div>
+    </div>
+    <div class="row">
+      <div><label>Descuento (monto)</label><input id="pvDescMonto" type="number" step="0.01" value="${prev?.descuento_monto??''}"></div>
+      <div><label>IVA (monto)</label><input id="pvIvaMonto" type="number" step="0.01" value="${prev?.iva_monto??''}"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-weight:400"><input type="checkbox" id="pvIvaDisc" style="width:auto" ${prev?.iva_discriminado?'checked':''}> IVA discriminado (sumar el IVA al total)</label>
+    <p style="margin-top:8px"><button type="button" class="sec" onclick="recalcularVersionPresu()">Recalcular subtotal/total desde los ítems</button></p>
+    <label>Total *</label><input id="pvTotal" type="number" step="0.01" value="${prev?.total??''}" required>
+
+    <label style="margin-top:10px">Alcance del proyecto</label><textarea id="pvAlcance" placeholder="Qué incluye el trabajo…">${esc(prev?.alcance||'')}</textarea>
+    <label>Entregables técnicos</label><textarea id="pvEntregables">${esc(prev?.entregables||'')}</textarea>
+    <label>Cronograma de entregas</label><textarea id="pvCronograma">${esc(prev?.cronograma||'')}</textarea>
+    <label>Forma de pago</label><textarea id="pvFormaPago">${esc(prev?.forma_pago||'')}</textarea>
+    <label>Condiciones y aclaraciones</label><textarea id="pvCondiciones">${esc(prev?.condiciones||'')}</textarea>
+    <label>Motivo de la nueva versión (opcional, queda en bitácora)</label><input id="pvMotivo" placeholder="Ej: ajuste pedido por el cliente">
+
+    <p style="margin-top:14px;display:flex;gap:10px"><button onclick="guardarVersionPresu()">Crear versión</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+  const items = (prev && Array.isArray(prev.items)) ? prev.items : [];
+  if(items.length) items.forEach(it=>agregarItemVersion(it)); else agregarItemVersion();
+};
+window.guardarVersionPresu = async function(){
+  const total = $('#pvTotal').value;
+  if(total===''){ toast('Falta el total','err'); return; }
+  const body = {
+    moneda: $('#pvMoneda').value,
+    items: leerItemsVersion(),
+    subtotal: $('#pvSubtotal').value || null,
+    descuento_pct: $('#pvDescPct').value || null,
+    descuento_monto: $('#pvDescMonto').value || null,
+    iva_discriminado: $('#pvIvaDisc').checked,
+    iva_monto: $('#pvIvaMonto').value || null,
+    total,
+    alcance: $('#pvAlcance').value.trim(),
+    entregables: $('#pvEntregables').value.trim(),
+    cronograma: $('#pvCronograma').value.trim(),
+    forma_pago: $('#pvFormaPago').value.trim(),
+    condiciones: $('#pvCondiciones').value.trim(),
+    motivo: $('#pvMotivo').value.trim(),
+  };
+  cerrarModal(); spin(true,'Guardando versión…');
+  try{
+    const d = await api('/api/presupuestos/'+encodeURIComponent(PRESU.codigo)+'/versiones',{method:'POST',body});
+    await cargarPresus(); await cargarVersionesPresu(PRESU.codigo);
+    PRESU.bit = await api('/api/expedientes/'+encodeURIComponent('PRES-'+PRESU.codigo)+'/bitacora');
+    spin(false); toast('Versión '+d.numero+' creada'); render(); pintarBitacoraGen('bitacoraPresu', PRESU.bit); pintarVersionesPresu();
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
 
