@@ -229,6 +229,7 @@
       <button data-view="nuevo" id="navNuevo">+ Nuevo</button>
       <button data-view="poes">Procedimientos</button>
       <button data-view="proyectos">Proyectos</button>
+      <button data-view="calidad">Calidad</button>
       <button data-view="indicadores">Indicadores</button>
       <button data-view="auditoria" id="navAudit" class="hidden">Auditoría</button>
       <button data-view="usuarios" id="navUsuarios" class="hidden">Usuarios</button>
@@ -334,6 +335,7 @@ function render(){
   else if(VIEW==='nuevo') app.innerHTML = vistaNuevo();
   else if(VIEW==='poes') app.innerHTML = vistaPoes();
   else if(VIEW==='poeFicha') app.innerHTML = vistaPoeFicha();
+  else if(VIEW==='calidad') app.innerHTML = vistaCalidad();
   else if(VIEW==='indicadores') app.innerHTML = vistaIndicadores();
   else if(VIEW==='auditoria') app.innerHTML = vistaAuditoria();
   else if(VIEW==='proyectos') app.innerHTML = vistaProyectos();
@@ -689,6 +691,7 @@ function vistaFicha(){
       <button class="ghost" onclick="estadoTodos()">Aplicar a todos</button>
       · <button class="ghost" onclick="modalNuevaVersion()">⬆ Nueva versión</button>
       · <button class="ghost" onclick="modalCorregir()">✏ Corregir datos</button>
+      · <button class="ghost" onclick="modalRechazo()">↩ Rechazo del cliente</button>
       ${esAdmin()?`· <button class="ghost" onclick="modalReasignar()">🔁 Reasignar código</button>`:''}
       · <button class="ghost" onclick="verificarCadena()">⛓ Verificar integridad</button>
       · <button class="ghost" onclick="exportarAudit()">🖨 Exportar bitácora</button></p>`}
@@ -988,7 +991,7 @@ window.modalNuevoPoe = function(){
   modal(`<h3>Nuevo procedimiento</h3>
     <div class="row">
       <div><label>Sector (texto libre)</label><input id="pSector" maxlength="6" placeholder="Ej: PGC, PRH, PTI" style="text-transform:uppercase"></div>
-      <div><label>Vigencia (meses)</label><input id="pVig" type="number" value="36"></div>
+      <div><label>Vigencia (meses, máx. 24)</label><input id="pVig" type="number" value="24" min="1" max="24"></div>
     </div>
     <label>Título</label><input id="pTitulo" maxlength="60" placeholder="Ej: Control de documentos y registros">
     <p class="muted" style="margin-top:8px">Código: SECTOR-### con número correlativo global (independiente del sector). Nace en Borrador; al marcarlo Vigente se calcula el vencimiento.</p>
@@ -1004,14 +1007,14 @@ window.crearPoe = async function(){
     await cargarPoes(); spin(false); toast(d.codigo+' creado'); abrirPoe(d.base);
   }catch(e){ spin(false); toast(e.message,'err'); }
 };
-const POES_PRECARGA = `PGC|1|1|Control de Documentos y Registros|2026-03-26|36
-PGD|1|1|Redacción, Revisión y Aprobación de Documentos GMP|2026-03-26|36
-PRH|1|1|Calificación y Selección del Personal Consultor|2026-03-26|36
-PVL|1|1|Calificación de Proveedores de Información Regulatoria|2026-03-26|36
-PCP|1|1|Revisión de Requisitos del Cliente|2026-03-26|36
-PMC|1|1|Gestión de Cambios (Change Control)|2026-03-26|36
-PPR|1|1|Calificación y Evaluación de Proveedores Externos|2026-03-26|36
-PTI|1|1|Gestión de Sistemas Informáticos Usados en Servicios|2026-03-26|36`;
+const POES_PRECARGA = `PGC|1|1|Control de Documentos y Registros|2026-03-26|24
+PGD|1|1|Redacción, Revisión y Aprobación de Documentos GMP|2026-03-26|24
+PRH|1|1|Calificación y Selección del Personal Consultor|2026-03-26|24
+PVL|1|1|Calificación de Proveedores de Información Regulatoria|2026-03-26|24
+PCP|1|1|Revisión de Requisitos del Cliente|2026-03-26|24
+PMC|1|1|Gestión de Cambios (Change Control)|2026-03-26|24
+PPR|1|1|Calificación y Evaluación de Proveedores Externos|2026-03-26|24
+PTI|1|1|Gestión de Sistemas Informáticos Usados en Servicios|2026-03-26|24`;
 window.modalImportarPoes = function(){
   modal(`<h3>Importación masiva de POEs</h3>
     <p class="muted" style="margin:8px 0">Una línea por POE, campos separados por | :<br>
@@ -1023,7 +1026,7 @@ window.modalImportarPoes = function(){
 window.importarPoes = async function(){
   const filas = $('#impPoes').value.trim().split('\n').filter(Boolean).map(l=>{
     const p = l.split('|').map(s=>s.trim());
-    return {sector:p[0], numero:p[1], version:p[2], titulo:p[3], fecha_vigencia:p[4]||'', vigencia_meses:p[5]||36};
+    return {sector:p[0], numero:p[1], version:p[2], titulo:p[3], fecha_vigencia:p[4]||'', vigencia_meses:p[5]||24};
   });
   if(!filas.length){ toast('No hay líneas','err'); return; }
   if(!confirm('Se van a importar '+filas.length+' POEs. Los que ya existan se saltean. ¿Continuar?')) return;
@@ -1828,6 +1831,329 @@ function onPaste(ev){
   toast(items.length+' captura(s) lista(s) para adjuntar','info');
 }
 $$('#mainNav button').forEach(b=>b.addEventListener('click',()=>{ VIEW=b.dataset.view; render(); }));
+
+/* ============================================================
+   CALIDAD — Eventos y CAPA (PGC-002), Control de cambios (PGC-001 5.7),
+   Indicadores del SGC (PGC-003) y rechazos de entregables (PCP-005 5.5)
+   ============================================================ */
+const DESV_TIPO = {nc_menor:'NC menor',nc_mayor:'NC mayor',observacion:'Observación',queja:'Queja',reclamo:'Reclamo'};
+const DESV_EST  = {abierto:'Abierto',en_analisis:'En análisis',correccion_implementada:'Corrección implementada',cerrado:'Cerrado',reactivado:'Reactivado'};
+const CAMB_EST  = {solicitado:'Solicitado',aprobado:'Aprobado',rechazado:'Rechazado',implementado:'Implementado · en verificación',cerrado:'Cerrado'};
+const CAPA_EST  = {abierta:'Abierta',en_seguimiento:'En seguimiento',cerrada:'Cerrada',reactivada:'Reactivada'};
+let CAL = {tab:'eventos', filtro:'abiertos', sel:null, desvios:[], det:null, capa:null, cambios:[], cdet:null, kpi:null, kcfg:null, rech:[], periodo:null};
+
+const bdg = (t,c)=>`<span class="badge ${c||'b-gris'}">${esc(t)}</span>`;
+const calPost = (p,b)=>api(p,{method:'POST',body:b||{}});
+const calEstCls = e => ({cerrado:'b-ok',cerrada:'b-ok',aprobado:'b-ok',rechazado:'b-bad',reactivado:'b-bad',reactivada:'b-bad'}[e]||'b-info');
+function trimestreActual(){ const d=new Date(); return d.getFullYear()+'-Q'+(Math.floor(d.getMonth()/3)+1); }
+function ultimosTrimestres(n){ const out=[]; let y=new Date().getFullYear(), q=Math.floor(new Date().getMonth()/3)+1;
+  for(let i=0;i<n;i++){ out.push(y+'-Q'+q); q--; if(q===0){q=4;y--;} } return out; }
+
+/* Formulario modal genérico: campos [{id,label,type,opts,req,ph,val}] */
+function calForm(titulo, campos, cta, onOk, nota){
+  modal(`<h3>${esc(titulo)}</h3>${nota?`<p class="muted" style="margin:6px 0 2px">${nota}</p>`:''}
+    ${campos.map(c=>{
+      const id='cf_'+c.id;
+      if(c.type==='check') return `<label style="display:flex;gap:8px;align-items:center;font-weight:500;color:var(--g1)"><input id="${id}" type="checkbox" style="width:auto"> ${esc(c.label)}</label>`;
+      return `<label>${esc(c.label)}${c.req?' *':''}</label>` + (
+        c.type==='select' ? `<select id="${id}">${c.opts.map(o=>`<option value="${esc(o[0])}">${esc(o[1])}</option>`).join('')}</select>` :
+        c.type==='textarea' ? `<textarea id="${id}" placeholder="${esc(c.ph||'')}">${esc(c.val||'')}</textarea>` :
+        `<input id="${id}" type="${c.type||'text'}" value="${esc(c.val||'')}" placeholder="${esc(c.ph||'')}">`);
+    }).join('')}
+    <p style="margin-top:14px;display:flex;gap:10px"><button id="cfOk">${esc(cta)}</button><button class="sec" onclick="cerrarModal()">Cancelar</button></p>`);
+  $('#cfOk').onclick = async ()=>{
+    const v={};
+    for(const c of campos){ const el=$('#cf_'+c.id); v[c.id]= c.type==='check'? el.checked : el.value.trim();
+      if(c.req && !v[c.id]){ toast('Falta: '+c.label,'err'); return; } }
+    cerrarModal(); spin(true,'Guardando…');
+    try{ await onOk(v); spin(false); }catch(e){ spin(false); toast(e.message,'err'); }
+  };
+}
+
+function vistaCalidad(){
+  setTimeout(calCargar,0);
+  return `<div class="card" style="padding:10px 14px"><div class="filtros" style="margin:0">
+    ${[['eventos','Eventos y CAPA'],['cambios','Control de cambios'],['kpis','Indicadores del SGC']]
+      .map(([k,t])=>`<button class="${CAL.tab===k?'':'sec'}" onclick="calTab('${k}')">${t}</button>`).join('')}
+  </div></div><div id="calBody"><p class="muted" style="padding:12px">Cargando…</p></div>`;
+}
+function calTab(k){ CAL.tab=k; CAL.sel=null; render(); }
+function calVolver(){ CAL.sel=null; calCargar(); }
+async function calCargar(){
+  const el=$('#calBody'); if(!el||VIEW!=='calidad') return;
+  const tab=CAL.tab, sel=CAL.sel;
+  try{
+    if(tab==='eventos'){
+      if(sel){ CAL.det=await api('/api/desvios/'+sel); try{ CAL.capa=(await api('/api/desvios/'+sel+'/capa')).capa; }catch(e){ CAL.capa=null; } }
+      else CAL.desvios=(await api('/api/desvios')).desvios;
+    } else if(tab==='cambios'){
+      if(sel) CAL.cdet=await api('/api/cambios/'+sel);
+      else CAL.cambios=(await api('/api/cambios')).cambios;
+    } else {
+      CAL.periodo = CAL.periodo || trimestreActual();
+      const [k,c,r] = await Promise.all([api('/api/kpi-sgc?periodo='+CAL.periodo), api('/api/kpi-sgc/config'), api('/api/rechazos')]);
+      CAL.kpi=k; CAL.kcfg=c; CAL.rech=r.rechazos;
+    }
+    if(tab!==CAL.tab || sel!==CAL.sel) return;
+    calPintar();
+  }catch(e){ el.innerHTML=`<div class="card"><p class="muted">${esc(e.message)}</p></div>`; }
+}
+function calPintar(){
+  const el=$('#calBody'); if(!el) return;
+  el.innerHTML = CAL.tab==='eventos' ? (CAL.sel?htmlDesvioDet():htmlDesvioLista())
+               : CAL.tab==='cambios' ? (CAL.sel?htmlCambioDet():htmlCambioLista()) : htmlKpis();
+}
+const calAccionOk = async (fn, msg)=>{ spin(true,'Guardando…'); try{ await fn(); spin(false); if(msg) toast(msg); await calCargar(); }catch(e){ spin(false); toast(e.message,'err'); } };
+
+/* ---------- EVENTOS ---------- */
+function htmlDesvioLista(){
+  const f=CAL.filtro, hoy=hoyISO();
+  const lista = CAL.desvios.filter(d=> f==='todos' || (f==='abiertos'?d.estado!=='cerrado':d.estado==='cerrado'));
+  return `<div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <h2 style="flex:1">Eventos de calidad</h2>
+      ${[['abiertos','Abiertos'],['cerrados','Cerrados'],['todos','Todos']].map(([k,t])=>`<button class="${f===k?'':'sec'}" style="padding:6px 12px" onclick="CAL.filtro='${k}';calPintar()">${t}</button>`).join('')}
+      ${esLector()?'':`<button onclick="modalNuevoDesvio()">+ Nuevo evento</button>`}
+    </div>
+    ${lista.length? lista.map(d=>`<div class="exp" onclick="CAL.sel='${esc(d.codigo)}';calCargar()">
+      <div class="top"><span class="codigo">${esc(d.codigo)}</span>
+        ${bdg(DESV_TIPO[d.tipo]||d.tipo, d.tipo==='nc_mayor'?'b-bad':'b-info')}
+        <span class="desc">${esc((d.descripcion||'').slice(0,110))}</span>
+        ${bdg(DESV_EST[d.estado]||d.estado, calEstCls(d.estado))}</div>
+      <div class="meta"><span>Detectado ${esc(d.fecha_deteccion)}</span>${d.proyecto?`<span>${esc(d.proyecto)}</span>`:''}
+        ${d.impacto_cliente && d.estado!=='cerrado'?`<span style="color:${d.fecha_comunicacion_cliente<hoy?'var(--bad)':'var(--warn)'};font-weight:600">Impacta al cliente · comunicar antes del ${esc(d.fecha_comunicacion_cliente||'—')}</span>`:''}</div>
+    </div>`).join('') : '<p class="muted" style="margin-top:12px">No hay eventos en este filtro.</p>'}
+  </div>`;
+}
+function modalNuevoDesvio(){
+  calForm('Nuevo evento de calidad',[
+    {id:'tipo',label:'Tipo',type:'select',opts:Object.entries(DESV_TIPO)},
+    {id:'proyecto',label:'Proyecto (opcional)',type:'select',opts:[['','—'],...proysDT().map(p=>[p.codigo,p.codigo+' · '+p.nombre])]},
+    {id:'expediente_id',label:'Expediente (opcional)',ph:'Ej: EXP-0012'},
+    {id:'descripcion',label:'Qué pasó',type:'textarea',req:true},
+    {id:'evidencia',label:'Evidencia (opcional)',type:'textarea'},
+    {id:'fecha_deteccion',label:'Fecha de detección',type:'date',val:hoyISO()},
+    {id:'impacto_cliente',label:'Impacta al cliente (hay que comunicarle en 2 días hábiles)',type:'check'},
+  ],'Registrar', async v=>{
+    const r=await calPost('/api/desvios',v);
+    CAL.sel=r.codigo; toast('Evento '+r.codigo+' registrado'+(r.fecha_comunicacion_cliente?' · comunicar al cliente antes del '+r.fecha_comunicacion_cliente:'')); await calCargar();
+  });
+}
+function htmlDesvioDet(){
+  const d=CAL.det?.desvio, bit=CAL.det?.bitacora||[]; if(!d) return '';
+  const ro=esLector();
+  const sigs = ['abierto','en_analisis','correccion_implementada','cerrado'].filter(e=>e!==d.estado);
+  return `<p><button class="ghost" onclick="calVolver()">← Eventos</button></p>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="codigo" style="font-size:15px">${esc(d.codigo)}</span>
+      ${bdg(DESV_TIPO[d.tipo]||d.tipo, d.tipo==='nc_mayor'?'b-bad':'b-info')} ${bdg(DESV_EST[d.estado]||d.estado, calEstCls(d.estado))}
+      <span class="muted" style="margin-left:auto">Detectado ${esc(d.fecha_deteccion)} por ${esc((d.detectado_por||'').split('@')[0])}</span></div>
+    <p style="margin-top:12px;white-space:pre-wrap">${esc(d.descripcion)}</p>
+    ${d.evidencia?`<p class="muted" style="margin-top:8px;white-space:pre-wrap"><b>Evidencia:</b> ${esc(d.evidencia)}</p>`:''}
+    <div class="muted" style="margin-top:8px">${d.proyecto?'Proyecto '+esc(d.proyecto)+' · ':''}${d.expediente_id?'Expediente '+esc(d.expediente_id)+' · ':''}
+      ${d.impacto_cliente?`<b style="color:var(--warn)">Impacta al cliente — comunicar antes del ${esc(d.fecha_comunicacion_cliente||'—')}</b>`:'Sin impacto en cliente'}</div>
+    ${d.correccion_texto?`<p style="margin-top:8px"><b>Corrección${d.correccion_fecha?' ('+esc(d.correccion_fecha)+')':''}:</b> ${esc(d.correccion_texto)}</p>`:''}
+    ${ro?'':`<p style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">${sigs.map(e=>`<button class="sec" onclick="modalEstadoDesvio('${esc(d.codigo)}','${e}')">→ ${DESV_EST[e]}</button>`).join('')}</p>`}
+  </div>
+  ${htmlCapa(d)}
+  <div class="card"><h3>Bitácora (cadena de hashes)</h3>
+    ${bit.map(b=>`<div style="margin:10px 0;padding-bottom:8px;border-bottom:1px solid var(--g4)">
+      <div class="muted" style="font-size:12px">${fFecha(b.ts)} · ${esc((b.autor||'').split('@')[0])} · ${esc(b.tipo)}</div>
+      <div style="margin-top:2px;white-space:pre-wrap">${esc(b.texto)}</div><div class="hashchip">${esc((b.hash||'').slice(0,16))}…</div></div>`).join('') || '<p class="muted">Sin entradas.</p>'}
+  </div>`;
+}
+function modalEstadoDesvio(cod, est){
+  const campos=[{id:'motivo',label:'Motivo (obligatorio si se reabre o se reactiva)',type:'textarea'}];
+  if(est==='correccion_implementada') campos.unshift({id:'correccion_texto',label:'Qué corrección se implementó',type:'textarea',req:true});
+  calForm('Pasar '+cod+' a «'+DESV_EST[est]+'»',campos,'Confirmar', async v=>{
+    await calPost('/api/desvios/'+cod+'/estado',{estado:est,motivo:v.motivo||undefined,correccion_texto:v.correccion_texto||undefined}); toast('Estado actualizado'); await calCargar(); });
+}
+
+/* ---------- CAPA ---------- */
+function htmlCapa(d){
+  const c=CAL.capa, ro=esLector(), hoy=hoyISO();
+  if(!c) return `<div class="card"><h3>CAPA</h3><p class="muted" style="margin-top:6px">Este evento todavía no tiene acción correctiva/preventiva.</p>
+    ${ro?'':`<p style="margin-top:10px"><button onclick="modalNuevaCapa('${esc(d.codigo)}')">Abrir CAPA</button></p>`}</div>`;
+  const acc=c.acciones||[], todasOk = acc.length>0 && acc.every(a=>a.estado==='completada');
+  const analisisVence = c.estado==='abierta' && c.fecha_limite_analisis && c.fecha_limite_analisis<hoy && !c.causa_raiz_texto;
+  return `<div class="card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h3 style="flex:1">CAPA ${esc(c.tipo)}</h3> ${bdg(CAPA_EST[c.estado]||c.estado, calEstCls(c.estado))}</div>
+    <div class="muted" style="margin-top:6px">Responsable: ${esc(c.responsable)} · Análisis de causa raíz hasta ${esc(c.fecha_limite_analisis||'—')} ${analisisVence?bdg('VENCIDO','b-bad'):''}</div>
+    <div style="margin-top:12px"><b>Causa raíz</b>${c.causa_raiz_texto?` <span class="muted">(${c.metodo_causa_raiz==='5_porques'?'5 porqués':'Ishikawa'})</span><p style="white-space:pre-wrap;margin-top:4px">${esc(c.causa_raiz_texto)}</p>`:' <span class="muted">— pendiente</span>'}
+      ${ro||c.estado==='cerrada'?'':`<p style="margin-top:6px"><button class="ghost" onclick="modalCausaRaiz('${esc(d.codigo)}')">${c.causa_raiz_texto?'Editar':'Registrar'} causa raíz</button></p>`}</div>
+    <div style="margin-top:12px"><b>Acciones</b>
+      ${acc.length?`<div style="overflow-x:auto"><table class="docs-tabla"><thead><tr><th>Acción</th><th>Responsable</th><th>Fecha límite</th><th>Estado</th><th></th></tr></thead><tbody>
+        ${acc.map(a=>`<tr><td>${esc(a.descripcion)}${a.motivo_retraso?`<div class="muted" style="font-size:11px">Reprogramada: ${esc(a.motivo_retraso)}</div>`:''}</td><td>${esc(a.responsable)}</td>
+          <td>${esc(a.fecha_limite)}${a.fecha_limite_original&&a.fecha_limite_original!==a.fecha_limite?`<div class="muted" style="font-size:11px">orig. ${esc(a.fecha_limite_original)}</div>`:''}</td>
+          <td>${a.estado==='completada'?bdg('Completada ' + (a.fecha_completada||''),'b-ok'):(a.vencida?bdg('VENCIDA','b-bad'):bdg('Pendiente','b-info'))}</td>
+          <td>${ro||a.estado==='completada'||c.estado==='cerrada'?'':`<button class="ghost" onclick="completarAccion('${esc(d.codigo)}',${a.id})">✔ Completar</button><button class="ghost" onclick="modalReprogramar('${esc(d.codigo)}',${a.id})">Reprogramar</button>`}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="muted">Sin acciones cargadas.</p>'}
+      ${ro||c.estado==='cerrada'||c.estado==='en_seguimiento'?'':`<p style="margin-top:6px"><button class="ghost" onclick="modalNuevaAccion('${esc(d.codigo)}')">+ Acción</button></p>`}</div>
+    ${c.estado==='en_seguimiento'?`<p class="muted" style="margin-top:10px">Seguimiento de eficacia: ${esc(c.fecha_inicio_seguimiento)} → ${esc(c.fecha_fin_seguimiento)} (90 días).</p>`:''}
+    ${c.eficacia_resultado?`<p style="margin-top:8px"><b>Eficacia:</b> ${c.eficacia_resultado==='eficaz'?'Eficaz':'No eficaz'}${c.fecha_cierre?' · cerrada el '+esc(c.fecha_cierre):''}</p>`:''}
+    ${ro?'':`<p style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      ${(c.estado==='abierta'||c.estado==='reactivada')&&todasOk?`<button onclick="iniciarSeguimiento('${esc(d.codigo)}')">Iniciar seguimiento de eficacia (90 días)</button>`:''}
+      ${esAdmin()&&c.estado==='en_seguimiento'?`<button onclick="modalCerrarCapa('${esc(d.codigo)}')">Cerrar CAPA (evaluar eficacia)</button>`:''}</p>`}
+  </div>`;
+}
+function modalNuevaCapa(cod){ calForm('Abrir CAPA',[{id:'tipo',label:'Tipo',type:'select',opts:[['correctiva','Correctiva'],['preventiva','Preventiva']]},{id:'responsable',label:'Responsable',req:true}],'Abrir',
+  async v=>{ const r=await calPost('/api/desvios/'+cod+'/capa',v); toast('CAPA abierta · análisis de causa raíz hasta '+r.fecha_limite_analisis); await calCargar(); },'El análisis de causa raíz vence a los 10 días hábiles.'); }
+function modalCausaRaiz(cod){ calForm('Causa raíz',[{id:'metodo',label:'Método',type:'select',opts:[['5_porques','5 porqués'],['ishikawa','Ishikawa']]},{id:'causa_raiz_texto',label:'Descripción de la causa raíz',type:'textarea',req:true,val:CAL.capa?.causa_raiz_texto||''}],'Guardar',
+  async v=>{ await calPost('/api/desvios/'+cod+'/capa/causa-raiz',{metodo:v.metodo,causa_raiz_texto:v.causa_raiz_texto}); toast('Causa raíz registrada'); await calCargar(); }); }
+function modalNuevaAccion(cod){ calForm('Nueva acción',[{id:'descripcion',label:'Acción',type:'textarea',req:true},{id:'responsable',label:'Responsable',req:true},{id:'recursos',label:'Recursos (opcional)'},{id:'fecha_limite',label:'Fecha límite',type:'date',req:true}],'Agregar',
+  async v=>{ await calPost('/api/desvios/'+cod+'/capa/acciones',v); toast('Acción agregada'); await calCargar(); }); }
+function completarAccion(cod,id){ calAccionOk(()=>api('/api/desvios/'+cod+'/capa/acciones/'+id,{method:'PATCH',body:{completada:true}}),'Acción completada'); }
+function modalReprogramar(cod,id){ calForm('Reprogramar acción',[{id:'nueva_fecha',label:'Nueva fecha límite',type:'date',req:true},{id:'motivo_retraso',label:'Motivo del retraso',type:'textarea',req:true}],'Reprogramar',
+  async v=>{ await api('/api/desvios/'+cod+'/capa/acciones/'+id,{method:'PATCH',body:v}); toast('Acción reprogramada'); await calCargar(); }); }
+function iniciarSeguimiento(cod){ calAccionOk(()=>calPost('/api/desvios/'+cod+'/capa/iniciar-seguimiento'),'Seguimiento iniciado (90 días corridos)'); }
+function modalCerrarCapa(cod){ calForm('Cerrar CAPA',[{id:'eficacia_resultado',label:'Resultado de la evaluación de eficacia',type:'select',opts:[['eficaz','Eficaz → cierra la CAPA'],['no_eficaz','No eficaz → reactiva la CAPA']]},{id:'motivo',label:'Fundamento',type:'textarea'}],'Confirmar',
+  async v=>{ const r=await calPost('/api/desvios/'+cod+'/capa/cerrar',v); toast(r.reactivada?'CAPA reactivada':'CAPA cerrada'); await calCargar(); }); }
+
+/* ---------- CAMBIOS ---------- */
+function htmlCambioLista(){
+  const f=CAL.filtro, lista=CAL.cambios.filter(c=> f==='todos' || (f==='abiertos'?!['cerrado','rechazado'].includes(c.estado):['cerrado','rechazado'].includes(c.estado)));
+  return `<div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <h2 style="flex:1">Control de cambios</h2>
+      ${[['abiertos','En curso'],['cerrados','Cerrados'],['todos','Todos']].map(([k,t])=>`<button class="${f===k?'':'sec'}" style="padding:6px 12px" onclick="CAL.filtro='${k}';calPintar()">${t}</button>`).join('')}
+      ${esLector()?'':`<button onclick="modalNuevoCambio()">+ Nuevo cambio</button>`}
+    </div>
+    ${lista.length? lista.map(c=>`<div class="exp" onclick="CAL.sel='${esc(c.codigo)}';calCargar()">
+      <div class="top"><span class="codigo">${esc(c.codigo)}</span>
+        ${c.es_emergencia?bdg('EMERGENCIA','b-bad'):''} ${c.clasificacion?bdg('Riesgo '+c.clasificacion, c.clasificacion==='alto'?'b-bad':'b-info'):''}
+        <span class="desc">${esc((c.descripcion||'').slice(0,110))}</span>
+        ${c.vencido?bdg('VENCIDO','b-bad'):''} ${bdg(CAMB_EST[c.estado]||c.estado, calEstCls(c.estado))}</div>
+      <div class="meta"><span>${esc(c.elemento_afectado)}</span><span>Solicitado ${esc(c.fecha_solicitud)}</span>${c.poe_codigo?`<span>${esc(c.poe_codigo)}</span>`:''}</div>
+    </div>`).join('') : '<p class="muted" style="margin-top:12px">No hay cambios en este filtro.</p>'}
+  </div>`;
+}
+function modalNuevoCambio(){
+  calForm('Nuevo cambio controlado',[
+    {id:'descripcion',label:'Qué se quiere cambiar',type:'textarea',req:true},
+    {id:'elemento_afectado',label:'Elemento afectado (POE, sistema, proceso…)',req:true},
+    {id:'motivo',label:'Motivo',type:'textarea',req:true},
+    {id:'impacto_preliminar',label:'Impacto preliminar (opcional)',type:'textarea'},
+    {id:'poe_codigo',label:'POE relacionado (opcional)',ph:'Ej: PGC-001'},
+    {id:'es_emergencia',label:'Es un cambio de emergencia (se implementa ya y se documenta en 48 h hábiles)',type:'check'},
+  ],'Registrar', async v=>{
+    const r=await calPost('/api/cambios',v); CAL.sel=r.codigo;
+    toast('Cambio '+r.codigo+' registrado'+(v.es_emergencia?' · documentar antes del '+r.fecha_limite_documentacion_emergencia:'')); await calCargar(); });
+}
+function htmlCambioDet(){
+  const c=CAL.cdet?.cambio, bit=CAL.cdet?.bitacora||[]; if(!c) return '';
+  const ro=esLector(), adm=esAdmin(), hoy=hoyISO();
+  const lim = (t,f)=> f?`<div class="muted">${t}: <b style="color:${f<hoy?'var(--bad)':'inherit'}">${esc(f)}</b></div>`:'';
+  return `<p><button class="ghost" onclick="calVolver()">← Cambios</button></p>
+  <div class="card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="codigo" style="font-size:15px">${esc(c.codigo)}</span>
+      ${c.es_emergencia?bdg('EMERGENCIA','b-bad'):''} ${c.clasificacion?bdg('Riesgo '+c.clasificacion, c.clasificacion==='alto'?'b-bad':'b-info'):bdg('Sin clasificar','b-gris')}
+      ${bdg(CAMB_EST[c.estado]||c.estado, calEstCls(c.estado))}</div>
+    <p style="margin-top:12px;white-space:pre-wrap">${esc(c.descripcion)}</p>
+    <div class="muted" style="margin-top:8px"><b>Elemento:</b> ${esc(c.elemento_afectado)}${c.poe_codigo?' · '+esc(c.poe_codigo):''}</div>
+    <div class="muted"><b>Motivo:</b> ${esc(c.motivo)}</div>
+    ${c.impacto_preliminar?`<div class="muted"><b>Impacto preliminar:</b> ${esc(c.impacto_preliminar)}</div>`:''}
+    <div style="margin-top:8px">${lim('Clasificar y aprobar antes del',c.estado==='solicitado'?c.fecha_limite_aprobacion:null)}
+      ${lim('Documentación de la emergencia hasta',c.es_emergencia&&c.estado!=='cerrado'?c.fecha_limite_documentacion_emergencia:null)}
+      ${lim('Verificar post-implementación antes del',c.estado==='implementado'?c.fecha_limite_verificacion:null)}
+      ${c.motivo_rechazo?`<div><b>Rechazado:</b> ${esc(c.motivo_rechazo)}</div>`:''}
+      ${c.evento_calidad_codigo?`<div>Evento de calidad generado: <span class="codigo" style="cursor:pointer" onclick="CAL.tab='eventos';CAL.sel='${esc(c.evento_calidad_codigo)}';render()">${esc(c.evento_calidad_codigo)}</span></div>`:''}</div>
+    ${ro?'':`<p style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      ${adm&&c.estado==='solicitado'?`<button class="sec" onclick="modalClasificar('${esc(c.codigo)}')">${c.clasificacion?'Reclasificar':'Clasificar'} riesgo</button>`:''}
+      ${adm&&c.estado==='solicitado'&&c.clasificacion?`<button onclick="modalAprobar('${esc(c.codigo)}',true)">Aprobar</button><button class="rojo" onclick="modalAprobar('${esc(c.codigo)}',false)">Rechazar</button>`:''}
+      ${c.estado==='aprobado'?`<button onclick="modalImplementar('${esc(c.codigo)}')">Registrar implementación</button>`:''}
+      ${adm&&c.estado==='implementado'?`<button onclick="modalVerificar('${esc(c.codigo)}')">Verificar y cerrar</button>`:''}</p>`}
+  </div>
+  <div class="card"><h3>Bitácora (cadena de hashes)</h3>
+    ${bit.map(b=>`<div style="margin:10px 0;padding-bottom:8px;border-bottom:1px solid var(--g4)"><div class="muted" style="font-size:12px">${fFecha(b.ts)} · ${esc((b.autor||'').split('@')[0])}</div>
+      <div style="white-space:pre-wrap">${esc(b.texto)}</div><div class="hashchip">${esc((b.hash||'').slice(0,16))}…</div></div>`).join('')||'<p class="muted">Sin entradas.</p>'}</div>`;
+}
+function modalClasificar(cod){ calForm('Clasificar riesgo',[{id:'clasificacion',label:'Riesgo del cambio',type:'select',opts:[['bajo','Bajo'],['moderado','Moderado'],['alto','Alto']]}],'Clasificar',
+  async v=>{ const r=await calPost('/api/cambios/'+cod+'/clasificar',v); toast('Clasificado · decidir antes del '+r.fecha_limite_aprobacion); await calCargar(); },'Plazo para decidir: 5 días hábiles (10 si el riesgo es alto).'); }
+function modalAprobar(cod,ok){
+  const campos = ok ? [{id:'plan_implementacion',label:'Plan de implementación (obligatorio si el riesgo es moderado)',type:'textarea'}]
+                    : [{id:'motivo_rechazo',label:'Motivo del rechazo',type:'textarea',req:true}];
+  calForm(ok?'Aprobar cambio':'Rechazar cambio',campos,ok?'Aprobar':'Rechazar',
+    async v=>{ await calPost('/api/cambios/'+cod+'/aprobar',{aprobado:ok,...v}); toast(ok?'Cambio aprobado':'Cambio rechazado'); await calCargar(); }); }
+function modalImplementar(cod){ calForm('Registrar implementación',[{id:'notas',label:'Notas (opcional)',type:'textarea'}],'Registrar',
+  async v=>{ const r=await calPost('/api/cambios/'+cod+'/implementar',v); toast('Implementado · verificar antes del '+r.fecha_limite_verificacion); await calCargar(); },'Abre una ventana de verificación de 30 días.'); }
+function modalVerificar(cod){
+  calForm('Verificar cambio',[
+    {id:'resultado',label:'Resultado',type:'select',opts:[['sin_impacto_no_previsto','Sin impactos no previstos'],['impacto_no_previsto','Hubo impacto no previsto']]},
+    {id:'tipo_desvio',label:'Si hubo impacto: tipo de evento',type:'select',opts:Object.entries(DESV_TIPO)},
+    {id:'descripcion_desvio',label:'Si hubo impacto: descripción del evento',type:'textarea'},
+    {id:'observaciones',label:'Observaciones (opcional)',type:'textarea'},
+  ],'Verificar y cerrar', async v=>{
+    const body={resultado:v.resultado,observaciones:v.observaciones||undefined};
+    if(v.resultado==='impacto_no_previsto'){ body.tipo_desvio=v.tipo_desvio; body.descripcion_desvio=v.descripcion_desvio; }
+    const r=await calPost('/api/cambios/'+cod+'/verificar',body); toast(r.evento_calidad_codigo?'Cambio cerrado · se abrió el evento '+r.evento_calidad_codigo:'Cambio verificado y cerrado'); await calCargar();
+  },'Con impacto no previsto se abre un evento de calidad automáticamente.');
+}
+
+/* ---------- INDICADORES DEL SGC ---------- */
+function htmlKpis(){
+  const k=CAL.kpi; if(!k) return '';
+  const col = e => ({ok:'var(--ok)',alerta:'var(--bad)'}[e]||'var(--g3)');
+  const lab = e => ({ok:'En meta',alerta:'ALERTA',sin_meta:'Sin meta definida',sin_datos:'Sin datos'}[e]||e);
+  const fmt = x => { const v=x.valor; if(v===null||v===undefined) return '—'; return x.id==='KPI-01'?v+' d':(x.id==='KPI-03'||x.id==='KPI-06')?v+'%':v; };
+  const det = x => x.id==='KPI-01'?`${x.n} documentos entregados en el período`
+    : x.id==='KPI-02'?`${x.n} expedientes activos · ${x.unidad.replace('expedientes activos ','')}`
+    : x.id==='KPI-03'?`${x.rechazados} rechazados / ${x.entregados} entregados`
+    : x.id==='KPI-04'?`Eventos: ${x.detalle.eventos_abiertos} abiertos, ${x.detalle.eventos_cerrados} cerrados · CAPA: ${x.detalle.capa_abiertas} abiertas, ${x.detalle.capa_cerradas} cerradas, <b>${x.detalle.capa_vencidas} vencidas</b>`
+    : x.id==='KPI-05'?`${x.detalle.abiertos} abiertos · ${x.detalle.cerrados} cerrados (${x.detalle.cerrados_en_plazo} en plazo) · <b>${x.detalle.vencidos} vencidos</b>`
+    : `${x.al_dia} de ${x.vigentes} POE vigentes con revisión al día`;
+  const meta = x => x.id==='KPI-01'? (x.meta!==null?`Meta ≤ ${x.meta} d · alerta > ${x.alerta} d`:'Meta a fijar por Gerencia')
+    : x.id==='KPI-03'?'Meta ≤ 2% · alerta > 5%' : x.id==='KPI-06'?'Meta 100%' : 'Meta 0 · alerta ≥ 1';
+  return `<div class="card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1"><h2>Indicadores del SGC</h2><div class="muted">PGC-003 · revisión trimestral · generado ${fFecha(k.generado)}</div></div>
+      <select style="width:auto" onchange="CAL.periodo=this.value;calCargar()">${ultimosTrimestres(8).map(p=>`<option ${p===k.periodo?'selected':''}>${p}</option>`).join('')}</select>
+      ${esAdmin()?`<button class="sec" onclick="modalKpiConfig()">Metas</button><button onclick="modalCierreTrimestre()">Cerrar trimestre</button>`:''}</div>
+    <div class="muted" style="margin-top:6px">KPI-01 y KPI-03 se miden sobre ${esc(k.periodo)}; el resto es la situación de hoy. Contexto: ${k.contexto.documentos_anio} documentos en el año · ${k.contexto.expedientes_activos} expedientes activos · ${k.contexto.proyectos_activos} proyectos activos.</div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:14px">${k.kpis.map(x=>`<div class="card" style="margin:0;border-top:4px solid ${col(x.estado)}">
+    <div class="muted" style="font-size:12px">${x.id} · ${esc(x.nombre)}</div>
+    <div style="font-size:30px;font-weight:700;color:${col(x.estado)}">${fmt(x)}</div>
+    ${bdg(lab(x.estado), x.estado==='ok'?'b-ok':x.estado==='alerta'?'b-bad':'b-gris')}
+    <div style="margin-top:8px;font-size:13px">${det(x)}</div><div class="muted" style="font-size:12px;margin-top:4px">${meta(x)}</div>
+    ${x.tendencia.length?`<div class="muted" style="font-size:11px;margin-top:6px">Tendencia: ${x.tendencia.map(t=>`${esc(t.periodo)}: ${t.valor??'—'}`).join(' → ')}</div>`:''}</div>`).join('')}</div>
+  <div class="card"><h3>Rechazos de entregables por el cliente</h3>
+    ${CAL.rech.length?`<div style="overflow-x:auto"><table class="docs-tabla"><thead><tr><th>Fecha</th><th>Documento</th><th>Causa</th><th>Motivo</th><th>Evento</th></tr></thead><tbody>
+      ${CAL.rech.slice(0,30).map(r=>`<tr><td>${esc(r.fecha)}</td><td><span class="codigo">${esc(r.doc_codigo)}</span>${r.version_final?' '+bdg('versión final','b-bad'):''}</td>
+        <td>${r.causa==='criterio_aceptacion'?'Criterio de aceptación':'Alcance no contemplado'}</td><td>${esc(r.motivo)}</td>
+        <td><span class="codigo" style="cursor:pointer" onclick="CAL.tab='eventos';CAL.sel='${esc(r.evento_calidad_codigo)}';render()">${esc(r.evento_calidad_codigo||'')}</span></td></tr>`).join('')}</tbody></table></div>`
+      :'<p class="muted" style="margin-top:6px">Sin rechazos registrados. Se registran desde la ficha del expediente.</p>'}</div>`;
+}
+function modalKpiConfig(){
+  const c=CAL.kcfg||{};
+  calForm('Metas de indicadores',[
+    {id:'kpi01_meta_dias',label:'KPI-01 · meta de tiempo de ejecución (días, vacío = sin meta)',type:'number',val:c.kpi01_meta_dias??''},
+    {id:'kpi01_alerta_dias',label:'KPI-01 · umbral de alerta (días)',type:'number',val:c.kpi01_alerta_dias??''},
+    {id:'kpi02_dias_estancado',label:'KPI-02 · días sin movimiento para considerar estancado',type:'number',val:c.kpi02_dias_estancado??7},
+  ],'Guardar', async v=>{
+    const b={}; for(const k of Object.keys(v)) b[k]= v[k]===''?null:Number(v[k]);
+    if(b.kpi02_dias_estancado===null) delete b.kpi02_dias_estancado;
+    await api('/api/kpi-sgc/config',{method:'PUT',body:b}); toast('Metas guardadas'); await calCargar(); });
+}
+function modalCierreTrimestre(){
+  calForm('Cerrar trimestre '+CAL.kpi.periodo,[],'Cerrar trimestre', async()=>{
+    const r=await calPost('/api/kpi-sgc/cierre',{periodo:CAL.kpi.periodo});
+    toast('Trimestre cerrado'+(r.eventos_abiertos.length?' · se abrieron '+r.eventos_abiertos.length+' evento(s) de calidad: '+r.eventos_abiertos.map(e=>e.evento_calidad_codigo).join(', '):''));
+    await calCargar(); },
+    'Guarda la foto de los 6 indicadores. Si alguno estuvo fuera de límite 2 períodos seguidos, o empeoró 3 períodos, se abre un evento de calidad automáticamente. Un período cerrado no se puede volver a cerrar.');
+}
+
+/* ---------- Rechazo de entregable (desde la ficha del expediente) ---------- */
+function modalRechazo(){
+  const docs=REG.filter(r=>r.expediente_id===FICHA.id);
+  calForm('Rechazo del cliente',[
+    {id:'doc_codigo',label:'Documento rechazado',type:'select',opts:docs.map(d=>[d.codigo,d.codigo+' · '+d.tipo_doc+' '+(d.prot_inf||'')])},
+    {id:'causa',label:'Causa',type:'select',opts:[['criterio_aceptacion','No cumple el criterio de aceptación'],['alcance_no_contemplado','Pide algo fuera del alcance acordado']]},
+    {id:'motivo',label:'Motivo informado por el cliente',type:'textarea',req:true},
+    {id:'version_final',label:'Era la versión final',type:'check'},
+  ],'Registrar rechazo', async v=>{
+    const r=await calPost('/api/rechazos',v);
+    toast('Rechazo registrado · evento '+r.evento_calidad_codigo+(r.convocar_cliente_antes_de?' · convocar al cliente antes del '+r.convocar_cliente_antes_de:''));
+    await cargarRegistro(); render(); },
+    'Abre un evento de calidad y suma al KPI-03. Si era la versión final, hay que convocar al cliente en 2 días hábiles.');
+}
 
 /* ===================== FLOWTRACKER (ex FARO) ===================== */
 
