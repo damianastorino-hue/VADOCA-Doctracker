@@ -632,7 +632,7 @@ function adjuntosHtml(bit, n){
     if(a.anula) return `<span class="adj-anulado" title="Esta entrada anula un adjunto previo">↳ anula: ${esc(a.original||a.nombre)}</span>`;
     if(anulados.has(a.drive_id)) return `<span class="adj-anulado" title="Anulado — ver entrada de anulación en esta bitácora">🚫 <s>${esc(a.nombre)}</s> ANULADO</span>`;
     const btn = (!esLector() && n.id) ? `<button class="anular-btn" title="Anular este adjunto (tachón GxP: el archivo se renombra en Drive y el link se bloquea; la entrada original no se borra)" onclick="anularAdjunto(${n.id},'${esc(a.drive_id)}','${esc(a.nombre)}')">🚫</button>` : '';
-    const imp = (n.id && /\.pdf$/i.test(a.nombre||'')) ? `<button class="anular-btn" style="opacity:.8" title="Imprimir o descargar una copia no controlada de este PDF (marca de agua + pie de trazabilidad; queda asentado en la bitácora)" onclick="modalCopia(${n.id},'${esc(a.drive_id)}','${esc(a.nombre)}')">🖨</button>` : '';
+    const imp = (n.id && /\.pdf$/i.test(a.nombre||'')) ? `<button class="ghost" style="padding:2px 9px;font-size:12px;margin-left:6px;border:1px solid var(--turq-dim)" title="Imprimir o descargar una copia no controlada de este PDF (marca de agua + pie de trazabilidad; queda asentado en la bitácora)" onclick="modalCopia(${n.id},'${esc(a.drive_id)}','${esc(a.nombre)}')">🖨 Copia</button>` : '';
     return `<a href="https://drive.google.com/file/d/${esc(a.drive_id)}/view" target="_blank" rel="noopener" title="Original: ${esc(a.original||a.nombre)}">📎 ${esc(a.nombre)}</a>${imp}${btn}`;
   }).join('')}</div>`;
 }
