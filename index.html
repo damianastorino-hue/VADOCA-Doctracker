@@ -1648,7 +1648,7 @@ function vistaIndicadores(){
     <p class="muted" style="margin-top:4px">Calculados en vivo sobre el registro. Referencia: PGC-003 — Seguimiento y Evaluación del SGC.</p>
     <div id="indBody" style="margin-top:12px"><p class="muted">Calculando…</p></div></div>`;
 }
-function barra(pct, color){ return `<div style="background:#E4E9ED;border-radius:4px;height:14px;overflow:hidden"><div style="width:${Math.min(100,pct)}%;height:100%;background:${color||'var(--acc)'}"></div></div>`; }
+function barra(pct, color){ return `<div style="background:#E4E9ED;border-radius:4px;height:14px;overflow:hidden"><div style="width:${Math.min(100,pct)}%;height:100%;background:${color||'var(--tq)'}"></div></div>`; }
 function pintarIndicadores(d){
   const el = $('#indBody'); if(!el) return;
   const kpi = (v,lab,det)=>`<div class="kpi" style="cursor:default"><div class="num">${v}</div><div class="lab">${lab}</div>${det?`<div class="muted" style="font-size:11px;margin-top:2px">${det}</div>`:''}</div>`;
@@ -1673,7 +1673,7 @@ function pintarIndicadores(d){
     <div class="card" style="margin:0">
       <h3>Altas por mes (últimos 12)</h3>
       ${d.docs.serie12.map(x=>`<div style="display:grid;grid-template-columns:60px 1fr 40px;gap:8px;align-items:center;margin:6px 0;font-size:13px">
-        <span class="muted">${esc(x.m)}</span>${barra(100*x.n/maxSerie,'var(--ok)')}<span class="muted">${x.n}</span></div>`).join('') || '<p class="muted">Sin datos.</p>'}
+        <span class="muted">${esc(x.m)}</span>${barra(100*x.n/maxSerie)}<span class="muted">${x.n}</span></div>`).join('') || '<p class="muted">Sin datos.</p>'}
     </div>
   </div>
   ${d.comercial?`<div class="card" style="margin-top:14px">
