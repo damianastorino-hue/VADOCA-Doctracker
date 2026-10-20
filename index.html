@@ -1825,8 +1825,20 @@ function vistaConfig(){
     <h3>Mi cuenta</h3>
     <p class="muted" style="margin:6px 0 12px">${esc(YO.email)} — rol ${esc(YO.rol)}</p>
     <button class="sec" onclick="modalMiClave()">Cambiar mi contraseña</button>
-  </div>`;
+  </div>
+  ${esAdmin()?`<div class="card">
+    <h3>Google Drive</h3>
+    <p class="muted" style="margin:6px 0 12px">Suite usa una única cuenta de Google, la autorizada para el sistema. Solo hace falta autorizar la primera vez o si hay que reconectar Drive; los demás usuarios no necesitan cuenta de Google.</p>
+    <button class="sec" onclick="autorizarDrive()">Autorizar / reconectar Drive</button>
+  </div>`:''}`;
 }
+window.autorizarDrive = async function(){
+  const w = window.open('', '_blank');   // se abre en el clic para que el navegador no lo bloquee
+  try{
+    const d = await api('/api/google/iniciar',{method:'POST'});
+    if(w) w.location = d.url; else location.href = d.url;
+  }catch(e){ if(w) w.close(); toast(e.message,'err'); }
+};
 window.guardarConfig = function(){
   CFG.backendUrl = $('#cUrl').value.trim().replace(/\/+$/,'');
   CFG.clientes = $('#cClientes').value.trim().split('\n').filter(Boolean).map(l=>l.split('|').map(s=>s.trim()));
