@@ -160,13 +160,6 @@
 .ftui .bita{margin-top:14px;border-top:2px solid var(--fondo);padding-top:10px;max-height:260px;overflow:auto}
 .ftui .bita .e{padding:6px 4px;border-bottom:1px solid var(--fondo);font-size:12.5px}
 .ftui .bita .e .muted{font-size:11px}
-.ftui .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
-.ftui .cal .dia{background:#fff;border:1px solid var(--borde);border-radius:8px;min-height:78px;padding:5px;font-size:11px}
-.ftui .cal .dia.hoy-dia{border-color:var(--turq);border-width:2px}
-.ftui .cal .dia .n{color:var(--gris);font-weight:600}
-.ftui .cal .dia .it{background:#E3F6FD;color:var(--tq-text);border-radius:5px;padding:2px 4px;margin-top:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
-.ftui .cal .dia .it.tarde{background:#FBE9E7;color:var(--peligro)}
-.ftui .cal-cab{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:6px;text-align:center;font-size:11px;color:var(--gris);font-weight:600}
 #modal{display:none;position:fixed;inset:0;background:rgba(11,59,90,.55);z-index:50;align-items:center;justify-content:center;padding:16px}
 #modal .caja{background:#fff;border-radius:14px;padding:22px;width:100%;max-width:440px;max-height:88vh;overflow:auto}
 #modal h3{margin-bottom:14px}
@@ -241,7 +234,6 @@
     <nav id="ftNav" class="hidden">
       <button id="nHoy" class="active" onclick="ftIr('hoy')">Hoy</button>
       <button id="nProy" onclick="ftIr('proyectos')">Proyectos</button>
-      <button id="nCal" onclick="ftIr('calendario')">Calendario</button>
       <button id="nTpl" onclick="ftIr('templates')">Templates</button>
     </nav>
   </div>
@@ -2212,11 +2204,10 @@ function modalRechazo(){
 /* ===================== FLOWTRACKER (ex FARO) ===================== */
 
 const SEG_ESTADOS = ['pendiente','en curso','enviado a cliente','esperando respuesta','observado','aprobado','n/a'];
-const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const TAREAS = '__TAREAS__'; // pseudo-proyecto para tareas sueltas sin proyecto
 
 let DATA = { proyectos:[], proyectos_faro:[], items:[], templates:[], documentos:[] };
-let VISTA = 'hoy', PROY_SEL = null, CAL_MES = null, FILTRO_AMBITO = 'todos', MODO_DETALLE = 'lista';
+let VISTA = 'hoy', PROY_SEL = null, FILTRO_AMBITO = 'todos', MODO_DETALLE = 'lista';
 const ARBOL_EXP = new Set(); // expedientes expandidos en la vista árbol
 const CANCHA_COLOR = { mia:'#D9822B', cliente:'#1663A8', cerrado:'#2E9E5B' };
 const ARBOL_COLOR = { mia:'#C0392B', cliente:'#1663A8', cerrado:'#2E9E5B' }; // semáforo pedido para el árbol
@@ -2279,14 +2270,13 @@ function unidadesDe(cod) {
 function ftIr(v){ VISTA = v; if(v!=='proyectos') PROY_SEL = null; ftRender(); }
 function ftRender() {
   if (typeof MODULO !== 'undefined' && MODULO === 'com') { renderCom(); return; }
-  for (const [id,v] of [['nHoy','hoy'],['nProy','proyectos'],['nCal','calendario'],['nTpl','templates']])
+  for (const [id,v] of [['nHoy','hoy'],['nProy','proyectos'],['nTpl','templates']])
     document.getElementById(id).classList.toggle('active', VISTA === v);
   const shell = document.getElementById('app');
   shell.innerHTML = '<div id="ftScope" class="ftui"></div>';
   const m = document.getElementById('ftScope');
   if (VISTA === 'hoy') m.innerHTML = vistaHoy();
   else if (VISTA === 'proyectos') m.innerHTML = PROY_SEL ? vistaDetalle() : ftVistaProyectos();
-  else if (VISTA === 'calendario') m.innerHTML = vistaCalendario();
   else m.innerHTML = vistaTemplates();
   if (VISTA === 'proyectos' && PROY_SEL) cargarBitacora();
 }
@@ -2696,35 +2686,6 @@ async function vincular(id) {
       body:{ doc_codigo: document.getElementById('mDoc').value || '' } });
     ftCerrarModal(); await ftCargar(); ftRender();
   } catch(e){ alert(e.message); }
-}
-
-/* ---------- Vista CALENDARIO ---------- */
-function vistaCalendario() {
-  if (!CAL_MES) { const d = new Date(); CAL_MES = [d.getFullYear(), d.getMonth()]; }
-  const [anio, mes] = CAL_MES;
-  const primero = new Date(anio, mes, 1);
-  const inicio = (primero.getDay() + 6) % 7; // lunes = 0
-  const dias = new Date(anio, mes + 1, 0).getDate();
-  const h = hoyISO();
-  const porFecha = {};
-  for (const i of DATA.items) if (i.fecha_limite && cancha(i) !== 'cerrado')
-    (porFecha[i.fecha_limite] = porFecha[i.fecha_limite] || []).push(i);
-  let celdas = '';
-  for (let x = 0; x < inicio; x++) celdas += '<div></div>';
-  for (let d = 1; d <= dias; d++) {
-    const f = `${anio}-${String(mes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    celdas += `<div class="dia ${f === h ? 'hoy-dia' : ''}"><div class="n">${d}</div>
-      ${(porFecha[f] || []).map(i => `<div class="it ${f < h ? 'tarde' : ''}" onclick="abrirProyecto('${esc(i.proyecto)}')" title="${esc(i.proyecto)}">${esc(i.nombre)}</div>`).join('')}</div>`;
-  }
-  return `<div class="card">
-    <div class="fila" style="justify-content:space-between;margin-bottom:12px">
-      <button class="btn sec mini" onclick="CAL_MES=[${mes===0?anio-1:anio},${mes===0?11:mes-1}];ftRender()">←</button>
-      <h2 style="font-size:16px">${MESES[mes]} ${anio}</h2>
-      <button class="btn sec mini" onclick="CAL_MES=[${mes===11?anio+1:anio},${mes===11?0:mes+1}];ftRender()">→</button>
-    </div>
-    <div class="cal-cab"><div>Lu</div><div>Ma</div><div>Mi</div><div>Ju</div><div>Vi</div><div>Sá</div><div>Do</div></div>
-    <div class="cal">${celdas}</div>
-  </div>`;
 }
 
 /* ---------- Vista FACTURACIÓN ---------- */
