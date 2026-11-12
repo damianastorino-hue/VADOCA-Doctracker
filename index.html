@@ -2279,6 +2279,7 @@ function ftRender() {
   else if (VISTA === 'proyectos') m.innerHTML = PROY_SEL ? vistaDetalle() : ftVistaProyectos();
   else m.innerHTML = vistaTemplates();
   if (VISTA === 'proyectos' && PROY_SEL) cargarBitacora();
+  if (VISTA === 'hoy') planHoyCargar();
 }
 
 /* ---------- Vista HOY ---------- */
@@ -2317,7 +2318,7 @@ function vistaHoy() {
   const tareas = itemsDe(TAREAS);
   const tareasActivas = tareas.filter(i => cancha(i) !== 'cerrado');
   const tareasCerradas = tareas.length - tareasActivas.length;
-  return chipsFiltro() + `
+  return chipsFiltro() + `<div id="planHoy">${planHoyHtml()}</div>
     <div class="card">
       <div class="fila" style="justify-content:space-between">
         <h2 style="font-size:15px">✓ Tareas sueltas</h2>
@@ -2400,7 +2401,7 @@ async function crearProyecto() {
   } catch(e){ alert(e.message); }
 }
 
-function abrirProyecto(cod){ if (cod === TAREAS) { ftIr('hoy'); return; } VISTA = 'proyectos'; PROY_SEL = cod; ftRender(); }
+function abrirProyecto(cod){ if (cod === TAREAS) { ftIr('hoy'); return; } VISTA = 'proyectos'; PROY_SEL = cod; PLAN_VER = null; delete PLANES[cod]; ftRender(); }
 
 function vistaDetalle() {
   const p = todosProyectos().find(x => x.codigo === PROY_SEL);
@@ -2419,6 +2420,7 @@ function vistaDetalle() {
     if (!exps.has(d.expediente_id)) exps.set(d.expediente_id, []);
     exps.get(d.expediente_id).push(d);
   }
+  const enPlan = MODO_DETALLE === 'plan';
   let htmlExps = '';
   for (const [expId, docs] of exps) {
     const activosN = docs.filter(d => canchaDoc(d.estado) !== 'cerrado').length;
@@ -2447,20 +2449,400 @@ function vistaDetalle() {
         ${p.ambito === 'personal' ? `<button class="btn rojo mini" onclick="borrarProyectoFaro('${esc(p.codigo)}')">✕</button>` : ''}
       </div>
     </div>
-    ${docsProy.length ? `<div class="fila" style="justify-content:space-between;margin-top:14px">
-      <div class="seccion" style="margin:0">Expedientes y documentos · DocTracker (${exps.size} exp / ${docsProy.length} docs)</div>
+    <div class="fila" style="justify-content:space-between;margin-top:14px">
+      <div class="seccion" style="margin:0">${enPlan || !docsProy.length ? 'Plan del proyecto' : `Expedientes y documentos · DocTracker (${exps.size} exp / ${docsProy.length} docs)`}</div>
       <div class="modo-btns">
-        <button class="${MODO_DETALLE === 'lista' ? 'on' : ''}" onclick="MODO_DETALLE='lista';ftRender()">☰ Lista</button>
+        ${docsProy.length ? `<button class="${MODO_DETALLE === 'lista' ? 'on' : ''}" onclick="MODO_DETALLE='lista';ftRender()">☰ Lista</button>
         <button class="${MODO_DETALLE === 'mapa' ? 'on' : ''}" onclick="MODO_DETALLE='mapa';ftRender()">▦ Mapa</button>
-        <button class="${MODO_DETALLE === 'arbol' ? 'on' : ''}" onclick="MODO_DETALLE='arbol';ftRender()">🌳 Árbol</button>
+        <button class="${MODO_DETALLE === 'arbol' ? 'on' : ''}" onclick="MODO_DETALLE='arbol';ftRender()">🌳 Árbol</button>` : ''}
+        <button class="${enPlan ? 'on' : ''}" onclick="planAbrir()">📊 Plan</button>
       </div></div>
-      ${MODO_DETALLE === 'mapa' ? mapaProyecto(exps) : MODO_DETALLE === 'arbol' ? arbolProyecto(p, exps) : htmlExps}` : ''}
+    ${enPlan ? `<div id="planBox">${planHtml(p.codigo)}</div>` : `
+    ${docsProy.length ? (MODO_DETALLE === 'mapa' ? mapaProyecto(exps) : MODO_DETALLE === 'arbol' ? arbolProyecto(p, exps) : htmlExps) : ''}
     ${(docsProy.length || itsVisibles.length) ? `<div class="seccion">Ítems de seguimiento (extra: comercial, esperas, tareas sin documento)</div>` : ''}
     <div>
       ${itsVisibles.map(i => filaItem(i, docsProy)).join('') || (docsProy.length ? '<div class="muted" style="padding:4px 6px">Sin ítems extra. Usá "+ Ítem" para el ping-pong comercial (ej: esperando OC).</div>' : '<div class="tarea-vacia">Sin ítems. Aplicá un template o agregá ítems sueltos.</div>')}
-    </div>
-    <div class="bita" id="bitacora"><div class="muted">Cargando bitácora…</div></div>
+    </div>`}
+    ${enPlan ? '' : '<div class="bita" id="bitacora"><div class="muted">Cargando bitácora…</div></div>'}
   </div>`;
+}
+
+/* ============================================================
+   FlowTracker · Plan del proyecto (Gantt, actividades, versiones)
+   Herramienta operativa: lee el estado de los documentos desde DocTracker y no escribe en él.
+   ============================================================ */
+let PLANES = {}, PLAN_SUB = 'gantt', PLAN_VER = null, PLAN_CARGANDO = null, PLAN_HOY = null, PLAN_HOY_TS = 0, PLAN_REV = null;
+const PL_COL = { vadoca: '#D9822B', cliente: '#1663A8', hecho: '#2E9E5B', gris: '#9AA7B1' };
+const PL_MES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const plDm = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '—';
+const plDmy = s => s ? plDm(s) + '/' + s.slice(0, 4) : '—';
+const plDias = n => `${Math.abs(n)} día${Math.abs(n) === 1 ? '' : 's'} hábil${Math.abs(n) === 1 ? '' : 'es'}`;
+const PL_CHIP = { terminada: ['c-cerrado', 'Terminada'], esperando: ['c-cliente', 'Espera al cliente'], en_ejecucion: ['c-mia', 'En tu cancha'], lista: ['c-mia', 'Para empezar'] };
+const PL_GRIS = { pendiente: 'Pendiente', pausada: 'En pausa', cancelada: 'Cancelada', bloqueada: 'Bloqueada' };
+function plChip(a) {
+  const e = PL_CHIP[a.estado];
+  if (e) return `<span class="chip ${e[0]}"><span class="punto"></span>${e[1]}</span>`;
+  const rojo = a.estado === 'bloqueada';
+  return `<span class="chip" style="background:${rojo ? '#FBE9E7' : '#EEF2F5'};color:${rojo ? '#C0392B' : '#6D7985'}">${PL_GRIS[a.estado] || a.estado}</span>`;
+}
+const plTagDoc = a => a.documento ? `<span style="font-family:'Courier New',monospace;font-size:10px;font-weight:700;background:#E6F7F7;color:#007E80;padding:1px 5px;border-radius:4px">${esc(a.documento.tipo_doc)} ${a.documento.prot_inf === 'P' ? 'Prot.' : 'Inf.'}</span>` : '';
+const plOrigen = o => ({ cliente: 'Cliente', vadoca: 'VADOCA', otro: 'Otro', inicial: 'Plan inicial' }[o] || o);
+const plRef = r => !r ? '' : /^https?:\/\//.test(r) ? `<a href="${esc(r)}" target="_blank" rel="noopener">${esc(r.length > 60 ? r.slice(0, 57) + '…' : r)}</a>` : esc(r);
+
+function planAbrir() { MODO_DETALLE = 'plan'; PLAN_VER = null; delete PLANES[PROY_SEL]; ftRender(); }
+async function planCargar(cod, silencioso) {
+  const clave = cod + '|' + (PLAN_VER || '');
+  if (PLAN_CARGANDO === clave) return; PLAN_CARGANDO = clave;
+  try { PLANES[cod] = await api('/api/planificacion/' + encodeURIComponent(cod) + (PLAN_VER ? '?version=' + PLAN_VER : '')); }
+  catch (e) { PLANES[cod] = { error: e.message }; }
+  PLAN_CARGANDO = null; PLAN_HOY_TS = 0;
+  const box = document.getElementById('planBox');
+  if (box && PROY_SEL === cod && MODO_DETALLE === 'plan') box.innerHTML = planHtml(cod);
+}
+async function planRecargar() { delete PLANES[PROY_SEL]; await planCargar(PROY_SEL); }
+
+function planHtml(cod) {
+  const D = PLANES[cod];
+  if (!D) { planCargar(cod); return '<div class="muted" style="padding:18px 6px">Cargando el plan…</div>'; }
+  if (D.error) return `<div class="tarea-vacia">No se pudo cargar el plan: ${esc(D.error)}<br><button class="btn sec mini" style="margin-top:10px" onclick="planRecargar()">Reintentar</button></div>`;
+  if (!D.existe) return `<div class="tarea-vacia" style="padding:34px 10px">
+      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">Este proyecto todavía no tiene plan</div>
+      Pegá el JSON del plan que te genera el asistente y FlowTracker arma el Gantt.<br>
+      Los documentos se siguen solos desde DocTracker.
+      ${esLector() ? '' : '<div style="margin-top:14px"><button class="btn" onclick="planModalImportar()">⬆ Importar plan</button></div>'}</div>`;
+  const ro = esLector() || !D.es_vigente;
+  const vAct = D.versiones.find(v => v.numero === D.version);
+  return `<div class="fila" style="justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px">
+      <div class="modo-btns">
+        <button class="${PLAN_SUB === 'gantt' ? 'on' : ''}" onclick="PLAN_SUB='gantt';planPintar()">▤ Gantt</button>
+        <button class="${PLAN_SUB === 'acts' ? 'on' : ''}" onclick="PLAN_SUB='acts';planPintar()">☑ Actividades</button>
+        <button class="${PLAN_SUB === 'hist' ? 'on' : ''}" onclick="PLAN_SUB='hist';planPintar()">🕘 Versiones (${D.versiones.length})</button>
+      </div>
+      <div class="fila" style="gap:6px;flex-wrap:wrap">
+        <span class="muted" style="font-size:12px">Versión ${D.version}${D.es_vigente ? ' · vigente' : ''} · ${new Date(vAct.creado).toLocaleDateString('es-AR')}</span>
+        <button class="btn sec mini" onclick="planExportar()">⬇ Exportar</button>
+        ${ro ? '' : `<button class="btn sec mini" onclick="planModalPausa()">⏸ Pausar proyecto</button>
+        <button class="btn mini" onclick="planModalImportar()">⬆ Actualizar plan</button>`}
+      </div></div>
+    ${D.es_vigente ? '' : `<div style="background:#EEF2F5;border-radius:10px;padding:9px 12px;font-size:13px;margin-top:10px">
+      Estás viendo la <b>versión ${D.version}</b> tal como se planificó${vAct.motivo ? ` (${esc(vAct.motivo)})` : ''}. No es la vigente.
+      <a href="#" onclick="PLAN_VER=null;planRecargar();return false" style="margin-left:8px">Volver a la versión ${D.version_vigente} →</a></div>`}
+    ${planEncabezado(D)}
+    ${PLAN_SUB === 'gantt' ? planGantt(D) : PLAN_SUB === 'acts' ? planActividades(D, ro) : planVersiones(D)}`;
+}
+function planPintar() { const b = document.getElementById('planBox'); if (b) b.innerHTML = planHtml(PROY_SEL); }
+
+function planEncabezado(D) {
+  const d = D.desvio_dias || 0, tarde = D.es_vigente && d > 0;
+  const sub2 = !D.es_vigente ? 'Según esa versión' : tarde ? plDias(d) + ' de atraso' : d < 0 ? plDias(d) + ' de adelanto' : 'En fecha';
+  const tarj = [['Fin planificado', plDmy(D.fin_planificado), D.version > 1 ? `Versión ${D.version} · original ${plDmy(D.fin_original)}` : 'Línea base'],
+    ['Fin proyectado', plDmy(D.fin_proyectado), sub2],
+    ['Fecha comprometida', plDmy(D.comprometido), D.comprometido ? 'Con el cliente' : 'Sin fecha comprometida'],
+    ['Avance', D.resumen.terminadas + ' de ' + D.resumen.total, 'actividades terminadas']];
+  const pl = D.alertas.filter(a => a.tipo === 'planificada' || a.tipo === 'comprometida'), otras = D.alertas.filter(a => a.tipo === 'hito' || a.tipo === 'dependencia');
+  const comp = D.alertas.some(a => a.tipo === 'comprometida');
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 4px">
+    ${tarj.map(([l, v, s], i) => `<div style="flex:1;min-width:150px;border:1px solid var(--borde);border-radius:12px;padding:10px 14px;background:#fff">
+      <div style="font-size:11px;color:var(--gris);font-weight:600;text-transform:uppercase;letter-spacing:.5px">${l}</div>
+      <div style="font-size:20px;font-weight:700;color:${i === 1 && tarde ? '#C0392B' : 'var(--navy)'}">${v}</div>
+      <div style="font-size:12px;color:${i === 1 && tarde ? '#C0392B' : 'var(--gris)'}">${s}</div></div>`).join('')}</div>
+    ${pl.length ? `<div style="background:${comp ? '#FBE9E7' : '#FBF0DA'};border:1px solid ${comp ? '#C0392B' : '#D98E04'};border-radius:10px;padding:9px 12px;font-size:13px;margin-top:8px">
+      <b>⚠ ${comp ? 'El fin proyectado supera la fecha comprometida con el cliente.' : 'El fin proyectado supera la fecha planificada.'}</b>
+      ${!comp && D.comprometido ? `Sigue dentro de la fecha comprometida (${plDmy(D.comprometido)}).` : ''}
+      ${D.causa ? `Lo que más está corriendo el plan: <b>${esc(D.causa.titulo)}</b>.` : ''}</div>` : ''}
+    ${otras.map(a => `<div style="background:#FBF0DA;border-radius:10px;padding:7px 12px;font-size:12.5px;margin-top:6px">⚠ ${esc(a.texto.replace(/(\d{4})-(\d\d)-(\d\d)/g, '$3/$2/$1'))}</div>`).join('')}`;
+}
+
+function planGantt(D) {
+  const dia = 864e5, f = s => new Date(s + 'T00:00:00Z').getTime(), N = 250;
+  const fechas = [D.inicio, D.fin_proyectado, D.fin_planificado, D.comprometido, D.hoy].concat(D.actividades.map(a => a.inicio), D.actividades.map(a => a.base ? a.base.inicio : null)).filter(Boolean).sort();
+  const t0 = f(fechas[0]) - 3 * dia, t1 = f(fechas[fechas.length - 1]) + 6 * dia, nd = (t1 - t0) / dia;
+  const W = Math.max(750, Math.round(nd * 3)), px = W / nd;
+  const x = s => Math.round((f(s) - t0) / dia * px), w = (a, b) => Math.max(4, x(b) - x(a) + Math.round(px));
+  let meses = '', lineas = '', primerMes = null;
+  for (let t = t0; t < t1; t += dia) { const d = new Date(t), xi = Math.round((t - t0) / dia * px);
+    if (d.getUTCDate() === 1) { if (primerMes === null) primerMes = xi;
+      meses += `<div style="position:absolute;left:${xi + 4}px;top:0;font-size:11px;font-weight:700;color:var(--gris);white-space:nowrap">${PL_MES[d.getUTCMonth()]} ${d.getUTCFullYear()}</div>`;
+      lineas += `<div style="position:absolute;left:${xi}px;top:0;bottom:0;border-left:1px solid #DDE4E9"></div>`; }
+    else if (d.getUTCDay() === 1 && px >= 3) lineas += `<div style="position:absolute;left:${xi}px;top:18px;bottom:0;border-left:1px dashed #EEF2F5"></div>`; }
+  if (primerMes === null || primerMes > 70) { const d = new Date(t0); meses = `<div style="position:absolute;left:4px;top:0;font-size:11px;font-weight:700;color:var(--gris)">${PL_MES[d.getUTCMonth()]} ${d.getUTCFullYear()}</div>` + meses; }
+  for (const p of D.pausas || []) lineas += `<div title="Proyecto en pausa: ${esc(p.motivo || '')}" style="position:absolute;left:${x(p.desde)}px;width:${w(p.desde, p.hasta)}px;top:18px;bottom:0;background:repeating-linear-gradient(135deg,#EEF2F5 0 6px,#F8FAFB 6px 12px);opacity:.9"></div>
+    <div style="position:absolute;left:${x(p.desde) + 5}px;top:20px;font-size:10px;font-weight:700;color:#6D7985;z-index:4;white-space:nowrap">⏸ Pausa ${plDm(p.desde)}–${plDm(p.hasta)}</div>`;
+  const marca = (s, color, texto, nivel) => `<div style="position:absolute;left:${x(s)}px;top:18px;bottom:0;border-left:2px ${color === '#C0392B' ? 'dashed' : 'solid'} ${color};z-index:3"></div>
+    <div style="position:absolute;${x(s) > W - 130 ? `right:${W - x(s) + 4}px` : `left:${x(s) + 5}px`};top:${20 + nivel * 13}px;font-size:10px;font-weight:700;color:${color};background:#fff;padding:0 3px;z-index:4;white-space:nowrap">${texto}</div>`;
+  const B = (izq, an, extra) => `<div style="position:absolute;left:${izq}px;width:${an}px;top:6px;height:13px;box-sizing:border-box;${extra}"></div>`;
+  let filas = '';
+  for (const fa of D.fases) {
+    const acts = D.actividades.filter(z => z.fase === fa.id); if (!acts.length) continue;
+    filas += `<div style="display:flex;align-items:center;height:26px;background:#F2F5F7;border-top:1px solid var(--borde)"><div style="width:${N}px;padding-left:8px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gris-osc)">${esc(fa.titulo)}</div></div>`;
+    for (const a of acts) {
+      const e = a.estado, cl = a.responsable === 'vadoca' ? PL_COL.vadoca : PL_COL.cliente, esp = a.espera_cliente > 0 && a.fin > a.interno;
+      const xi = x(a.inicio), w1 = w(a.inicio, a.interno), x2 = x(a.interno) + Math.round(px), w2 = Math.max(6, w(a.interno, a.fin) - Math.round(px));
+      const base = a.kind === 'milestone' || !a.base ? '' : `<div title="Línea base: ${plDm(a.base.inicio)} → ${plDm(a.base.fin)}" style="position:absolute;left:${x(a.base.inicio)}px;width:${w(a.base.inicio, a.base.fin)}px;top:21px;height:3px;background:${PL_COL.gris};border-radius:2px"></div>`;
+      let barra;
+      if (a.kind === 'milestone') barra = `<div style="position:absolute;left:${x(a.fin) - 6}px;top:6px;width:12px;height:12px;transform:rotate(45deg);box-sizing:border-box;background:${e === 'terminada' ? PL_COL.hecho : '#fff'};border:2px solid ${e === 'terminada' ? PL_COL.hecho : 'var(--navy)'}"></div>
+        <div style="position:absolute;left:${x(a.fin) + 12}px;top:5px;font-size:10px;color:var(--gris)">${plDm(a.fin)}</div>`;
+      else if (e === 'terminada') barra = B(xi, w(a.inicio, a.fin), `background:${PL_COL.hecho};border-radius:4px`);
+      else if (e === 'cancelada') barra = B(xi, w(a.inicio, a.fin), `background:#DDE4E9;border-radius:4px;height:5px;top:10px`);
+      else if (e === 'esperando' && a.kind === 'document') barra = B(xi, w1, `background:${PL_COL.vadoca};opacity:.45;border-radius:4px 0 0 4px`) + B(x2, w2, `background:${PL_COL.cliente};border-radius:0 4px 4px 0`);
+      else if (e === 'esperando') barra = B(xi, w(a.inicio, a.fin), `background:${PL_COL.cliente};border-radius:4px`);
+      else if (e === 'en_ejecucion') barra = B(xi, w1, `background:${PL_COL.vadoca};border-radius:4px${esp ? ' 0 0 4px' : ''}`) + (esp ? B(x2, w2, `border:1.5px dashed ${PL_COL.cliente};border-radius:0 4px 4px 0`) : '');
+      else if (e === 'pausada' || e === 'bloqueada') barra = B(xi, w(a.inicio, a.fin), `background:repeating-linear-gradient(135deg,${e === 'bloqueada' ? '#E8B4AC' : '#C3CDD5'} 0 5px,#fff 5px 9px);border:1px solid ${e === 'bloqueada' ? '#C0392B' : '#9AA7B1'};border-radius:4px`);
+      else barra = B(xi, w1, `border:1.5px dashed ${cl};background:${cl}14;border-radius:4px${esp ? ' 0 0 4px' : ''}`) + (esp ? B(x2, w2, `border:1.5px dashed ${PL_COL.cliente};background:${PL_COL.cliente}14;border-radius:0 4px 4px 0`) : '');
+      const tip = `${a.titulo} · ${plDm(a.inicio)} → ${plDm(a.fin)}` + (a.base ? ` · plan ${plDm(a.base.fin)}` : '');
+      filas += `<div style="display:flex;align-items:center;height:28px;border-top:1px solid #F2F5F7" title="${esc(tip)}">
+        <div style="width:${N}px;flex:none;padding-left:8px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${['terminada', 'cancelada'].includes(e) ? 'var(--gris)' : 'var(--navy)'}">
+          ${a.kind === 'document' ? plTagDoc(a) + ' ' : a.kind === 'milestone' ? '◆ ' : ''}${esc(a.titulo)}${a.contractual ? ' <span title="Hito contractual" style="color:#6B4FA3">●</span>' : ''}</div>
+        <div style="position:relative;width:${W}px;height:28px;flex:none">${base}${barra}</div></div>`;
+    }
+  }
+  const cerca = D.comprometido && Math.abs(x(D.comprometido) - x(D.hoy)) < 120;
+  return `<div style="overflow-x:auto;margin-top:12px"><div style="min-width:${N + W}px">
+    <div style="display:flex"><div style="width:${N}px;flex:none"></div><div style="position:relative;width:${W}px;height:18px">${meses}</div></div>
+    <div style="position:relative">
+      <div style="position:absolute;left:${N}px;top:-18px;bottom:0;width:${W}px;pointer-events:none">${lineas}${D.es_vigente ? marca(D.hoy, '#00B4B6', 'Hoy ' + plDm(D.hoy), 0) : ''}${D.comprometido ? marca(D.comprometido, '#C0392B', 'Comprometido ' + plDm(D.comprometido), cerca ? 1 : 0) : ''}</div>
+      ${filas}
+    </div></div></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--gris);margin-top:10px;align-items:center">
+      ${[[PL_COL.vadoca, 'En tu cancha'], [PL_COL.cliente, 'Esperando al cliente'], [PL_COL.hecho, 'Terminada']].map(([c, t]) => `<span><span style="display:inline-block;width:14px;height:9px;background:${c};border-radius:3px;margin-right:5px"></span>${t}</span>`).join('')}
+      <span><span style="display:inline-block;width:14px;height:9px;border:1.5px dashed #6D7985;border-radius:3px;margin-right:5px;box-sizing:border-box"></span>Pendiente (proyectado)</span>
+      <span><span style="display:inline-block;width:14px;height:3px;background:${PL_COL.gris};border-radius:2px;margin-right:5px;vertical-align:middle"></span>Línea base</span>
+      <span>◆ Hito</span><span><span style="color:#6B4FA3">●</span> Contractual</span>
+    </div>`;
+}
+
+function planActividades(D, ro) {
+  const T = Object.fromEntries(D.actividades.map(a => [a.id, a]));
+  const EST = [['not_started', 'No iniciada'], ['in_progress', 'En ejecución'], ['waiting_client', 'Esperando al cliente'], ['done', 'Terminada'], ['cancelled', 'Cancelada']];
+  let h = '';
+  for (const fa of D.fases) {
+    const acts = D.actividades.filter(z => z.fase === fa.id); if (!acts.length) continue;
+    h += `<div class="seccion">${esc(fa.titulo)}</div>`;
+    for (const a of acts) {
+      const hecho = a.estado === 'terminada', doc = a.documento, pr = a.propio || {};
+      const faltan = a.espera_a.map(i => T[i].titulo);
+      let control = '';
+      if (a.kind === 'document') {
+        if (doc.vinculo === 'ok') control = `<div style="font-size:11.5px;color:var(--gris)">📄 ${esc(doc.codigo)}<br><b style="color:var(--navy)">${esc(doc.estado_doc)}</b>${doc.ciclos > 1 ? ` · ${doc.ciclos} envíos` : ''}${doc.rechazos ? ` · ${doc.rechazos} rechazo${doc.rechazos > 1 ? 's' : ''}` : ''}</div>`;
+        else if (doc.vinculo === 'ambiguo') control = ro ? '<span style="font-size:11px;color:#C0392B">Hay más de un documento posible</span>'
+          : `<select style="font-size:12px;padding:4px 6px;max-width:170px" onchange="planAct('${a.id}',{doc_id:Number(this.value)})"><option value="">¿Qué documento es?</option>${doc.candidatos.map(c => `<option value="${c.id}">${esc(c.codigo)}</option>`).join('')}</select>`;
+        else control = '<span style="font-size:11px;color:var(--gris)">📄 Todavía no existe en DocTracker</span>';
+      } else if (a.kind === 'milestone') control = '<span style="font-size:11px;color:var(--gris)">Se cumple solo</span>';
+      else if (ro) control = `<span style="font-size:11px;color:var(--gris)">${(EST.find(e => e[0] === pr.estado_propio) || EST[0])[1]}</span>`;
+      else control = `<select style="font-size:12px;padding:4px 6px" onchange="planEstado('${a.id}',this.value,'${pr.estado_propio || 'not_started'}')">${EST.map(([k, t]) => `<option value="${k}" ${k === (pr.estado_propio || 'not_started') ? 'selected' : ''}>${t}</option>`).join('')}</select>
+        <div style="margin-top:3px"><a href="#" style="font-size:11px" onclick="planBloqueo('${a.id}');return false">${pr.bloqueo_motivo ? 'Quitar bloqueo' : 'Marcar bloqueo'}</a></div>`;
+      const fechas = hecho ? `${plDm(a.inicio)} → ${plDm(a.fin)}` : `${plDm(a.inicio)} → ${plDm(a.fin)}`;
+      const dv = a.desvio_dias, plan = a.base ? `<div style="font-size:11px;color:${dv > 0 && a.estado !== 'cancelada' ? '#C0392B' : 'var(--gris)'}">plan ${plDm(a.base.fin)}${dv > 0 ? ` · +${dv} d` : dv < 0 && hecho ? ` · ${dv} d` : ''}</div>` : '';
+      const marcas = pr.checklist || [];
+      h += `<div style="display:grid;grid-template-columns:22px minmax(200px,1fr) 140px 120px 180px;gap:10px;align-items:center;padding:7px 6px;border-bottom:1px solid var(--fondo)">
+        <span class="tilde ${hecho ? 'done' : ''}"></span>
+        <div style="font-size:13px"><span style="${hecho || a.estado === 'cancelada' ? 'color:var(--gris)' : 'font-weight:600'}${a.estado === 'cancelada' ? ';text-decoration:line-through' : ''}">${a.kind === 'milestone' ? '◆ ' : ''}${esc(a.titulo)}</span>
+          ${doc ? ' ' + plTagDoc(a) : ''}${a.contractual ? ` <span class="tag" style="background:#F0EAFB;color:#6B4FA3">CONTRACTUAL</span>` : ''}
+          ${a.responsable !== 'vadoca' && a.kind === 'task' ? ` <span class="tag" style="background:#E3EEF8;color:#1663A8">${a.responsable === 'client' ? 'CLIENTE' : 'TERCERO'}</span>` : ''}
+          ${faltan.length && !hecho ? `<div style="font-size:11px;color:var(--gris);margin-top:2px">🔒 Espera a: ${faltan.map(esc).join(' · ')}</div>` : ''}
+          ${pr.bloqueo_motivo ? `<div style="font-size:11px;color:#C0392B;margin-top:2px">⛔ Bloqueada: ${esc(pr.bloqueo_motivo)}</div>` : ''}
+          ${a.committed_date ? `<div style="font-size:11px;color:${a.fin > a.committed_date && !hecho ? '#C0392B' : 'var(--gris)'};margin-top:2px">Comprometida para el ${plDmy(a.committed_date)}</div>` : ''}
+          ${a.checklist.length ? `<div style="font-size:11.5px;color:var(--gris-osc);margin-top:3px">${a.checklist.map((c, i) => `<label style="margin-right:12px;white-space:nowrap;font-weight:400;display:inline"><input type="checkbox" style="width:auto;margin-right:3px;vertical-align:-2px" ${marcas[i] ? 'checked' : ''} ${ro || a.kind !== 'task' ? 'disabled' : ''} onchange="planCheck('${a.id}',${i},this.checked)">${esc(c)}</label>`).join('')}</div>` : ''}</div>
+        <div>${plChip(a)}</div>
+        <div style="font-size:12px;white-space:nowrap">${fechas}${plan}</div>
+        <div style="text-align:right">${control}</div></div>`;
+    }
+  }
+  if (D.hitos.length) h += `<div class="seccion">Hitos comerciales</div>` + D.hitos.map(m => `<div style="display:grid;grid-template-columns:22px minmax(200px,1fr) 140px 300px;gap:10px;align-items:center;padding:7px 6px;border-bottom:1px solid var(--fondo);font-size:13px">
+      <span class="tilde ${m.gestionado ? 'done' : ''}"></span>
+      <div><b>${esc(m.titulo)}</b>${m.percent != null ? ' · ' + m.percent + ' %' : ''}<div style="font-size:11px;color:var(--gris)">Se habilita con: ${esc(m.trigger_titulo)}${m.habilitado ? '' : ' · estimado ' + plDm(m.fecha_estimada)}</div></div>
+      <div>${m.gestionado ? '<span class="chip c-cerrado"><span class="punto"></span>Gestionado</span>' : m.habilitado ? '<span class="chip c-mia"><span class="punto"></span>Para gestionar</span>' : '<span class="chip" style="background:#EEF2F5;color:#6D7985">Todavía no</span>'}</div>
+      <div style="font-size:12px;color:var(--gris);text-align:right">${m.proposal_ref ? 'Presupuesto ' + esc(m.proposal_ref) + ' · ' : ''}importes y facturas en Comercial
+        ${m.habilitado && !ro ? `<br><label style="font-weight:400;display:inline"><input type="checkbox" style="width:auto;vertical-align:-2px" ${m.gestionado ? 'checked' : ''} onchange="planAct('hito:${m.id}',{gestionado:this.checked})"> Ya lo gestioné</label>` : ''}</div></div>`).join('');
+  return h;
+}
+
+function planVersiones(D) {
+  const tarj = D.versiones.slice().reverse().map(v => {
+    const r = v.resumen || {}, d = r.diferencias, ant = D.versiones.find(z => z.numero === v.numero - 1);
+    let cambios = '';
+    if (v.tipo === 'pausa' && r.pausa) cambios = `<div style="font-size:12.5px;margin-top:6px">⏸ Proyecto en pausa del <b>${plDmy(r.pausa.desde)}</b> al <b>${plDmy(r.pausa.hasta)}</b> (${plDias(r.pausa.dias_habiles)}). Lo pendiente se corrió; lo ya hecho no cambió.</div>`;
+    else if (d) { const li = [];
+      for (const a of d.agregadas) li.push(`<li><b style="color:#2E9E5B">+ Agregada:</b> ${esc(a.titulo)}</li>`);
+      for (const a of d.quitadas) li.push(`<li><b style="color:#C0392B">− Quitada:</b> ${esc(a.titulo)}</li>`);
+      for (const a of d.cambiadas) li.push(`<li><b>Modificada:</b> ${esc(a.titulo)} — ${a.cambios.map(c => `${esc(c.campo)} ${esc(Array.isArray(c.antes) ? c.antes.length + ' → ' + c.despues.length : (c.antes ?? '—') + ' → ' + (c.despues ?? '—'))}`).join('; ')}</li>`);
+      for (const c of d.proyecto) li.push(`<li><b>Proyecto:</b> ${esc(c.campo)} ${esc((c.antes ?? '—') + ' → ' + (c.despues ?? '—'))}</li>`);
+      cambios = li.length ? `<ul style="font-size:12.5px;margin:6px 0 0 18px;line-height:1.6">${li.join('')}</ul>` : ''; }
+    else if (v.numero === 1) cambios = `<div style="font-size:12.5px;margin-top:6px;color:var(--gris)">${r.actividades || ''} actividades · ${r.documentales || 0} documentales · ${r.propias || 0} propias</div>`;
+    return `<div style="border:1px solid ${v.numero === D.version_vigente ? 'var(--turq)' : 'var(--borde)'};border-radius:12px;padding:12px 14px;margin-top:10px;background:#fff">
+      <div class="fila" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <div><b style="font-size:14px">Versión ${v.numero}</b>${v.numero === D.version_vigente ? ' <span class="tag" style="background:#E6F7F7;color:#007E80">VIGENTE</span>' : ''}
+          <span class="muted" style="font-size:12px;margin-left:6px">${new Date(v.creado).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · ${esc(v.autor)}</span></div>
+        <button class="btn sec mini" onclick="PLAN_VER=${v.numero === D.version_vigente ? 'null' : v.numero};PLAN_SUB='gantt';planRecargar()">Ver este Gantt</button></div>
+      <div style="font-size:13px;margin-top:6px">${v.numero === 1 ? 'Plan inicial.' : `<b>Motivo:</b> ${esc(v.motivo)} · <b>Pidió el cambio:</b> ${plOrigen(v.origen)}`}${v.referencia ? ` · <b>Evidencia:</b> ${plRef(v.referencia)}` : ''}</div>
+      <div style="font-size:13px;margin-top:4px">Fin planificado: ${ant ? `${plDmy(ant.fin_planificado)} → ` : ''}<b>${plDmy(v.fin_planificado)}</b></div>
+      ${cambios}</div>`; }).join('');
+  const TIPO = { version: '📌', pausa: '⏸', reprogramacion: '↻', actividad: '✎', hito: '◆' };
+  return `<div class="seccion">Versiones del plan</div>${tarj}
+    <div class="seccion" style="margin-top:20px">Registro de cambios</div>
+    <div style="max-height:320px;overflow:auto">${D.historial.map(n => `<div style="padding:6px 4px;border-bottom:1px solid var(--fondo);font-size:12.5px">
+      <span class="muted" style="font-size:11px">${TIPO[n.tipo] || '·'} ${new Date(n.ts).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · ${esc(n.autor === 'sistema' ? 'Automático' : n.autor)}</span><br>${esc(n.texto.replace(/(\d{4})-(\d\d)-(\d\d)/g, '$3/$2/$1'))}</div>`).join('') || '<div class="muted">Sin movimientos todavía.</div>'}</div>`;
+}
+
+/* ---------- Acciones ---------- */
+async function planAct(id, cuerpo, ok) {
+  try { await api('/api/planificacion/' + encodeURIComponent(PROY_SEL) + '/actividades/' + encodeURIComponent(id), { method: 'PATCH', body: cuerpo }); if (ok) toast(ok); }
+  catch (e) { toast(e.message, 'err'); }
+  await planRecargar();
+}
+function planEstado(id, nuevo, viejo) {
+  const cerrada = ['done', 'cancelled'].includes(viejo);
+  if (nuevo === 'cancelled' || cerrada) {
+    planModal(`<h3>${cerrada ? 'Reabrir la actividad' : 'Cancelar la actividad'}</h3>
+      <label>Motivo</label><textarea id="plMot" rows="3" placeholder="${cerrada ? 'Por qué se reabre' : 'Por qué se cancela'}"></textarea>
+      <div class="acciones"><button class="btn sec" onclick="ftCerrarModal();planPintar()">Volver</button>
+      <button class="btn" onclick="const m=document.getElementById('plMot').value.trim(); if(!m){toast('Falta el motivo','err');return;} ftCerrarModal(); planAct('${id}',{estado:'${nuevo}',motivo:m})">Confirmar</button></div>`, 440);
+    return;
+  }
+  planAct(id, { estado: nuevo });
+}
+function planCheck(id, i, valor) {
+  const a = PLANES[PROY_SEL].actividades.find(x => x.id === id), m = a.checklist.map((_, k) => !!(a.propio.checklist || [])[k]); m[i] = valor;
+  planAct(id, { checklist: m });
+}
+function planBloqueo(id) {
+  const a = PLANES[PROY_SEL].actividades.find(x => x.id === id);
+  if (a.propio.bloqueo_motivo) return planAct(id, { bloqueo_motivo: '' }, 'Bloqueo quitado');
+  planModal(`<h3>Marcar bloqueo</h3><div class="muted" style="font-size:12.5px">${esc(a.titulo)}</div>
+    <label>¿Qué la está frenando?</label><textarea id="plMot" rows="3" placeholder="Ej.: falta el usuario de acceso que tiene que dar TI"></textarea>
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Volver</button>
+    <button class="btn" onclick="const m=document.getElementById('plMot').value.trim(); if(!m){toast('Falta el motivo','err');return;} ftCerrarModal(); planAct('${id}',{bloqueo_motivo:m})">Guardar</button></div>`, 440);
+}
+function planModal(html, ancho) { ftAbrirModal(html); document.getElementById('modalCaja').style.maxWidth = ancho + 'px'; }
+
+/* Importar o actualizar el plan pegando el JSON */
+function planModalImportar() {
+  const D = PLANES[PROY_SEL] || {}, p = todosProyectos().find(x => x.codigo === PROY_SEL);
+  PLAN_REV = null;
+  planModal(`<h3>${D.existe ? 'Actualizar el plan (versión ' + (D.version_vigente + 1) + ')' : 'Importar plan del proyecto'}</h3>
+    <div class="muted" style="font-size:12.5px">${esc(PROY_SEL)} · ${esc(p ? p.nombre : '')}</div>
+    <label>Pegá acá el JSON del plan</label>
+    <textarea id="plTxt" rows="11" spellcheck="false" style="font-family:'Courier New',monospace;font-size:12px;white-space:pre" placeholder='{ "schema_version": "0.2", "project": { … }, "phases": [ … ], "activities": [ … ] }' oninput="planRevLimpiar()"></textarea>
+    <div class="fila" style="justify-content:space-between;margin-top:6px">
+      <span style="font-size:11.5px;color:var(--gris)">Podés pegarlo tal cual sale del chat, con las comillas de código incluidas.</span>
+      <span><input type="file" id="plArch" accept=".json,application/json,text/plain" style="display:none" onchange="planLeerArchivo(this)">
+      <a href="#" style="font-size:11.5px" onclick="document.getElementById('plArch').click();return false">o elegir archivo .json</a></span></div>
+    <div id="plRev"></div>
+    <div class="acciones" id="plAcc"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button><button class="btn" onclick="planRevisar()">Revisar</button></div>`, 660);
+  setTimeout(() => { const t = document.getElementById('plTxt'); if (t) t.focus(); }, 50);
+}
+function planLeerArchivo(inp) { const f = inp.files[0]; if (!f) return; const r = new FileReader();
+  r.onload = () => { document.getElementById('plTxt').value = r.result; planRevLimpiar(); planRevisar(); }; r.readAsText(f); }
+function planRevLimpiar() { if (!PLAN_REV) return; PLAN_REV = null; document.getElementById('plRev').innerHTML = '';
+  document.getElementById('plAcc').innerHTML = `<button class="btn sec" onclick="ftCerrarModal()">Cancelar</button><button class="btn" onclick="planRevisar()">Revisar</button>`; }
+async function planRevisar() {
+  const texto = document.getElementById('plTxt').value, box = document.getElementById('plRev');
+  if (!texto.trim()) { toast('Pegá el JSON del plan', 'err'); return; }
+  box.innerHTML = '<div class="muted" style="margin-top:12px">Revisando…</div>';
+  let r; try { r = await api('/api/planificacion/' + encodeURIComponent(PROY_SEL) + '/revisar', { method: 'POST', body: { texto } }); }
+  catch (e) { box.innerHTML = `<div style="background:#FBE9E7;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;color:#C0392B">${esc(e.message)}</div>`; return; }
+  if (!r.ok) { box.innerHTML = `<div style="background:#FBE9E7;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;color:#8E2A1E">
+      <b>✖ No se puede importar.</b> No se guardó nada. ${r.errores.length > 1 ? 'Hay ' + r.errores.length + ' cosas para corregir:' : ''}
+      <ul style="margin:6px 0 0 18px;line-height:1.6">${r.errores.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`; return; }
+  PLAN_REV = r; const s = r.resumen, d = r.diferencias;
+  if (r.sin_cambios) { box.innerHTML = `<div style="background:#EEF2F5;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px">Este JSON es <b>igual al plan vigente</b>. No hay nada para actualizar.</div>`; return; }
+  let h = `<div style="background:#E7F5EC;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;color:#1F7A44"><b>✔ JSON válido</b> · sin dependencias rotas ni duplicados</div>
+    <div style="font-size:13px;margin-top:10px;line-height:1.7">
+      <div><b>${s.fases}</b> fases · <b>${s.actividades}</b> actividades · <b>${s.hitos_comerciales}</b> hitos comerciales</div>
+      <div><b>${s.documentales}</b> documentales (las sigue DocTracker) · <b>${s.propias}</b> propias · <b>${s.hitos}</b> hitos</div>
+      <div>Inicio: <b>${plDmy(s.inicio)}</b> · Fin calculado: <b>${plDmy(s.fin_calculado)}</b>${s.comprometido ? ` · Comprometido: <b>${plDmy(s.comprometido)}</b>` : ''}</div>
+      ${s.documentales ? `<div class="muted">${s.docs_vinculados} documento${s.docs_vinculados === 1 ? '' : 's'} ya existe${s.docs_vinculados === 1 ? '' : 'n'} en DocTracker y se vincula${s.docs_vinculados === 1 ? '' : 'n'} solo${s.docs_vinculados === 1 ? '' : 's'}.${s.docs_pendientes ? ` Los otros ${s.docs_pendientes} se vinculan cuando se creen.` : ''}${s.docs_ambiguos ? ` En ${s.docs_ambiguos} vas a tener que elegir cuál es.` : ''}</div>` : ''}
+    </div>
+    ${r.avisos.map(a => `<div style="background:#FBF0DA;border-radius:8px;padding:6px 10px;margin-top:6px;font-size:12.5px">⚠ ${esc(a.replace(/(\d{4})-(\d\d)-(\d\d)/g, '$3/$2/$1'))}</div>`).join('')}`;
+  if (r.existe) {
+    const li = [];
+    for (const a of d.agregadas) li.push(`<li><b style="color:#2E9E5B">+ Agregada:</b> ${esc(a.titulo)}</li>`);
+    for (const a of d.quitadas) li.push(`<li><b style="color:#C0392B">− Quitada:</b> ${esc(a.titulo)}</li>`);
+    for (const a of d.cambiadas) li.push(`<li><b>Modificada:</b> ${esc(a.titulo)} — ${a.cambios.map(c => `${esc(c.campo)} ${esc(Array.isArray(c.antes) || Array.isArray(c.despues) ? '' : (c.antes ?? '—') + ' → ' + (c.despues ?? '—'))}`).join('; ')}</li>`);
+    for (const c of d.proyecto) li.push(`<li><b>Proyecto:</b> ${esc(c.campo)} ${esc((c.antes ?? '—') + ' → ' + (c.despues ?? '—'))}</li>`);
+    h += `<div style="border:1px solid var(--borde);border-radius:10px;padding:10px 12px;margin-top:12px">
+        <b style="font-size:13px">Qué cambia respecto de la versión ${r.version_nueva - 1}</b>
+        <div style="font-size:13px;margin-top:4px">Fin planificado: ${plDmy(s.fin_anterior)} → <b>${plDmy(s.fin_calculado)}</b></div>
+        <ul style="font-size:12.5px;margin:6px 0 0 18px;line-height:1.6;max-height:130px;overflow:auto">${li.join('') || '<li>Solo cambian datos generales del plan.</li>'}</ul>
+        <div class="muted" style="font-size:11.5px;margin-top:6px">Lo que ya está hecho no se toca.</div></div>
+      <label>¿Por qué cambia el plan? (obligatorio)</label><textarea id="plMotivo" rows="2" placeholder="Ej.: el cliente sumó dos equipos al alcance"></textarea>
+      <div style="display:grid;grid-template-columns:170px 1fr;gap:10px">
+        <div><label>¿Quién pidió el cambio?</label><select id="plOrigen"><option value="">Elegir…</option><option value="cliente">El cliente</option><option value="vadoca">VADOCA</option><option value="otro">Otro</option></select></div>
+        <div><label>Evidencia (opcional)</label><input id="plRefe" placeholder="Link de Drive al mail o nota, o una referencia"></div></div>`;
+  }
+  box.innerHTML = h;
+  document.getElementById('plAcc').innerHTML = `<button class="btn sec" onclick="ftCerrarModal()">Cancelar</button><button class="btn" onclick="planImportar()">${r.existe ? 'Guardar como versión ' + r.version_nueva : 'Importar plan'}</button>`;
+}
+async function planImportar() {
+  const cuerpo = { texto: document.getElementById('plTxt').value };
+  if (PLAN_REV && PLAN_REV.existe) {
+    cuerpo.motivo = document.getElementById('plMotivo').value.trim(); cuerpo.origen = document.getElementById('plOrigen').value; cuerpo.referencia = document.getElementById('plRefe').value.trim();
+    if (!cuerpo.motivo) { toast('Contá por qué cambia el plan', 'err'); return; }
+    if (!cuerpo.origen) { toast('Indicá quién pidió el cambio', 'err'); return; }
+  }
+  try { spin(true, 'Guardando el plan…');
+    const r = await api('/api/planificacion/' + encodeURIComponent(PROY_SEL) + '/importar', { method: 'POST', body: cuerpo });
+    ftCerrarModal(); toast(r.version === 1 ? 'Plan importado' : 'Plan actualizado: versión ' + r.version);
+    PLAN_VER = null; PLAN_SUB = 'gantt'; await planRecargar();
+  } catch (e) { toast(e.message, 'err'); } finally { spin(false); }
+}
+
+/* Pausa del proyecto */
+function planModalPausa() {
+  planModal(`<h3>⏸ Pausar el proyecto</h3>
+    <div class="muted" style="font-size:12.5px">Todo lo pendiente se corre después de la pausa. Queda guardado como una versión nueva del plan y no cuenta como atraso.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label>Desde</label><input type="date" id="plDesde" value="${hoyISO()}"></div>
+      <div><label>Hasta (inclusive)</label><input type="date" id="plHasta"></div></div>
+    <label>Motivo (obligatorio)</label><textarea id="plMotivo" rows="2" placeholder="Ej.: el cliente tiene una auditoría y frena el proyecto"></textarea>
+    <div style="display:grid;grid-template-columns:170px 1fr;gap:10px">
+      <div><label>¿Quién la pidió?</label><select id="plOrigen"><option value="">Elegir…</option><option value="cliente">El cliente</option><option value="vadoca">VADOCA</option><option value="otro">Otro</option></select></div>
+      <div><label>Evidencia (opcional)</label><input id="plRefe" placeholder="Link de Drive al mail o nota, o una referencia"></div></div>
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button><button class="btn" onclick="planPausar()">Pausar proyecto</button></div>`, 520);
+}
+async function planPausar() {
+  const g = id => document.getElementById(id).value.trim();
+  const cuerpo = { desde: g('plDesde'), hasta: g('plHasta'), motivo: g('plMotivo'), origen: g('plOrigen'), referencia: g('plRefe') };
+  if (!cuerpo.desde || !cuerpo.hasta) { toast('Indicá desde y hasta cuándo', 'err'); return; }
+  if (!cuerpo.motivo) { toast('Falta el motivo de la pausa', 'err'); return; }
+  if (!cuerpo.origen) { toast('Indicá quién pidió la pausa', 'err'); return; }
+  try { const r = await api('/api/planificacion/' + encodeURIComponent(PROY_SEL) + '/pausa', { method: 'POST', body: cuerpo });
+    ftCerrarModal(); toast('Proyecto pausado: versión ' + r.version + ' del plan'); PLAN_VER = null; await planRecargar();
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function planExportar() {
+  try { const r = await api('/api/planificacion/' + encodeURIComponent(PROY_SEL) + '/exportar');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' }));
+    a.download = `plan_${PROY_SEL}_v${r.version}_${r.exportado}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/* ---------- Vista Hoy: alertas de plazo y qué hay para hacer en cada plan ---------- */
+function planHoyHtml() {
+  const R = PLAN_HOY; if (!R || !R.planes.length) return '';
+  const visibles = new Set(todosProyectos().filter(p => pasaFiltro(p)).map(p => p.codigo));
+  const planes = R.planes.filter(p => visibles.has(p.proyecto)); if (!planes.length) return '';
+  const tarde = planes.filter(p => p.alertas.length);
+  const filas = [];
+  for (const p of planes) {
+    for (const a of p.en_tu_cancha) filas.push(['c-mia', a.estado === 'lista' ? 'Para empezar' : a.estado === 'pausada' ? 'En pausa' : 'En tu cancha', a, p, a.estado === 'lista' ? `debería terminar el ${plDm(a.interno)}` : `desde el ${plDm(a.inicio)} · previsto terminar el ${plDm(a.interno)}`]);
+    for (const a of p.esperando) filas.push(['c-cliente', 'Espera al cliente', a, p, `respuesta prevista el ${plDm(a.fin)}`]);
+    for (const a of p.proximas.slice(0, 2)) filas.push(['', 'Se habilita después', a, p, `estimado para el ${plDm(a.inicio)}`]);
+  }
+  return `${tarde.length ? `<div class="card" style="border-left:4px solid #D98E04;background:#FFFCF4">
+      <h2 style="font-size:15px;margin-bottom:8px">⚠ Alertas de plazo</h2>
+      ${tarde.map(p => `<div class="venc" style="cursor:pointer" onclick="MODO_DETALLE='plan';PLAN_SUB='gantt';abrirProyecto('${esc(p.proyecto)}')">
+        <span><b>${esc(p.proyecto)} · ${esc(p.titulo.length > 60 ? p.titulo.slice(0, 57) + '…' : p.titulo)}</b> — fin proyectado ${plDmy(p.fin_proyectado)}${p.alertas.some(a => a.tipo === 'comprometida') ? ', <b style="color:#C0392B">después de la fecha comprometida</b>' : p.desvio_dias > 0 ? `, ${plDias(p.desvio_dias)} después de lo planificado` : ''}${!p.alertas.some(a => a.tipo !== 'hito') ? ' · hay un hito comprometido en riesgo' : ''}</span>
+        <span class="muted">${p.causa ? 'Viene corrido por: ' + esc(p.causa.titulo) : ''}</span></div>`).join('')}</div>` : ''}
+    ${filas.length ? `<div class="card"><h2 style="font-size:15px;margin-bottom:8px">📊 Hoy en tus planes</h2>
+      ${filas.map(([c, e, a, p, d]) => `<div style="display:grid;grid-template-columns:150px minmax(180px,1.1fr) 1.4fr;gap:10px;align-items:center;padding:6px 2px;border-bottom:1px solid var(--fondo);font-size:13px;cursor:pointer" onclick="MODO_DETALLE='plan';PLAN_SUB='acts';abrirProyecto('${esc(p.proyecto)}')">
+        <span>${c ? `<span class="chip ${c}"><span class="punto"></span>${e}</span>` : `<span class="chip" style="background:#EEF2F5;color:#6D7985">${e}</span>`}</span>
+        <b>${esc(a.titulo)}</b><span class="muted">${esc(p.proyecto)} · ${d}${a.base_fin && a.fin > a.base_fin ? ` · <span style="color:#C0392B">plan ${plDm(a.base_fin)}</span>` : ''}</span></div>`).join('')}</div>` : ''}`;
+}
+async function planHoyCargar() {
+  if (Date.now() - PLAN_HOY_TS < 30000) return; PLAN_HOY_TS = Date.now();
+  try { PLAN_HOY = await api('/api/planificacion/resumen'); } catch (e) { return; }
+  const el = document.getElementById('planHoy'); if (el && VISTA === 'hoy') el.innerHTML = planHoyHtml();
 }
 
 async function cambiarEstadoDoc(codigo, estado, viejo) {
@@ -2627,7 +3009,7 @@ async function notaItem(id) {
 }
 
 /* ---------- Modales ---------- */
-function ftAbrirModal(html){ document.getElementById('modalCaja').innerHTML = html; document.getElementById('modal').style.display = 'flex'; }
+function ftAbrirModal(html){ document.getElementById('modalCaja').style.maxWidth = ''; document.getElementById('modalCaja').innerHTML = html; document.getElementById('modal').style.display = 'flex'; }
 function ftCerrarModal(){ document.getElementById('modal').style.display = 'none'; }
 
 function modalTemplate(cod) {
