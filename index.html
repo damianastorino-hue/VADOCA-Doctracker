@@ -2644,7 +2644,8 @@ function planActividades(D, ro) {
           ${a.committed_date ? `<div style="font-size:11px;color:${a.fin > a.committed_date && !hecho ? '#C0392B' : 'var(--gris)'};margin-top:2px">Comprometida para el ${plDmy(a.committed_date)}</div>` : ''}
           ${a.checklist.length ? `<div style="font-size:11.5px;color:var(--gris-osc);margin-top:3px">${a.checklist.map((c, i) => `<label style="margin-right:12px;white-space:nowrap;font-weight:400;display:inline"><input type="checkbox" style="width:auto;margin-right:3px;vertical-align:-2px" ${marcas[i] ? 'checked' : ''} ${ro || a.kind !== 'task' ? 'disabled' : ''} onchange="planCheck('${a.id}',${i},this.checked)">${esc(c)}</label>`).join('')}</div>` : ''}</div>
         <div>${plChip(a)}</div>
-        <div style="font-size:12px;white-space:nowrap">${fechas}${plan}</div>
+        <div style="font-size:12px;white-space:nowrap">${fechas}${doc && doc.fechas_ajustadas ? ' <span title="Fechas cargadas a mano en el plan">✎</span>' : ''}${plan}
+          ${!ro && ((a.kind === 'task' && pr.estado_propio && pr.estado_propio !== 'not_started') || (doc && doc.vinculo === 'ok' && doc.estado_doc !== 'Borrador')) ? `<a href="#" style="font-size:11px" onclick="planFechas('${a.id}');return false">Ajustar fechas</a>` : ''}</div>
         <div style="text-align:right">${control}</div></div>`;
     }
   }
@@ -2712,6 +2713,24 @@ function planBloqueo(id) {
     <label>¿Qué la está frenando?</label><textarea id="plMot" rows="3" placeholder="Ej.: falta el usuario de acceso que tiene que dar TI"></textarea>
     <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Volver</button>
     <button class="btn" onclick="const m=document.getElementById('plMot').value.trim(); if(!m){toast('Falta el motivo','err');return;} ftCerrarModal(); planAct('${id}',{bloqueo_motivo:m})">Guardar</button></div>`, 440);
+}
+/* Fecha propia: por defecto las fechas son automáticas; acá se corrige cuándo pasó algo de verdad. */
+function planFechas(id) {
+  const a = PLANES[PROY_SEL].actividades.find(x => x.id === id), doc = a.kind === 'document';
+  const fin = ['terminada', 'cancelada'].includes(a.estado), env = doc && (fin || a.estado === 'esperando');
+  planModal(`<h3>Ajustar fechas</h3><div class="muted" style="font-size:12.5px">${esc(a.titulo)}</div>
+    <div class="muted" style="font-size:12px;margin-top:6px">${doc ? 'Las fechas salen solas de DocTracker. Si cargaste el estado otro día, corregilas acá: cambia solo el plan, DocTracker queda igual.' : 'Por defecto queda la fecha del día en que cambiaste el estado.'}</div>
+    <label>${doc ? 'Empezó a trabajarse (salió de Borrador)' : 'Empezó'}</label><input type="date" id="plFi" max="${hoyISO()}" value="${a.inicio}">
+    ${env ? `<label>Se envió al cliente</label><input type="date" id="plFe" max="${hoyISO()}" value="${a.interno}">` : ''}
+    ${fin ? `<label>${doc ? 'Se entregó' : 'Terminó'}</label><input type="date" id="plFf" max="${hoyISO()}" value="${a.fin}">` : ''}
+    <div class="acciones"><button class="btn sec" onclick="ftCerrarModal()">Cancelar</button>
+      ${doc && a.documento.fechas_ajustadas ? `<button class="btn sec" onclick="ftCerrarModal();planAct('${id}',{fechas:{inicio:null,enviado:null,fin:null}},'Fechas otra vez automáticas')">Volver a automático</button>` : ''}
+      <button class="btn" onclick="planFechasGuardar('${id}')">Guardar</button></div>`, 440);
+}
+function planFechasGuardar(id) {
+  const g = i => { const e = document.getElementById(i); return e ? e.value : undefined; }, f = {};
+  if (g('plFi')) f.inicio = g('plFi'); if (g('plFe')) f.enviado = g('plFe'); if (g('plFf')) f.fin = g('plFf');
+  ftCerrarModal(); planAct(id, { fechas: f }, 'Fechas actualizadas');
 }
 function planModal(html, ancho) { ftAbrirModal(html); document.getElementById('modalCaja').style.maxWidth = ancho + 'px'; }
 
