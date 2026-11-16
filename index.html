@@ -3170,7 +3170,6 @@ function vistaComercial() {
         <div class="muted" style="font-weight:600;color:#6D4FA3">POR FACTURAR</div>${rTot(tot.sinFacturar)}</div>
     </div>
 
-    ${htmlPres ? `<div class="seccion">Por presupuesto</div>${htmlPres}` : ''}
     <div class="seccion">Facturas</div>
     <div class="card">
     ${lista.map(f => {
@@ -3189,7 +3188,8 @@ function vistaComercial() {
           <button class="btn rojo mini" onclick="borrarFactura(${f.id})">✕</button>`}
         </div>
       </div>`; }).join('') || '<div class="tarea-vacia">No hay facturas en este filtro.</div>'}
-    </div>`;
+    </div>
+    ${htmlPres ? `<div class="seccion">Por presupuesto</div>${htmlPres}` : ''}`;
 }
 
 function modalFactura(id) {
